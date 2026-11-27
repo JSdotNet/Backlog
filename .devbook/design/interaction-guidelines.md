@@ -119,7 +119,7 @@ are last-write-wins** (`.devbook/arc42/08-crosscutting-concepts.md#storage-and-s
 |---|---|
 | New items | Concurrent creation MUST NOT conflict — both items are created (always-create). |
 | Edits | Concurrent edits to the same item resolve by **last-write-wins**; the most recent write is canonical. |
-| Saves on one device | A save made on a version another writer on the same device has since replaced is refused, not written over it (`.devbook/domain/tasks/requirements.md#requirement-a-save-made-on-an-older-version-is-refused`). The editor MUST reload the item with the unsaved edit merged onto it and say so beside the editor; it MUST NOT read Saved. |
+| Saves on one device | A save made on a version another writer on the same device has since replaced is refused, not written over it (`.devbook/domain/work/requirements.md#requirement-a-save-made-on-an-older-version-is-refused`). The editor MUST reload the item with the unsaved edit merged onto it and say so beside the editor; it MUST NOT read Saved. |
 | Non-destructive surfacing | When last-write-wins discards a local change, the UI MUST surface the `Conflict` state, never silently losing edits. |
 | Superseded version | The UI SHOULD offer access to the superseded version where available. |
 | No blocking merge UI | Conflict handling MUST NOT block editing with a mandatory merge dialog; resolution is automatic, notification is passive. |
@@ -407,7 +407,7 @@ related: [".devbook/design/typography-and-layout.md#z-index-scale"]
 - **One action:** an offer the person can safely miss, because another screen
   lists the same thing, is the only kind. It keeps the longer dwell an error
   takes. The example is the roadmap's archive offer for a finished plan's project
-  note (`.devbook/domain/roadmap/features.md#archiving-a-finished-plans-project-note`),
+  note (`.devbook/domain/work/features.md#archiving-a-finished-plans-project-note`),
   which the weekly review lists again.
 
 - **Inline confirmation:** an example is a brief saved-confirmation flash on a
@@ -816,7 +816,7 @@ Review surface: storybook → *Task list* → **Task card**.
 ## Shell Header
 
 ```meta
-related: [".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md", ".devbook/domain/calendar/features.md#calendar-view", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/design/color-scheme.md#the-brains-accent", ".devbook/domain/brain/features.md#brain-scope", ".devbook/domain/brain/features.md#lobes-atlas", ".devbook/domain/progress/features.md#the-goals-view", ".devbook/domain/progress/features.md#the-weekly-review", ".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/design/interaction-guidelines.md#group-shape-says-cardinality", ".devbook/design/interaction-guidelines.md#focus-and-selection", ".devbook/design/design-principles.md#low-chrome-content-first", ".devbook/design/typography-and-layout.md#iconography", ".devbook/design/accessibility.md#iconography-accessibility", ".devbook/design/interaction-guidelines.md#popover-button", ".devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md#4-any-surface-pops-out-as-often-as-asked", ".devbook/design/accessibility.md#target-sizes-and-text", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md", ".devbook/design/component-libraries.md"]
+related: [".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md", ".devbook/domain/calendar/features.md#calendar-view", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/design/color-scheme.md#the-brains-accent", ".devbook/domain/brain/features.md#brain-scope", ".devbook/domain/brain/features.md#lobes-atlas", ".devbook/domain/goals/features.md#the-goals-view", ".devbook/domain/goals/features.md#the-weekly-review", ".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/design/interaction-guidelines.md#group-shape-says-cardinality", ".devbook/design/interaction-guidelines.md#focus-and-selection", ".devbook/design/design-principles.md#low-chrome-content-first", ".devbook/design/typography-and-layout.md#iconography", ".devbook/design/accessibility.md#iconography-accessibility", ".devbook/design/interaction-guidelines.md#popover-button", ".devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md#4-any-surface-pops-out-as-often-as-asked", ".devbook/design/accessibility.md#target-sizes-and-text", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md", ".devbook/design/component-libraries.md"]
 ```
 
 The desktop shell's header is three regions in reading order, each answering one
@@ -876,8 +876,8 @@ control, and each MUST look and act as its kind:
   on the Brain. That is nothing pressed, the Brain as anchor, or the Brain side
   of its `Brain | <repo>` switch. Otherwise it reads **Devbook**. The word changes, the
   control does not.
-- **Goals group:** it holds the Progress context's [Goals
-  view](../domain/progress/features.md#the-goals-view) and the Sessions
+- **Goals group:** it holds the Goals context's [Goals
+  view](../domain/goals/features.md#the-goals-view) and the Sessions
   context's two lists. Goals acts as a view option does; Sessions and Pull
   requests act as takeovers. It always renders because Goals is always offered.
 - **Remaining takeovers:** **Atlas** is under `atlas-lobes` ([Lobes
@@ -1107,7 +1107,7 @@ neither shares the window with the view. See local ADR 0022, amendments of
 ## Phone Tab Bar
 
 ```meta
-related: [".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/typography-and-layout.md#iconography", ".devbook/design/accessibility.md#iconography-accessibility", ".devbook/design/accessibility.md#target-sizes-and-text", ".devbook/domain/progress/features.md#the-goals-view", ".devbook/domain/events/features.md#events-on-the-phone"]
+related: [".devbook/design/interaction-guidelines.md#shell-header", ".devbook/design/typography-and-layout.md#iconography", ".devbook/design/accessibility.md#iconography-accessibility", ".devbook/design/accessibility.md#target-sizes-and-text", ".devbook/domain/goals/features.md#the-goals-view", ".devbook/domain/events/features.md#events-on-the-phone"]
 tests: [unit:dotnet:Backlog.UI.Components.UnitTests.ShellTests.A_tab_given_a_glyph_draws_it_above_its_word_hidden_so_the_word_stays_its_name, unit:dotnet:Backlog.UI.Components.UnitTests.ShellTests.A_tab_without_a_glyph_is_its_word_alone, unit:dotnet:Backlog.UI.Components.UnitTests.ShellTests.An_icon_only_tab_shows_its_glyph_alone_and_is_still_named_by_its_word, unit:dotnet:Backlog.UI.Components.UnitTests.ShellTests.An_icon_only_tab_is_lit_on_its_route_like_any_other, unit:dotnet:Backlog.UI.Components.UnitTests.ShellTests.An_icon_only_tab_without_a_glyph_falls_back_to_its_word, unit:dotnet:Backlog.Mobile.UI.UnitTests.StandupScreenTests.Every_tab_leads_with_its_glyph_and_stand_up_wears_the_target, unit:dotnet:Backlog.Mobile.UI.UnitTests.NotificationScreenTests.The_tab_shows_once_the_phone_holds_a_notification, unit:dotnet:Backlog.Mobile.UI.UnitTests.NotificationScreenTests.The_tab_is_lit_on_the_notifications_screen_and_its_details, unit:dotnet:Backlog.Mobile.UI.UnitTests.EventScreenTests.The_tab_shows_last_once_the_phone_holds_an_event, unit:dotnet:Backlog.Mobile.UI.UnitTests.EventScreenTests.The_tab_follows_notifications_when_both_are_held, unit:dotnet:Backlog.Mobile.UI.UnitTests.EventScreenTests.The_bar_holds_five_tabs_when_stand_up_notifications_and_events_are_all_held]
 ```
 

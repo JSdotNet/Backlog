@@ -1,0 +1,367 @@
+using Backlog.Modules.Work.Abstractions.Tasks.Connectors;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
+using Backlog.SharedKernel.Handlers;
+using Backlog.SharedKernel.Changes;
+using Backlog.SharedKernel.Results;
+
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+
+namespace Backlog.Modules.Work.Tasks.Features.SyncLinkedTasks;
+
+/// <summary>
+/// The desktop's timer for linked tasks: runs <see cref="SyncLinkedTasksCommand"/>
+/// for every enabled connected target once its interval has passed, for all of
+/// them at once when the Tasks pane asks, and for one when its card's "Sync now"
+/// does.
+/// <para>
+/// A plain object with a timer in it, constructed by the head after <c>Build()</c>,
+/// for the reason <c>TaskSyncWorker</c> gives at length: the MAUI head has no
+/// generic host to start an <c>IHostedService</c>, so a hosted service would run in
+/// the browser harness and never in the app this exists for.
+/// </para>
+/// <para>
+/// The timer ticks every <see cref="TickPeriod"/>, which is not the sync interval:
+/// each target carries its own (ADR 0020, §9), and a tick only asks which of them
+/// are due. A target whose sync failed is not due again until its interval has
+/// passed since the attempt, so a source that is down is asked once an interval
+/// rather than once a minute.
+/// </para>
+/// <para>
+/// The handler is resolved per target from a fresh scope, because it and the
+/// repository behind it are scoped; this singleton holds neither. With no
+/// connector registered there is nothing to sync, and the worker starts no timer
+/// at all.
+/// </para>
+/// <para>
+/// A target whose repository is archived is paused (local ADR 0029 §5): the timer
+/// and "sync everything" skip it without stamping an attempt, so the first tick
+/// after Unarchive syncs it, and its card's "Sync now" says it is paused. The
+/// rule is the handler's own, <see cref="SyncLinkedTasksCommandHandler.IsPaused"/>,
+/// read from the registry on every run.
+/// </para>
+/// </summary>
+public sealed partial class LinkedTaskSyncWorker : ILinkedTaskSync, IDisposable
+{
+    /// <summary>How long after the app starts the first tick runs. Not zero: the
+    /// first seconds of a launch belong to drawing the window, not to the
+    /// network.</summary>
+    internal static readonly TimeSpan FirstTickDelay = TimeSpan.FromSeconds(30);
+
+    /// <summary>How often the worker asks which targets are due.</summary>
+    internal static readonly TimeSpan TickPeriod = TimeSpan.FromMinutes(1);
+
+    private readonly IServiceScopeFactory _scopes;
+    private readonly IConnectedTargets _targets;
+    private readonly Dictionary<string, ITaskConnector> _connectors;
+    private readonly IRepositoryDirectory? _repositories;
+    private readonly TimeProvider _time;
+    private readonly ILogger _log;
+
+    /// <summary>One run at a time. A tick that finds a run in flight skips; an
+    /// on-demand request waits its turn and then runs, so pressing the button
+    /// always syncs. Two runs at once would fetch the same target twice and race
+    /// each other's saves of its progress.
+    /// <para>
+    /// Never disposed, on purpose: a run that is still finishing when the window
+    /// closes releases it, and a disposed semaphore would turn that release into an
+    /// exception on a thread nobody is watching. It allocates no wait handle, so
+    /// there is nothing to free.
+    /// </para></summary>
+    private readonly SemaphoreSlim _run = new(1, 1);
+
+    private readonly CancellationTokenSource _lifetime = new();
+    private readonly CancellationToken _stopping;
+
+    /// <summary>When each target was last attempted in this process, success or
+    /// not. Only read and written while <see cref="_run"/> is held.</summary>
+    private readonly Dictionary<(string ConnectorId, string Target), DateTimeOffset> _lastAttempt = [];
+
+    private readonly Lock _gate = new();
+    private ITimer? _timer;
+    private bool _disposed;
+
+    public LinkedTaskSyncWorker(
+        IServiceScopeFactory scopes,
+        IConnectedTargets targets,
+        IEnumerable<ITaskConnector> connectors,
+        TimeProvider time,
+        ILogger<LinkedTaskSyncWorker>? log = null,
+        IRepositoryDirectory? repositories = null)
+    {
+        ArgumentNullException.ThrowIfNull(scopes);
+        ArgumentNullException.ThrowIfNull(targets);
+        ArgumentNullException.ThrowIfNull(connectors);
+        ArgumentNullException.ThrowIfNull(time);
+
+        _scopes = scopes;
+        _targets = targets;
+        // First registration wins, as the handler's FirstOrDefault does.
+        _connectors = connectors
+            .GroupBy(connector => connector.Descriptor.Id, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+        _repositories = repositories;
+        _time = time;
+        _log = log ?? NullLogger<LinkedTaskSyncWorker>.Instance;
+        _stopping = _lifetime.Token;
+
+        if (_connectors.Count == 0) return;
+
+        // TimeProvider.CreateTimer so a test drives the schedule rather than
+        // waiting for it.
+        _timer = _time.CreateTimer(_ => OnTick(), state: null, FirstTickDelay, TickPeriod);
+    }
+
+    /// <summary>
+    /// Syncs every enabled target whose connector is registered, now, whether or not
+    /// its interval has passed — the Tasks pane's on-demand sync. Waits for a run
+    /// already in flight, then runs. Never throws: a target that fails is logged and
+    /// the rest still run.
+    /// </summary>
+    public Task RequestSync() => RunAsync(onlyDue: false, waitForTurn: true);
+
+    /// <summary>
+    /// Syncs the one target named by the pair, now, and answers how it went — a
+    /// card's "Sync now". Waits for a run already in flight, then runs; counts as
+    /// the target's attempt, so the timer does not ask again straight after.
+    /// </summary>
+    public async Task<LinkedTaskSyncOutcome> RequestSync(string connectorId, string target)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(connectorId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(target);
+
+        lock (_gate)
+        {
+            if (_disposed) return Stopped(target);
+        }
+
+        if (!_connectors.ContainsKey(connectorId))
+        {
+            return Failed(SyncLinkedTasksCommandHandler.ConnectorNotFound, target);
+        }
+
+        // Answered here rather than by the handler so no attempt is stamped: the
+        // first tick after Unarchive should sync, not wait out an interval.
+        if (_targets.Get(connectorId, target) is { } connected && IsPaused(connected))
+        {
+            return Failed(SyncLinkedTasksCommandHandler.RepositoryArchived, target);
+        }
+
+        try
+        {
+            await _run.WaitAsync(_stopping).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (_stopping.IsCancellationRequested)
+        {
+            return Stopped(target);
+        }
+
+        try
+        {
+            _lastAttempt[(connectorId, target.ToUpperInvariant())] = _time.GetUtcNow();
+            return await SyncAsync(connectorId, target).ConfigureAwait(false);
+        }
+        finally
+        {
+            _run.Release();
+        }
+    }
+
+    /// <summary>One tick: the due targets only, and nothing at all when a run is
+    /// already in flight. What the timer calls; internal so a test can await
+    /// it.</summary>
+    internal Task TickAsync() => RunAsync(onlyDue: true, waitForTurn: false);
+
+    /// <summary>Whether a target is due: never synced, or its interval has passed
+    /// since the later of its last success and this process's last attempt.</summary>
+    internal static bool IsDue(ConnectedTarget target, DateTimeOffset? lastAttempt, DateTimeOffset now)
+    {
+        var last = target.LastSyncedAt is { } synced && lastAttempt is { } attempted
+            ? (synced > attempted ? synced : attempted)
+            : target.LastSyncedAt ?? lastAttempt;
+
+        return last is null || now - last.Value >= target.SyncInterval;
+    }
+
+    /// <summary>Whether the target's repository is archived, by the handler's rule.
+    /// Its connector is registered: both callers have checked.</summary>
+    private bool IsPaused(ConnectedTarget target) =>
+        _connectors.TryGetValue(target.ConnectorId, out var connector)
+        && SyncLinkedTasksCommandHandler.IsPaused(connector, target, _repositories);
+
+    /// <summary>Stops the timer and asks a run in flight to stop.</summary>
+    public void Dispose()
+    {
+        lock (_gate)
+        {
+            if (_disposed) return;
+            _disposed = true;
+            _timer?.Dispose();
+            _timer = null;
+        }
+
+        _lifetime.Cancel();
+        _lifetime.Dispose();
+    }
+
+    /// <summary>A tick, which must not throw: it runs on a thread pool thread with
+    /// nobody to hand a failure to, and an escaping exception there ends the
+    /// process.</summary>
+    private async void OnTick()
+    {
+        try
+        {
+            await TickAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            LogTickFailed(_log, ex);
+        }
+    }
+
+    private async Task RunAsync(bool onlyDue, bool waitForTurn)
+    {
+        lock (_gate)
+        {
+            if (_disposed) return;
+        }
+
+        if (_connectors.Count == 0) return;
+
+        try
+        {
+            if (waitForTurn)
+            {
+                await _run.WaitAsync(_stopping).ConfigureAwait(false);
+            }
+            else if (!await _run.WaitAsync(0, _stopping).ConfigureAwait(false))
+            {
+                return;
+            }
+        }
+        catch (OperationCanceledException) when (_stopping.IsCancellationRequested)
+        {
+            return;
+        }
+
+        try
+        {
+            // One run is one system change set (local ADR 0071 §2), whoever's flow
+            // happened to start it.
+            using var change = ChangeContext.Begin(ChangeActor.System, "syncing linked tasks");
+
+            foreach (var target in _targets.List())
+            {
+                if (_stopping.IsCancellationRequested) return;
+                if (!target.Enabled || !_connectors.ContainsKey(target.ConnectorId)) continue;
+                if (IsPaused(target)) continue;
+
+                var now = _time.GetUtcNow();
+                var key = (target.ConnectorId, target.Target.ToUpperInvariant());
+                if (onlyDue && !IsDue(target, _lastAttempt.TryGetValue(key, out var attempted) ? attempted : null, now)) continue;
+
+                _lastAttempt[key] = now;
+                await SyncAsync(target.ConnectorId, target.Target).ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            _run.Release();
+        }
+    }
+
+    /// <summary>One target, with its own catch: one source being down is no reason
+    /// for the next target not to sync. Answers how it went, in the sentence a
+    /// card's "Sync now" shows; the timer's runs only log it.</summary>
+    private async Task<LinkedTaskSyncOutcome> SyncAsync(string connectorId, string target)
+    {
+        try
+        {
+            var scope = _scopes.CreateAsyncScope();
+            await using (scope.ConfigureAwait(false))
+            {
+                var handler = scope.ServiceProvider
+                    .GetRequiredService<ICommandHandler<SyncLinkedTasksCommand, Result<LinkedTaskSyncSummary>>>();
+
+                var result = await handler
+                    .Handle(new SyncLinkedTasksCommand(connectorId, target), _stopping)
+                    .ConfigureAwait(false);
+
+                if (result is not Ok<LinkedTaskSyncSummary>(var summary))
+                {
+                    var error = (Error)result.Value!;
+                    LogSyncDidNotComplete(_log, connectorId, target, error.Code, error.Message);
+                    return Failed(error, target);
+                }
+
+                // Information, not Debug: the Aspire dashboard shows nothing below
+                // it, and a sync that worked must leave a trace there too.
+                LogSynced(_log, connectorId, target, summary.Fetched, summary.Created, summary.Restored, summary.Updated, summary.Vanished);
+                return new LinkedTaskSyncOutcome(true, $"Synced {target}: {Describe(summary)}.");
+            }
+        }
+        catch (OperationCanceledException) when (_stopping.IsCancellationRequested)
+        {
+            // The window closed mid-sync. Nothing failed.
+            return Stopped(target);
+        }
+        catch (Exception ex)
+        {
+            LogSyncThrew(_log, ex, connectorId, target);
+            return new LinkedTaskSyncOutcome(false, $"The sync of {target} did not finish. Try again.", "linked_tasks.sync_threw");
+        }
+    }
+
+    /// <summary>What a sync did, in words: the counts that moved something, or that
+    /// nothing did.</summary>
+    private static string Describe(LinkedTaskSyncSummary summary)
+    {
+        var parts = new List<string>(4);
+        if (summary.Created > 0) parts.Add($"{summary.Created} new");
+        if (summary.Restored > 0) parts.Add($"{summary.Restored} restored");
+        if (summary.Updated > 0) parts.Add($"{summary.Updated} updated");
+        if (summary.Vanished > 0) parts.Add($"{summary.Vanished} archived as gone");
+
+        return parts.Count == 0 ? "nothing changed" : string.Join(", ", parts);
+    }
+
+    /// <summary>
+    /// A failed sync's outcome, in the sentence a card shows. The handler's
+    /// refusals before it fetches — the source not installed, the target not
+    /// connected, switched off or paused with its repository — are fixed sentences that name no target, so they
+    /// are said again naming it; a fetch's failure names its target already.
+    /// </summary>
+    private static LinkedTaskSyncOutcome Failed(Error error, string target)
+    {
+        var message = error.Code switch
+        {
+            var code when code == SyncLinkedTasksCommandHandler.ConnectorNotFound.Code =>
+                $"The source {target} was connected through is not available in this app, so it was not synced.",
+            var code when code == SyncLinkedTasksCommandHandler.TargetNotFound.Code =>
+                $"{target} is not connected, so it was not synced.",
+            var code when code == SyncLinkedTasksCommandHandler.TargetDisabled.Code =>
+                $"Syncing is switched off for {target}, so it was not synced.",
+            var code when code == SyncLinkedTasksCommandHandler.RepositoryArchived.Code =>
+                $"Syncing {target} is paused while its repository is archived.",
+            _ => error.Message,
+        };
+
+        return new LinkedTaskSyncOutcome(false, message, error.Code);
+    }
+
+    private static LinkedTaskSyncOutcome Stopped(string target) =>
+        new(false, $"The sync has stopped, so {target} was not synced.", "linked_tasks.sync_stopped");
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "A linked task sync tick failed outside the run it was starting.")]
+    private static partial void LogTickFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Linked task sync for {Connector} {Target} did not complete: {Code} {Message}")]
+    private static partial void LogSyncDidNotComplete(ILogger logger, string connector, string target, string code, string message);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Linked task sync for {Connector} {Target}: {Fetched} fetched, {Created} created, {Restored} restored, {Updated} updated, {Archived} archived")]
+    private static partial void LogSynced(ILogger logger, string connector, string target, int fetched, int created, int restored, int updated, int archived);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Linked task sync for {Connector} {Target} threw.")]
+    private static partial void LogSyncThrew(ILogger logger, Exception exception, string connector, string target);
+}

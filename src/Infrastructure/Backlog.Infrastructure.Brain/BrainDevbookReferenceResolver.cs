@@ -1,7 +1,7 @@
 using Backlog.Infrastructure.Devbook;
 using Backlog.Modules.Brain.Abstractions;
-using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Plans.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.SharedKernel;
 
 using Microsoft.Data.Sqlite;

@@ -249,7 +249,7 @@ public class WebHarnessHostTests
     /// <summary>
     /// Every Dashboard port the pane and Ask AI read is still answered, with the
     /// lifetime it had when one UI-side call registered them all: the provider
-    /// adapters and the machine directory once per app, the scope mirror and the
+    /// adapters and Dev PCs' machine registry once per app, the scope mirror and the
     /// Ask AI source once per reader. The adapters now come from the infrastructure
     /// they wrap, so this is what says the swap in the composition root left none
     /// of them behind.
@@ -259,32 +259,34 @@ public class WebHarnessHostTests
     {
         using var harness = new Harness<DesktopHarness::Program>();
 
-        AssertSingleton<Backlog.Modules.Dashboard.Abstractions.Services.IRepositoryDirectory>(harness.Services);
-        AssertSingleton<Backlog.Modules.Dashboard.Abstractions.Services.IMachineDirectory>(harness.Services);
-        AssertSingleton<Backlog.Modules.Dashboard.Abstractions.Services.IActivitySource>(harness.Services);
-        AssertSingleton<Backlog.Modules.Dashboard.Abstractions.Services.IActivityBaselineSource>(harness.Services);
-        AssertSingleton<Backlog.Modules.Dashboard.Abstractions.Services.IClaudeSpendSource>(harness.Services);
-        AssertSingleton<Backlog.Modules.Dashboard.Abstractions.Services.ICopilotSpendSource>(harness.Services);
-        AssertSingleton<Backlog.Modules.Dashboard.Abstractions.Services.IAzureFoundrySpendSource>(harness.Services);
-        AssertSingleton<Backlog.Modules.Dashboard.Abstractions.Services.IHoursWorkedSource>(harness.Services);
-        Assert.IsType<Backlog.Infrastructure.FileSystem.Dashboard.AgentActivityHoursWorkedSource>(
-            harness.Services.GetRequiredService<Backlog.Modules.Dashboard.Abstractions.Services.IHoursWorkedSource>());
-        AssertSingleton<Backlog.Modules.Dashboard.Abstractions.Services.IDriftIssueSource>(harness.Services);
-        AssertSingleton<Backlog.Modules.Dashboard.Abstractions.Services.IDriftUnitSource>(harness.Services);
+        AssertSingleton<Backlog.Modules.Insights.Abstractions.Services.IRepositoryDirectory>(harness.Services);
+        AssertSingleton<Backlog.Modules.DevPc.Abstractions.IMachineRegistry>(harness.Services);
+        Assert.IsType<Backlog.Infrastructure.FileSystem.DevPc.SessionMachineRegistry>(
+            harness.Services.GetRequiredService<Backlog.Modules.DevPc.Abstractions.IMachineRegistry>());
+        AssertSingleton<Backlog.Modules.Insights.Abstractions.Services.IActivitySource>(harness.Services);
+        AssertSingleton<Backlog.Modules.Insights.Abstractions.Services.IActivityBaselineSource>(harness.Services);
+        AssertSingleton<Backlog.Modules.Insights.Abstractions.Services.IClaudeSpendSource>(harness.Services);
+        AssertSingleton<Backlog.Modules.Insights.Abstractions.Services.ICopilotSpendSource>(harness.Services);
+        AssertSingleton<Backlog.Modules.Insights.Abstractions.Services.IAzureFoundrySpendSource>(harness.Services);
+        AssertSingleton<Backlog.Modules.Insights.Abstractions.Services.IHoursWorkedSource>(harness.Services);
+        Assert.IsType<Backlog.Infrastructure.FileSystem.Insights.AgentActivityHoursWorkedSource>(
+            harness.Services.GetRequiredService<Backlog.Modules.Insights.Abstractions.Services.IHoursWorkedSource>());
+        AssertSingleton<Backlog.Modules.Insights.Abstractions.Services.IDriftIssueSource>(harness.Services);
+        AssertSingleton<Backlog.Modules.Insights.Abstractions.Services.IDriftUnitSource>(harness.Services);
 
         // The verdict store is composed here, so the drift part reads the sweeps' verdicts
         // rather than answering that this host keeps none.
-        Assert.True(harness.Services.GetRequiredService<Backlog.Modules.Dashboard.Abstractions.Services.IDriftUnitSource>().IsAvailable);
+        Assert.True(harness.Services.GetRequiredService<Backlog.Modules.Insights.Abstractions.Services.IDriftUnitSource>().IsAvailable);
 
         using var first = harness.Services.CreateScope();
         using var second = harness.Services.CreateScope();
 
-        var scope = first.ServiceProvider.GetRequiredService<Backlog.Modules.Dashboard.UI.DashboardScopeInView>();
-        Assert.Same(scope, first.ServiceProvider.GetRequiredService<Backlog.Modules.Dashboard.UI.DashboardScopeInView>());
-        Assert.NotSame(scope, second.ServiceProvider.GetRequiredService<Backlog.Modules.Dashboard.UI.DashboardScopeInView>());
+        var scope = first.ServiceProvider.GetRequiredService<Backlog.Modules.Insights.UI.InsightsScopeInView>();
+        Assert.Same(scope, first.ServiceProvider.GetRequiredService<Backlog.Modules.Insights.UI.InsightsScopeInView>());
+        Assert.NotSame(scope, second.ServiceProvider.GetRequiredService<Backlog.Modules.Insights.UI.InsightsScopeInView>());
 
         var askAi = first.ServiceProvider.GetServices<Backlog.SharedKernel.Ai.IAiContentSource>()
-            .Single(source => source.GetType().Name == "DashboardAiContentSource");
+            .Single(source => source.GetType().Name == "InsightsAiContentSource");
         Assert.DoesNotContain(askAi, second.ServiceProvider.GetServices<Backlog.SharedKernel.Ai.IAiContentSource>());
 
         static void AssertSingleton<TPort>(IServiceProvider services) where TPort : class
@@ -342,7 +344,7 @@ public class WebHarnessHostTests
 
         var probes = harness.Services.GetServices<Backlog.Modules.Notifications.Abstractions.INotificationSubjectProbe>().ToList();
 
-        Assert.Equal(["devbook", "sessions", "spec-manager", "sync", "tasks"], probes.Select(probe => probe.Context).Order(StringComparer.Ordinal));
+        Assert.Equal(["devbook", "sessions", "spec-manager", "sync", "work"], probes.Select(probe => probe.Context).Order(StringComparer.Ordinal));
         Assert.IsType<Backlog.Infrastructure.Devbook.RemarkNotificationStore>(
             harness.Services.GetRequiredService<Backlog.Modules.Devbook.Abstractions.IDevbookAnnotationStore>());
         Assert.IsType<Backlog.Desktop.UI.PullRequests.PullRequestSubjects>(
@@ -405,7 +407,7 @@ public class WebHarnessHostTests
     }
 
     /// <summary>
-    /// Every reader of a pull request goes through Repository Management's one contract
+    /// Every reader of a pull request goes through Repositories' one contract
     /// (local ADR 0042): the harness composes the module, one instance for the process,
     /// with GitHub behind it rather than the module's not-configured fallbacks, and the
     /// settled-fact memory on disk rather than in memory.
@@ -415,25 +417,25 @@ public class WebHarnessHostTests
     {
         using var harness = new Harness<DesktopHarness::Program>();
 
-        var pullRequests = harness.Services.GetRequiredService<Backlog.Modules.RepositoryManagement.Abstractions.Services.IPullRequests>();
+        var pullRequests = harness.Services.GetRequiredService<Backlog.Modules.Repositories.Abstractions.Services.IPullRequests>();
 
-        Assert.Equal("Backlog.Modules.RepositoryManagement", pullRequests.GetType().Assembly.GetName().Name);
-        Assert.Same(pullRequests, harness.Services.GetRequiredService<Backlog.Modules.RepositoryManagement.Abstractions.Services.IPullRequests>());
-        Assert.IsType<Backlog.Infrastructure.GitHub.RepositoryManagement.GitHubPullRequestSource>(
-            harness.Services.GetRequiredService<Backlog.Modules.RepositoryManagement.Abstractions.Services.IPullRequestSource>());
-        Assert.IsType<Backlog.Infrastructure.GitHub.RepositoryManagement.GitHubRegisteredRepositories>(
-            harness.Services.GetRequiredService<Backlog.Modules.RepositoryManagement.Abstractions.Services.IRegisteredRepositories>());
+        Assert.Equal("Backlog.Modules.Repositories", pullRequests.GetType().Assembly.GetName().Name);
+        Assert.Same(pullRequests, harness.Services.GetRequiredService<Backlog.Modules.Repositories.Abstractions.Services.IPullRequests>());
+        Assert.IsType<Backlog.Infrastructure.GitHub.Repositories.GitHubPullRequestSource>(
+            harness.Services.GetRequiredService<Backlog.Modules.Repositories.Abstractions.Services.IPullRequestSource>());
+        Assert.IsType<Backlog.Infrastructure.GitHub.Repositories.GitHubRegisteredRepositories>(
+            harness.Services.GetRequiredService<Backlog.Modules.Repositories.Abstractions.Services.IRegisteredRepositories>());
         Assert.IsType<Backlog.Infrastructure.FileSystem.SettledPullRequestStore>(
-            harness.Services.GetRequiredService<Backlog.Modules.RepositoryManagement.Abstractions.Services.ISettledPullRequestStore>());
-        // Progress reads pull requests through the same contract (V6).
-        Assert.IsType<Backlog.Infrastructure.FileSystem.Progress.RepositoryManagementGoalPullRequests>(
-            harness.Services.GetRequiredService<Backlog.Modules.Progress.Abstractions.Services.IGoalPullRequestReader>());
+            harness.Services.GetRequiredService<Backlog.Modules.Repositories.Abstractions.Services.ISettledPullRequestStore>());
+        // Goals reads pull requests through the same contract (V6).
+        Assert.IsType<Backlog.Infrastructure.FileSystem.Goals.RepositoriesGoalPullRequests>(
+            harness.Services.GetRequiredService<Backlog.Modules.Goals.Abstractions.Services.IGoalPullRequestReader>());
         // And so does the task row, through Tasks' own port (V5, V10); which entries a
         // merge's finish is settled for stays Tasks' fact, in the folder it always had.
         Assert.IsType<Backlog.Infrastructure.FileSystem.Tasks.LinkedPullRequestStates>(
-            harness.Services.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.ILinkedPullRequestStates>());
+            harness.Services.GetRequiredService<Backlog.Modules.Work.Abstractions.Tasks.Services.ILinkedPullRequestStates>());
         Assert.IsType<Backlog.Infrastructure.FileSystem.PullRequestFinishMemory>(
-            harness.Services.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.IPullRequestFinishMemory>());
+            harness.Services.GetRequiredService<Backlog.Modules.Work.Abstractions.Tasks.Services.IPullRequestFinishMemory>());
     }
 
     /// <summary>
@@ -449,13 +451,13 @@ public class WebHarnessHostTests
         using var second = harness.Services.CreateScope();
 
         Assert.Same(
-            first.ServiceProvider.GetRequiredService<Backlog.Desktop.UI.Tasks.TasksDesktopState>(),
-            first.ServiceProvider.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.ITaskLookupCandidates>());
+            first.ServiceProvider.GetRequiredService<Backlog.Modules.Work.UI.Tasks.TasksDesktopState>(),
+            first.ServiceProvider.GetRequiredService<Backlog.Modules.Work.Abstractions.Tasks.Services.ITaskLookupCandidates>());
 
-        var lookup = first.ServiceProvider.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.ITaskLookup>();
-        Assert.Equal("Backlog.Modules.Tasks", lookup.GetType().Assembly.GetName().Name);
-        Assert.Same(lookup, first.ServiceProvider.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.ITaskLookup>());
-        Assert.NotSame(lookup, second.ServiceProvider.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.ITaskLookup>());
+        var lookup = first.ServiceProvider.GetRequiredService<Backlog.Modules.Work.Abstractions.Tasks.Services.ITaskLookup>();
+        Assert.Equal("Backlog.Modules.Work", lookup.GetType().Assembly.GetName().Name);
+        Assert.Same(lookup, first.ServiceProvider.GetRequiredService<Backlog.Modules.Work.Abstractions.Tasks.Services.ITaskLookup>());
+        Assert.NotSame(lookup, second.ServiceProvider.GetRequiredService<Backlog.Modules.Work.Abstractions.Tasks.Services.ITaskLookup>());
     }
 
     /// <summary>
@@ -531,7 +533,8 @@ public class WebHarnessHostTests
     /// The Events pane's port resolves in a window's scope over the two cross-context
     /// adapters: the task target over Tasks' published port, and the Brain's own note
     /// reader, which replaced the every-note-missing stand-in because the desktop composes
-    /// the Brain.
+    /// the Brain; and the Brain's Talk-note filer, which replaced the keep-every-note stand-in
+    /// for the same reason (local ADR 0073 §8).
     /// </summary>
     [Fact]
     public void The_desktop_harness_composes_the_events_pane_over_its_task_and_brain_adapters()
@@ -545,6 +548,8 @@ public class WebHarnessHostTests
             scope.ServiceProvider.GetRequiredService<Backlog.Modules.Events.Abstractions.IEventTaskTarget>().GetType().Name);
         Assert.IsType<Backlog.Infrastructure.Brain.EventsBrainNotes>(
             scope.ServiceProvider.GetRequiredService<Backlog.Modules.Events.Abstractions.IEventBrainNotes>());
+        Assert.IsType<Backlog.Infrastructure.Brain.EventsTalkNotes>(
+            scope.ServiceProvider.GetRequiredService<Backlog.Modules.Events.Abstractions.IEventTalkNotes>());
     }
 
     /// <summary>
@@ -701,8 +706,8 @@ public class WebHarnessHostTests
         Assert.Equal("Tasks", tasks.Title);
         Assert.Equal(["My Day"], tasks.CardTitles!);
         Assert.Same(
-            scope.ServiceProvider.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.IMyDayPreferences>(),
-            scope.ServiceProvider.GetRequiredService<Backlog.Modules.Tasks.Abstractions.Services.IMyDayPreferencesReplication>());
+            scope.ServiceProvider.GetRequiredService<Backlog.Modules.Work.Abstractions.Tasks.Services.IMyDayPreferences>(),
+            scope.ServiceProvider.GetRequiredService<Backlog.Modules.Work.Abstractions.Tasks.Services.IMyDayPreferencesReplication>());
     }
 
     /// <summary>
@@ -715,29 +720,29 @@ public class WebHarnessHostTests
     {
         using var harness = new Harness<DesktopHarness::Program>();
 
-        var store = harness.Services.GetRequiredService<Backlog.Infrastructure.FileSystem.Progress.IterationSettingsStore>();
+        var store = harness.Services.GetRequiredService<Backlog.Infrastructure.FileSystem.Goals.IterationSettingsStore>();
 
         Assert.Same(
             store,
-            harness.Services.GetRequiredService<Backlog.Modules.Progress.Abstractions.Services.IIterationSettingsReplication>());
-        Assert.IsType<Backlog.Infrastructure.FileSystem.Progress.IterationSettings>(
-            harness.Services.GetRequiredService<Backlog.Modules.Progress.Abstractions.Services.IIterationSettings>());
+            harness.Services.GetRequiredService<Backlog.Modules.Goals.Abstractions.Services.IIterationSettingsReplication>());
+        Assert.IsType<Backlog.Infrastructure.FileSystem.Goals.IterationSettings>(
+            harness.Services.GetRequiredService<Backlog.Modules.Goals.Abstractions.Services.IIterationSettings>());
         Assert.StartsWith(HarnessIsolation.Root, Path.GetFullPath(store.SettingsPath), StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
     /// The desktop harness carries the Dashboard's settings section too, without a
-    /// line of its own: the shared composition's <c>AddDashboardUi()</c> registers it.
+    /// line of its own: the shared composition's <c>AddInsightsUi()</c> registers it.
     /// </summary>
     [Fact]
-    public void The_desktop_harness_registers_the_dashboard_settings_section_through_the_shared_composition()
+    public void The_desktop_harness_registers_the_insights_settings_section_through_the_shared_composition()
     {
         using var harness = new Harness<DesktopHarness::Program>();
 
         using var scope = harness.Services.CreateScope();
 
         var sections = scope.ServiceProvider.GetServices<Backlog.SharedKernel.SettingsSection>();
-        Assert.Single(sections, section => section.Id == "dashboard" && section.Title == "Dashboard");
+        Assert.Single(sections, section => section.Id == "insights" && section.Title == "Insights");
     }
 
     /// <summary>

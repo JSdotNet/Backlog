@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Work module — the Work bounded context (.devbook/domain/work, local ADR 0073 §1):
+    the Task and the Plan, two aggregates in one context. Tasks and Roadmap Planning
+    merged into it, so each keeps its own folder and namespace:
+      Tasks/     Backlog.Modules.Work.Tasks — the Task aggregate, its slices and services
+      Plans/     Backlog.Modules.Work.Plans — the Roadmap Plan aggregate, its slices and services
+      Services/  Backlog.Modules.Work.Services — where the task and the plan meet: the
+                 plan's tags offered to the task picker, Import's plan entries laid out
+                 on the plan, the shelf of imported plans, the finished work a measured
+                 pace counts, the task writes the plan hears, and the plan filter chip's
+                 queue. These were adapters in Backlog.Infrastructure.FileSystem while
+                 the two sat in separate modules.
+    Inside each, clean architecture, inside out:
+      DomainModels/  aggregates, value objects, enums, domain exceptions
+      Features/      one vertical slice per use case (command/query + handler)
+      Services/      domain services shared by more than one slice
+      Extensions/    AddTasksModule() / AddRoadmapModule() composition roots for hosts
+    Ports such as ITaskRepository live here; adapters live in src/Infrastructure.
+    This project may reference the shared kernel and its own Abstractions, and
+    nothing else in the solution. Hosts go the other way: they call the handlers
+    and hold the DTOs, never the aggregates.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Backlog.Modules.Work</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+    <ProjectReference Include="..\Backlog.Modules.Work.Abstractions\Backlog.Modules.Work.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The plan's invariants — acyclicity above all — and the task aggregate are
+         worth testing directly rather than only through a handler. -->
+    <InternalsVisibleTo Include="Backlog.Modules.Work.UnitTests" />
+  </ItemGroup>
+
+</Project>

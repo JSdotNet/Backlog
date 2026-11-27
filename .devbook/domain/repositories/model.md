@@ -1,0 +1,169 @@
+# Repositories
+
+```meta
+type: model
+```
+
+> Structural view of the domain model for this bounded context: aggregates,
+> entities, value objects, and their relationships. Keep this in sync with
+> `domain.md` (which describes responsibilities/invariants in prose) — this
+> file focuses on structure and relationships.
+
+## Model diagram
+
+```mermaid
+classDiagram
+    class RepositoryRegistry {
+        <<aggregate root>>
+        +Map~RepositoryId,Repository~ repositories
+        +RenameRecord[] renames
+        +AliasMove[] aliasMoves
+        +RemovalRecord[] removals
+        +TechBaselines baselines
+        +PortfolioAnalytics analytics
+    }
+    class Repository {
+        <<entity>>
+        +RepositoryId repo_id
+        +RepositoryAlias alias
+        +String repo_name
+        +String repo_url
+        +String clone_path
+        +Boolean archived
+        +RepositoryType repo_type
+        +String primary_language
+        +String team_owner
+        +Timestamp last_scanned
+        +Timestamp last_commit
+        +Integer health_score
+    }
+    class Environment {
+        <<entity>>
+        +Id environment_id
+        +String name
+        +EnvironmentType type
+        +Boolean pinned
+        +Boolean hidden
+        +Integer order
+    }
+    class NoRepositoryGroup {
+        <<entity>>
+    }
+    class LaunchLink {
+        <<value object>>
+        +String kind
+        +String value
+    }
+    class AccessHint {
+        <<value object>>
+        +String label
+        +String value
+    }
+    class EnvironmentType {
+        <<enumeration>>
+        local
+        development
+        test
+        staging
+        production
+        cloud
+        tooling
+    }
+    class PackageManifest {
+        <<entity>>
+        +String file_path
+        +List~Package~ packages
+    }
+    class Package {
+        <<value object>>
+        +String name
+        +Version version
+        +Version latest_version
+        +Boolean is_outdated
+    }
+    class TechnologyStackEntry {
+        <<value object>>
+        +String name
+        +Version version
+        +String category
+    }
+    class GitHubMetadata {
+        <<value object>>
+        +Integer open_issues
+        +Integer open_prs
+        +Boolean branch_protection_enabled
+    }
+    class HealthDetails {
+        <<value object>>
+        +Percentage package_score
+        +Percentage github_score
+        +Percentage security_score
+        +List~String~ recommendations
+    }
+    class SecurityAlert {
+        <<value object>>
+        +String vulnerability
+        +Severity severity
+        +String affected_package
+    }
+    class HealthScoreSnapshot {
+        <<value object>>
+        +Date date
+        +Integer overall_score
+    }
+    class RepositoryType {
+        <<enumeration>>
+        service
+        library
+        frontend
+        cli
+        template
+    }
+    class Severity {
+        <<enumeration>>
+        critical
+        high
+        medium
+        low
+    }
+
+    RepositoryRegistry "1" *-- "0..*" Repository : manages
+    Repository "1" *-- "0..*" PackageManifest : has
+    Repository "1" *-- "0..*" TechnologyStackEntry : uses
+    Repository "1" *-- "1" GitHubMetadata : has
+    Repository "1" *-- "1" HealthDetails : scored by
+    Repository "1" *-- "0..*" SecurityAlert : flags
+    Repository "1" *-- "0..*" HealthScoreSnapshot : records daily
+    Repository --> RepositoryType : classified as
+    PackageManifest "1" *-- "0..*" Package : contains
+    RepositoryRegistry "1" *-- "1" NoRepositoryGroup : keeps
+    Repository "1" *-- "0..*" Environment : runs as
+    NoRepositoryGroup "1" *-- "0..*" Environment : holds
+    Environment "1" *-- "1" LaunchLink : opens
+    Environment "1" *-- "0..*" AccessHint : describes access
+    Environment --> EnvironmentType : classified as
+    SecurityAlert --> Severity : rated
+```
+
+## Relationship notes
+
+- `RepositoryRegistry` is the single aggregate root (global singleton).
+  `Repository` and `PackageManifest` are owned entities; the rest are value
+  objects. `PackageManifest` identity is `(repo_id, file_path)`.
+- Daily history value objects (`PackageFreshnessMetric`, `HealthScoreSnapshot`,
+  `GitHubHealthMetric`, `TechnologySnapshot`, see `domain.md`) roll up into
+  `PortfolioAnalytics`; only the root writes them.
+- `TechBaselines` is read from each registered devbook's `tech/` folder.
+  Repositories are validated against it without holding the devbook.
+- `Environment` is owned by its `Repository`, or by the `NoRepositoryGroup` when no
+  repository owns the destination (local ADR 0073 §3). `LaunchLink` and
+  `AccessHint` are value objects.
+- `RenameRecord` and `RemovalRecord` belong to the registry rather than to a
+  repository, because each names a repository the registry no longer holds.
+- An [alias move](domain.md#repository-alias) belongs to the registry for the
+  same reason: its old alias is one no row carries. It names the repository by
+  id, and the moves of one edit share one time (local ADR 0060).
+- `archived` belongs to the `Repository`, because an
+  [archived repository](domain.md#archived-repository) is still held by the
+  registry. It is absent from the stored row while false, and it travels with the
+  registry to a paired device (local ADR 0029).

@@ -1,7 +1,7 @@
 using Backlog.Infrastructure.GitHub;
-using Backlog.Modules.Tasks.Abstractions;
-using Backlog.Modules.Tasks.Abstractions.Connectors;
-using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Tasks;
+using Backlog.Modules.Work.Abstractions.Tasks.Connectors;
+using Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects;
 
 namespace Backlog.Infrastructure.GitHub.UnitTests;
 

@@ -1,16 +1,15 @@
-using Backlog.Modules.Progress.Abstractions;
-using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
-using Backlog.Modules.Progress.UI.Goals;
+using Backlog.Modules.Goals.Abstractions;
+using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
+using Backlog.Modules.Goals.UI.Goals;
 using Backlog.UI.Components.Goals;
-using Backlog.UI.Components.Progress;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// The stand-up reading, the goals' attachments, their pull requests' status and the
 /// shell's candidates, turned into the board the Goals view draws
-/// (<c>.devbook/domain/progress/features.md#the-goals-view</c>): the library takes plain
-/// values, so every Progress word is translated here and nowhere else.
+/// (<c>.devbook/domain/goals/features.md#the-goals-view</c>): the library takes plain
+/// values, so every Goals word is translated here and nowhere else.
 /// </summary>
 public sealed class GoalsMapperTests
 {
@@ -227,26 +226,26 @@ public sealed class GoalsMapperTests
     [Fact]
     public void A_plans_row_counts_what_the_bar_of_a_goal_holding_it_counts()
     {
-        (ProgressTaskStatus Status, bool Marked, string[] Linked)[] facts =
+        (GoalsTaskStatus Status, bool Marked, string[] Linked)[] facts =
         [
-            (ProgressTaskStatus.Done, false, []),
-            (ProgressTaskStatus.Done, true, []),
-            (ProgressTaskStatus.InProgress, false, []),
-            (ProgressTaskStatus.InProgress, true, []),
-            (ProgressTaskStatus.Ready, false, []),
-            (ProgressTaskStatus.Draft, false, []),
-            (ProgressTaskStatus.Ready, true, []),
-            (ProgressTaskStatus.InProgress, false, ["1", "2"]),
-            (ProgressTaskStatus.Ready, false, ["1"]),
-            (ProgressTaskStatus.Ready, true, ["2"]),
-            (ProgressTaskStatus.InProgress, true, ["1"]),
-            (ProgressTaskStatus.InProgress, false, ["1", "3"]),
-            (ProgressTaskStatus.Ready, true, ["1", "3"]),
-            (ProgressTaskStatus.InProgress, false, ["1", "4"]),
-            (ProgressTaskStatus.Ready, false, ["4"]),
-            (ProgressTaskStatus.InProgress, false, ["#5"]),
-            (ProgressTaskStatus.InProgress, false, ["#582"]),
-            (ProgressTaskStatus.InProgress, false, ["1", "backlog:7"])
+            (GoalsTaskStatus.Done, false, []),
+            (GoalsTaskStatus.Done, true, []),
+            (GoalsTaskStatus.InProgress, false, []),
+            (GoalsTaskStatus.InProgress, true, []),
+            (GoalsTaskStatus.Ready, false, []),
+            (GoalsTaskStatus.Draft, false, []),
+            (GoalsTaskStatus.Ready, true, []),
+            (GoalsTaskStatus.InProgress, false, ["1", "2"]),
+            (GoalsTaskStatus.Ready, false, ["1"]),
+            (GoalsTaskStatus.Ready, true, ["2"]),
+            (GoalsTaskStatus.InProgress, true, ["1"]),
+            (GoalsTaskStatus.InProgress, false, ["1", "3"]),
+            (GoalsTaskStatus.Ready, true, ["1", "3"]),
+            (GoalsTaskStatus.InProgress, false, ["1", "4"]),
+            (GoalsTaskStatus.Ready, false, ["4"]),
+            (GoalsTaskStatus.InProgress, false, ["#5"]),
+            (GoalsTaskStatus.InProgress, false, ["#582"]),
+            (GoalsTaskStatus.InProgress, false, ["1", "backlog:7"])
         ];
         var goal = new GoalDto(PaidId, "Customers get paid faster", null, Oct(30), [Attached(GoalItemDto.ForPlan("bank-integration"))]);
         var ids = facts.Select(_ => Guid.NewGuid()).ToList();
@@ -263,9 +262,9 @@ public sealed class GoalsMapperTests
                 fact.Marked,
                 [.. fact.Linked.Select(Stored)]))
         ];
-        IReadOnlyList<ProgressTaskDto> tasks =
+        IReadOnlyList<GoalsTaskDto> tasks =
         [
-            .. facts.Select((fact, index) => new ProgressTaskDto(ids[index], "A task", fact.Status, fact.Marked, ["bank-integration"], [], [], null, null, [.. fact.Linked.Select(Stored)]))
+            .. facts.Select((fact, index) => new GoalsTaskDto(ids[index], "A task", fact.Status, fact.Marked, ["bank-integration"], [], [], null, null, [.. fact.Linked.Select(Stored)]))
         ];
         // 1, 2, 5 and 582 merged, 3 open, 4 and backlog's 7 with no answer; 2 and 5 answered in
         // another spelling than they link.
@@ -335,10 +334,10 @@ public sealed class GoalsMapperTests
         link.Repository.Contains('/', StringComparison.Ordinal) && int.TryParse(link.Number, out _);
 
     /// <summary>What <c>GoalsCandidateSource</c> gives a row's status: blocked only in progress.</summary>
-    private static GoalTaskStatus RowStatus(ProgressTaskStatus status, bool marked) => status switch
+    private static GoalTaskStatus RowStatus(GoalsTaskStatus status, bool marked) => status switch
     {
-        ProgressTaskStatus.Done => GoalTaskStatus.Done,
-        ProgressTaskStatus.InProgress => marked ? GoalTaskStatus.Blocked : GoalTaskStatus.Doing,
+        GoalsTaskStatus.Done => GoalTaskStatus.Done,
+        GoalsTaskStatus.InProgress => marked ? GoalTaskStatus.Blocked : GoalTaskStatus.Doing,
         _ => GoalTaskStatus.ToDo
     };
 

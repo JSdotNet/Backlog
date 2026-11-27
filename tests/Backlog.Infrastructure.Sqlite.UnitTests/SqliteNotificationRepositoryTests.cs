@@ -218,6 +218,31 @@ public sealed class SqliteNotificationRepositoryTests : IDisposable
             read!.AnswerSpec!.Choices.Select(choice => (choice.Id, choice.TakesText, choice.Placeholder)));
     }
 
+    /// <summary>Local ADR 0073 §10: a task subject a build before the Work merge stored under
+    /// the context <c>tasks</c> reads under <c>work</c>, so closing the task's notifications
+    /// and the startup probe still find it. Any other subject reads as stored.</summary>
+    [Fact]
+    public async Task A_task_subject_stored_under_tasks_reads_under_work()
+    {
+        const string Id = "33333333-3333-3333-3333-333333333333";
+        const string Document = """{"version":1,"id":"33333333-3333-3333-3333-333333333333","ownerInstanceId":"22222222-2222-2222-2222-222222222222","source":{"context":"sessions","key":"run-2"},"subject":{"context":"tasks","type":"task","id":"44444444-4444-4444-4444-444444444444"},"kind":"Alert","severity":"Info","title":"Waiting on you","summary":"","bodyMd":"","isPrivate":false,"createdAt":"2026-10-22T09:41:00+00:00","state":"Open"}""";
+
+        await using (var connection = new SqliteConnection($"Data Source={_repository.DatabasePath}"))
+        {
+            await _repository.SaveAsync(Question(), Cancellation);
+            await connection.OpenAsync(Cancellation);
+            await using var command = connection.CreateCommand();
+            command.CommandText = $"INSERT INTO notifications (id, state, awaits_delivery, created_at, updated_at, document) VALUES ('{Id}', 'Open', 0, '2026-01-01', '2026-01-01', $document);";
+            command.Parameters.AddWithValue("$document", Document);
+            await command.ExecuteNonQueryAsync(Cancellation);
+        }
+
+        var read = await _repository.GetAsync(Guid.Parse(Id), Cancellation);
+
+        Assert.Equal(new NotificationSubject("work", "task", "44444444-4444-4444-4444-444444444444"), read!.Subject);
+        Assert.Contains(await _repository.ListOpenAsync(Cancellation), notification => notification.Subject == Session);
+    }
+
     [Fact]
     public async Task A_document_written_before_choices_took_text_reads_as_taking_none()
     {

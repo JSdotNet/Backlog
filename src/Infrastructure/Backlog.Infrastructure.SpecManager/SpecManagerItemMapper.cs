@@ -1,7 +1,7 @@
 using System.Globalization;
 
 using Backlog.Infrastructure.SpecManager.Api;
-using Backlog.Modules.Tasks.Abstractions.Connectors;
+using Backlog.Modules.Work.Abstractions.Tasks.Connectors;
 
 namespace Backlog.Infrastructure.SpecManager;
 

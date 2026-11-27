@@ -1,5 +1,5 @@
-using Backlog.Modules.Progress.Abstractions;
-using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
+using Backlog.Modules.Goals.Abstractions;
+using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
 
 namespace Backlog.Infrastructure.Mcp;
 
@@ -7,7 +7,7 @@ namespace Backlog.Infrastructure.Mcp;
 /// What <c>read_iterations</c> answers: the last and next iteration windows, each goal read
 /// over them, what was finished in last and is planned for next, grouped by goal, the planned
 /// effort against the capacity, and the open impediments
-/// (<c>.devbook/domain/progress/domain.md#stand-up-reading</c>). Every enum reaches the wire
+/// (<c>.devbook/domain/goals/domain.md#stand-up-reading</c>). Every enum reaches the wire
 /// as a kebab-case token, as <see cref="ImpedimentTools.ToWire"/> writes the states.
 /// </summary>
 /// <param name="Last">The window before next, that Finished and each goal's done-in-window read.</param>

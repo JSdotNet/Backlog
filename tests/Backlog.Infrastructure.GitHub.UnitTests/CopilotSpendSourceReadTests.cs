@@ -1,6 +1,6 @@
 using Backlog.Infrastructure.GitHub;
-using Backlog.Infrastructure.GitHub.Dashboard;
-using Backlog.Modules.Dashboard.Abstractions.Services;
+using Backlog.Infrastructure.GitHub.Insights;
+using Backlog.Modules.Insights.Abstractions.Services;
 
 namespace Backlog.Infrastructure.GitHub.UnitTests;
 

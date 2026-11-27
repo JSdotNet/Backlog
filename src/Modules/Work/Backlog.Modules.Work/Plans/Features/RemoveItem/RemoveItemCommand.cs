@@ -1,0 +1,27 @@
+using Backlog.Modules.Work.Plans.Services;
+using Backlog.SharedKernel.Handlers;
+using Backlog.SharedKernel.Results;
+
+namespace Backlog.Modules.Work.Plans.Features.RemoveItem;
+
+/// <summary>Takes planned work off the plan, along with every dependency that
+/// pointed at it.</summary>
+public sealed record RemoveItemCommand(Guid ItemId);
+
+public sealed class RemoveItemCommandHandler(IRoadmapPlanRepository plans, RoadmapPlanGate gate)
+    : ICommandHandler<RemoveItemCommand, Result>
+{
+    public async Task<Result> Handle(RemoveItemCommand command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        using var held = await gate.EnterAsync(cancellationToken);
+        var plan = await plans.LoadAsync(cancellationToken);
+        var removed = plan.RemoveItem(command.ItemId);
+
+        if (removed is Error) return removed;
+
+        await plans.SaveAsync(plan, cancellationToken);
+        return Result.Success();
+    }
+}

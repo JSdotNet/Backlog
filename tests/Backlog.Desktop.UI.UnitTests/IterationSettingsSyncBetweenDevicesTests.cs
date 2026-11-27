@@ -1,9 +1,9 @@
 using System.Globalization;
 using System.Text.Json.Nodes;
 
-using Backlog.Infrastructure.FileSystem.Progress;
+using Backlog.Infrastructure.FileSystem.Goals;
 using Backlog.Infrastructure.Sync;
-using Backlog.Modules.Progress.Abstractions;
+using Backlog.Modules.Goals.Abstractions;
 using Backlog.Modules.Sync.Abstractions.Services;
 using Backlog.SharedKernel.Results;
 

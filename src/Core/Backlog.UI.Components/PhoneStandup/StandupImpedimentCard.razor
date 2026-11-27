@@ -9,7 +9,7 @@
     only so it can wear its tone.
 
     Once everything it holds back is settled, a "Ready to resolve" badge in the settled
-    tone follows the state badge (.devbook/domain/progress/features.md
+    tone follows the state badge (.devbook/domain/goals/features.md
     #seeing-an-impediment-ready-to-resolve): the words carry it, the tone only echoes them.
 *@
 
@@ -19,7 +19,7 @@
         <StandupImpedimentBadge State="State" TestId="@PartTestId("state")" />
         @if (ReadyToResolve)
         {
-            <Badge Kind="tone" Slug="settled" TestId="@PartTestId("ready")">@(global::Backlog.UI.Components.Progress.GoalsText.ReadyToResolve)</Badge>
+            <Badge Kind="tone" Slug="settled" TestId="@PartTestId("ready")">@(global::Backlog.UI.Components.Goals.GoalsText.ReadyToResolve)</Badge>
         }
     </span>
     @if (!string.IsNullOrWhiteSpace(Meta) || !string.IsNullOrWhiteSpace(Goal))

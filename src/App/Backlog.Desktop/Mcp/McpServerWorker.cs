@@ -1153,7 +1153,7 @@ public sealed partial class McpServerWorker : IDisposable
             .Append(typeof(IWaitingQuestionStore))
             .Append(typeof(IAgentSessionSource))
             .Append(typeof(IMcpAuditLog))
-            // Windows Hello for a tasks:admin tool (local ADR 0058 §6), which the step-up filter
+            // Windows Hello for a work:admin tool (local ADR 0058 §6), which the step-up filter
             // reads from this container: missing, every such call would be refused unlogged.
             .Append(typeof(Backlog.SharedKernel.IUserConsent))
             .Append(typeof(ILoopRegister))

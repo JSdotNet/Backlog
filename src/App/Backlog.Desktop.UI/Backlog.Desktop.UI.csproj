@@ -61,17 +61,17 @@
          composed here the same way: a surface the shell makes room for and
          otherwise knows nothing about. -->
     <ProjectReference Include="..\..\Modules\Inbox\Backlog.Modules.Inbox.UI\Backlog.Modules.Inbox.UI.csproj" />
-    <ProjectReference Include="..\..\Modules\Tasks\Backlog.Modules.Tasks.UI\Backlog.Modules.Tasks.UI.csproj" />
+    <!-- Work: the Tasks pane and the Roadmap band, one module UI project. -->
+    <ProjectReference Include="..\..\Modules\Work\Backlog.Modules.Work.UI\Backlog.Modules.Work.UI.csproj" />
     <ProjectReference Include="..\..\Modules\Devbook\Backlog.Modules.Devbook.UI\Backlog.Modules.Devbook.UI.csproj" />
     <ProjectReference Include="..\..\Modules\DevPc\Backlog.Modules.DevPc.UI\Backlog.Modules.DevPc.UI.csproj" />
     <ProjectReference Include="..\..\Modules\Sessions\Backlog.Modules.Sessions.UI\Backlog.Modules.Sessions.UI.csproj" />
-    <ProjectReference Include="..\..\Modules\Roadmap\Backlog.Modules.Roadmap.UI\Backlog.Modules.Roadmap.UI.csproj" />
-    <ProjectReference Include="..\..\Modules\Dashboard\Backlog.Modules.Dashboard.UI\Backlog.Modules.Dashboard.UI.csproj" />
+    <ProjectReference Include="..\..\Modules\Insights\Backlog.Modules.Insights.UI\Backlog.Modules.Insights.UI.csproj" />
     <ProjectReference Include="..\..\Modules\Notifications\Backlog.Modules.Notifications.UI\Backlog.Modules.Notifications.UI.csproj" />
     <ProjectReference Include="..\..\Modules\Capture\Backlog.Modules.Capture.UI\Backlog.Modules.Capture.UI.csproj" />
-    <!-- Progress's Goals view and attach-to-goal control, drawn behind the goals
+    <!-- Goals' Goals view and attach-to-goal control, drawn behind the goals
          key the catalog lists. -->
-    <ProjectReference Include="..\..\Modules\Progress\Backlog.Modules.Progress.UI\Backlog.Modules.Progress.UI.csproj" />
+    <ProjectReference Include="..\..\Modules\Goals\Backlog.Modules.Goals.UI\Backlog.Modules.Goals.UI.csproj" />
     <!-- Sync has no pane, only the Devices page on the settings screen, which the
          settings screen draws as the section AddSyncSettings() registers. -->
     <ProjectReference Include="..\..\Modules\Sync\Backlog.Modules.Sync.UI\Backlog.Modules.Sync.UI.csproj" />
@@ -80,7 +80,7 @@
          so the shell that renders the list of switches names them where they are
          declared rather than restating the strings. It still sees no DTO, no
          port and no aggregate: a key is a constant. -->
-    <ProjectReference Include="..\..\Modules\Tasks\Backlog.Modules.Tasks.Abstractions\Backlog.Modules.Tasks.Abstractions.csproj" />
+    <ProjectReference Include="..\..\Modules\Work\Backlog.Modules.Work.Abstractions\Backlog.Modules.Work.Abstractions.csproj" />
     <ProjectReference Include="..\..\Modules\Devbook\Backlog.Modules.Devbook.Abstractions\Backlog.Modules.Devbook.Abstractions.csproj" />
     <ProjectReference Include="..\..\Modules\DevPc\Backlog.Modules.DevPc.Abstractions\Backlog.Modules.DevPc.Abstractions.csproj" />
     <ProjectReference Include="..\..\Modules\Sessions\Backlog.Modules.Sessions.Abstractions\Backlog.Modules.Sessions.Abstractions.csproj" />
@@ -91,7 +91,7 @@
     <!-- The Brain's adapters (local ADR 0040): the Storage page's Brain card runs
          the folder setup, which is file-system work the ports do not carry. -->
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Brain\Backlog.Infrastructure.Brain.csproj" />
-    <ProjectReference Include="..\..\Modules\Dashboard\Backlog.Modules.Dashboard.Abstractions\Backlog.Modules.Dashboard.Abstractions.csproj" />
+    <ProjectReference Include="..\..\Modules\Insights\Backlog.Modules.Insights.Abstractions\Backlog.Modules.Insights.Abstractions.csproj" />
     <!-- Capture's published surface: the runner the Inbox's Capture button is
          answered with; the sources panel on the Inbox pane is Capture.UI's. The
          implementation stays with the hosts, which compose it. -->
@@ -109,11 +109,11 @@
     <!-- Inbox's published surface, for one record: the shell hears that an item
          was routed and reloads the Tasks pane on it. It reads nothing else. -->
     <ProjectReference Include="..\..\Modules\Inbox\Backlog.Modules.Inbox.Abstractions\Backlog.Modules.Inbox.Abstractions.csproj" />
-    <!-- Repository Management's published surface (local ADR 0042): the status
+    <!-- Repositories' published surface (local ADR 0042): the status
          every pull request reader draws, its one verdict, its stacks and merge
          offer, and the pull-requests feature key. The pull requests pane is that
          context's screen, kept in the shell until the module has a UI project. -->
-    <ProjectReference Include="..\..\Modules\RepositoryManagement\Backlog.Modules.RepositoryManagement.Abstractions\Backlog.Modules.RepositoryManagement.Abstractions.csproj" />
+    <ProjectReference Include="..\..\Modules\Repositories\Backlog.Modules.Repositories.Abstractions\Backlog.Modules.Repositories.Abstractions.csproj" />
     <!-- Settings and the home page speak to these adapters directly: the AI
          assistant panel and its endpoint settings, the Claude usage report, and
          the GitHub repository/devbook-folder settings plus the local clone

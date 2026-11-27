@@ -1,8 +1,8 @@
 using System.Globalization;
 
-using Backlog.Mobile.UI.Progress;
-using Backlog.Modules.Progress.Abstractions;
-using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
+using Backlog.Mobile.UI.Goals;
+using Backlog.Modules.Goals.Abstractions;
+using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 
 namespace Backlog.Mobile.UI.UnitTests;
@@ -105,7 +105,7 @@ internal static class StandupFixture
             """);
 
     public static TaskChange Context(IterationLength length = IterationLength.Week) =>
-        Whole(ProgressViewProjection.StandUpContextId, "stand-up-context", "Stand-up context", Now.AddHours(-1), ProgressDocuments.WriteContext(new StandUpContextDto(
+        Whole(GoalsViewProjection.StandUpContextId, "stand-up-context", "Stand-up context", Now.AddHours(-1), GoalsDocuments.WriteContext(new StandUpContextDto(
             Now.AddHours(-1),
             [
                 new GoalPullRequestDto(Repository, "1341", LinkedPullRequestState.Open, null, new GoalPullRequestChecksDto(14, 0, 0, []), new GoalPullRequestApprovalsDto(1, 2), ReviewRequested: true),

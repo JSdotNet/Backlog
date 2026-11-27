@@ -1,7 +1,7 @@
 using Backlog.Modules.Calendar.Abstractions.Services;
 using Backlog.Modules.Events.Abstractions.Services;
-using Backlog.Modules.Roadmap.Abstractions.Services;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Plans.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.SharedKernel;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -23,8 +23,8 @@ namespace Backlog.Infrastructure.FileSystem.Calendar;
 public static class CalendarCrossContextAdapterRegistration
 {
     /// <summary>
-    /// Registers the Calendar's cross-context adapters. Call after <c>AddRoadmapModule</c>
-    /// and <c>AddRoadmapCrossContextAdapters</c>, whose ports these resolve when first
+    /// Registers the Calendar's cross-context adapters. Call after <c>AddRoadmapModule</c>,
+    /// <c>AddWorkJoins</c> and <c>AddRoadmapCrossContextAdapters</c>, whose ports these resolve when first
     /// asked; the read contract the Events adapter asks is <c>AddEventsModule</c>'s, resolved
     /// the same way, and without it the Calendar is offered no events; the Tasks port the
     /// tasks adapter asks is <c>AddTasksModule</c>'s, and without it the Calendar is offered no

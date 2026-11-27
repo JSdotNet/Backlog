@@ -1,6 +1,6 @@
-using Backlog.Infrastructure.FileSystem.Dashboard;
+using Backlog.Infrastructure.FileSystem.Insights;
 using Backlog.Infrastructure.FileSystem.Roadmap;
-using Backlog.Modules.Dashboard.Abstractions.Services;
+using Backlog.Modules.Insights.Abstractions.Services;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.SharedKernel;
 using Microsoft.Extensions.Time.Testing;

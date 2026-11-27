@@ -713,7 +713,7 @@ public sealed class SessionsPaneAgentsTests
     }
 
     [Fact]
-    public void See_usage_on_the_surface_opens_the_Dashboard_on_its_Sessions_tab()
+    public void See_usage_on_the_surface_opens_Insights_on_its_Sessions_tab()
     {
         using var context = new Harness(Session(DispatcherId, "📡 SESSION DISPATCHER"));
         context.CheckIn(DispatcherId, LoopKind.Dispatcher, activity: LoopActivity.Holding);
@@ -721,24 +721,24 @@ public sealed class SessionsPaneAgentsTests
         var requests = new List<SurfaceRequest>();
         navigator.ShowRequested += requests.Add;
 
-        var surface = context.RenderSurface(navigator, offersDashboard: true);
+        var surface = context.RenderSurface(navigator, offersInsights: true);
         surface.WaitForElement("[data-testid='sessions-loop-see-usage']");
         surface.Find("[data-testid='sessions-loop-see-usage']").Click();
 
         // The click's handler can land after Click returns while the pane's own reads raise.
         surface.WaitForAssertion(() => Assert.Single(requests));
         var request = requests[0];
-        Assert.Equal("dashboard", request.SurfaceId);
+        Assert.Equal("insights", request.SurfaceId);
         Assert.Equal("sessions", request.Value("tab"));
     }
 
     [Fact]
-    public void The_surface_offers_no_See_usage_while_the_Dashboard_is_off()
+    public void The_surface_offers_no_See_usage_while_Insights_is_off()
     {
         using var context = new Harness(Session(DispatcherId, "📡 SESSION DISPATCHER"));
         context.CheckIn(DispatcherId, LoopKind.Dispatcher, activity: LoopActivity.Holding);
 
-        var surface = context.RenderSurface(new SurfaceNavigator(), offersDashboard: false);
+        var surface = context.RenderSurface(new SurfaceNavigator(), offersInsights: false);
 
         surface.WaitForAssertion(() => Assert.Equal("Holding", surface.Find("[data-testid='sessions-loop-state']").TextContent.Trim()));
         Assert.Empty(surface.FindAll("[data-testid='sessions-loop-see-usage']"));
@@ -981,11 +981,11 @@ public sealed class SessionsPaneAgentsTests
 
         /// <summary>The pane as the shell shows it: the Sessions surface, with the window's
         /// navigator and a catalog that offers the Dashboard or not.</summary>
-        public IRenderedComponent<SessionsSurface> RenderSurface(ISurfaceNavigator navigator, bool offersDashboard)
+        public IRenderedComponent<SessionsSurface> RenderSurface(ISurfaceNavigator navigator, bool offersInsights)
         {
             Compose();
             _context.Services.AddSingleton(navigator);
-            _context.Services.AddSingleton<ISurfaceCatalog>(new Catalog(offersDashboard));
+            _context.Services.AddSingleton<ISurfaceCatalog>(new Catalog(offersInsights));
 
             return _context.Render<SessionsSurface>();
         }
@@ -1024,15 +1024,15 @@ public sealed class SessionsPaneAgentsTests
         public void Dispose() => _context.Dispose();
 
         /// <summary>A catalog that offers the Dashboard, or nothing.</summary>
-        private sealed class Catalog(bool offersDashboard) : ISurfaceCatalog
+        private sealed class Catalog(bool offersInsights) : ISurfaceCatalog
         {
-            private static readonly ShellSurface Dashboard = new("dashboard", "Dashboard", ShellSurfaceGroup.Takeover, 50, typeof(object));
+            private static readonly ShellSurface Insights = new("insights", "Insights", ShellSurfaceGroup.Takeover, 50, typeof(object));
 
-            public IReadOnlyList<ShellSurface> Surfaces => offersDashboard ? [Dashboard] : [];
+            public IReadOnlyList<ShellSurface> Surfaces => offersInsights ? [Insights] : [];
 
             public bool TryGet(string surfaceId, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ShellSurface? surface)
             {
-                surface = offersDashboard && surfaceId == Dashboard.Id ? Dashboard : null;
+                surface = offersInsights && surfaceId == Insights.Id ? Insights : null;
                 return surface is not null;
             }
         }

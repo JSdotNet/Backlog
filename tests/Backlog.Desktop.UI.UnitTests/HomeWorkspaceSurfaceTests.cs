@@ -7,22 +7,22 @@ using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.GitHub;
-using Backlog.Modules.RepositoryManagement.Abstractions;
+using Backlog.Modules.Repositories.Abstractions;
 using Backlog.Infrastructure.Devbook;
 using Backlog.Desktop.UI.Devbook.Extensions;
-using Backlog.Modules.Dashboard.Abstractions.Insights;
-using Backlog.Modules.Dashboard.Abstractions.Services;
-using Backlog.Modules.Dashboard.UI;
+using Backlog.Modules.Insights.Abstractions.Insights;
+using Backlog.Modules.Insights.Abstractions.Services;
+using Backlog.Modules.Insights.UI;
 using Backlog.Modules.DevPc.UI;
-using Backlog.Modules.Progress.Abstractions;
-using Backlog.Modules.Progress.UI;
+using Backlog.Modules.Goals.Abstractions;
+using Backlog.Modules.Goals.UI;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI;
 using Backlog.Desktop.UI.PullRequests;
-using Backlog.Desktop.UI.Tasks;
-using Backlog.Modules.Tasks.Extensions;
-using ITaskLookupCandidates = Backlog.Modules.Tasks.Abstractions.Services.ITaskLookupCandidates;
-using PullRequestTaskQuestion = Backlog.Modules.Tasks.Abstractions.Services.PullRequestTaskQuestion;
+using Backlog.Modules.Work.UI.Tasks;
+using Backlog.Modules.Work.Tasks.Extensions;
+using ITaskLookupCandidates = Backlog.Modules.Work.Abstractions.Tasks.Services.ITaskLookupCandidates;
+using PullRequestTaskQuestion = Backlog.Modules.Work.Abstractions.Tasks.Services.PullRequestTaskQuestion;
 using Backlog.SharedKernel.Ai;
 using Backlog.SharedKernel.Changes;
 using Backlog.SharedKernel.Results;
@@ -81,11 +81,11 @@ public sealed class HomeWorkspaceSurfaceTests
         // another rather than stacking on it.
         OpenTheRoadmap(component);
 
-        component.Find("[data-testid='dashboard-toggle-button']").Click();
+        component.Find("[data-testid='insights-toggle-button']").Click();
 
         component.WaitForAssertion(() =>
         {
-            Assert.NotEmpty(component.FindAll("[data-testid='dashboard-surface']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='insights-surface']"));
             Assert.NotEmpty(component.FindAll("[data-testid='dashboard-panel']"));
             Assert.Empty(component.FindAll("[data-testid='devbook-surface']"));
             Assert.Empty(component.FindAll("[data-testid='roadmap-band']"));
@@ -113,7 +113,7 @@ public sealed class HomeWorkspaceSurfaceTests
         component.WaitForAssertion(() =>
         {
             Assert.NotEmpty(component.FindAll("[data-testid='sessions-surface'] [data-testid='sessions-panel']"));
-            Assert.Empty(component.FindAll("[data-testid='dashboard-surface']"));
+            Assert.Empty(component.FindAll("[data-testid='insights-surface']"));
             Assert.Empty(component.FindAll("[data-testid='devbook-surface']"));
             Assert.Empty(component.FindAll("[data-testid='roadmap-band']"));
             Assert.Empty(component.FindAll("[data-testid='workspace']"));
@@ -121,7 +121,7 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.Single(component.FindAll("main"));
 
             Assert.Equal("true", component.Find("[data-testid='sessions-toggle-button']").GetAttribute("aria-pressed"));
-            Assert.Equal("false", component.Find("[data-testid='dashboard-toggle-button']").GetAttribute("aria-pressed"));
+            Assert.Equal("false", component.Find("[data-testid='insights-toggle-button']").GetAttribute("aria-pressed"));
         });
     }
 
@@ -287,7 +287,7 @@ public sealed class HomeWorkspaceSurfaceTests
             ("goals", "goals-view-option", "Goals"),
             ("sessions", "sessions-toggle-button", "Sessions"),
             ("pull-requests", "pull-requests-toggle-button", "Pull requests"),
-            ("dashboard", "dashboard-toggle-button", "Dashboard"),
+            ("insights", "insights-toggle-button", "Insights"),
             ("tools", "tools-toggle-button", "Tools"),
         ];
 
@@ -422,7 +422,7 @@ public sealed class HomeWorkspaceSurfaceTests
         using var harness = CreateHarness();
         var component = Render(harness);
 
-        component.Find("[data-testid='dashboard-toggle-button']").Click();
+        component.Find("[data-testid='insights-toggle-button']").Click();
 
         component.WaitForAssertion(() =>
         {
@@ -447,7 +447,7 @@ public sealed class HomeWorkspaceSurfaceTests
 
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='view-switch']")));
 
-        foreach (var surface in new[] { "tools", "dashboard", "sessions", "pull-requests" })
+        foreach (var surface in new[] { "tools", "insights", "sessions", "pull-requests" })
         {
             component.Find($"[data-testid='{surface}-toggle-button']").Click();
 
@@ -558,21 +558,21 @@ public sealed class HomeWorkspaceSurfaceTests
                 await component.InvokeAsync(component.Instance.CloseSurfaceOnEscapeAsync);
                 break;
             case "another-takeover":
-                component.Find("[data-testid='dashboard-toggle-button']").Click();
+                component.Find("[data-testid='insights-toggle-button']").Click();
                 component.WaitForAssertion(() =>
                 {
-                    Assert.NotEmpty(component.FindAll("[data-testid='dashboard-surface']"));
+                    Assert.NotEmpty(component.FindAll("[data-testid='insights-surface']"));
                     Assert.Empty(component.FindAll("[data-testid='devbook-surface']"));
                     Assert.Equal("false", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
                 });
-                component.Find("[data-testid='dashboard-toggle-button']").Click();
+                component.Find("[data-testid='insights-toggle-button']").Click();
                 break;
         }
 
         component.WaitForAssertion(() =>
         {
             Assert.Empty(component.FindAll("[data-testid='devbook-surface']"));
-            Assert.Empty(component.FindAll("[data-testid='dashboard-surface']"));
+            Assert.Empty(component.FindAll("[data-testid='insights-surface']"));
             Assert.NotEmpty(component.FindAll("[data-testid='workspace'] [data-testid='roadmap-band']"));
             Assert.Equal("true", component.Find("[data-testid='roadmap-view-option']").GetAttribute("aria-pressed"));
             Assert.Equal("false", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
@@ -680,7 +680,7 @@ public sealed class HomeWorkspaceSurfaceTests
                 ["goals-view-option", "sessions-toggle-button", "pull-requests-toggle-button"],
                 GroupOptionIds(component, "goals-switcher"));
             Assert.Equal(
-                ["dashboard-toggle-button", "tools-toggle-button"],
+                ["insights-toggle-button", "tools-toggle-button"],
                 GroupOptionIds(component, "workspace-surface-switcher"));
 
             // Fused where the design fuses, loose where it does not.
@@ -717,13 +717,13 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.Equal("Answers from the Tasks content.", component.Find(".ai-panel__body").TextContent.Trim());
         });
 
-        component.Find("[data-testid='dashboard-toggle-button']").Click();
+        component.Find("[data-testid='insights-toggle-button']").Click();
 
         component.WaitForAssertion(() =>
         {
-            Assert.NotEmpty(component.FindAll("[data-testid='dashboard-surface']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='insights-surface']"));
             Assert.NotEmpty(component.FindAll("[data-testid='ai-assistant-panel']"));
-            Assert.Equal("Answers from the Dashboard content.", component.Find(".ai-panel__body").TextContent.Trim());
+            Assert.Equal("Answers from the Insights content.", component.Find(".ai-panel__body").TextContent.Trim());
         });
 
         // Sessions is its own surface and its own area.
@@ -928,7 +928,7 @@ public sealed class HomeWorkspaceSurfaceTests
         using var harness = CreateHarness();
         var component = Render(harness);
 
-        string[] surfaces = ["tools", "dashboard", "sessions", "pull-requests", "tools"];
+        string[] surfaces = ["tools", "insights", "sessions", "pull-requests", "tools"];
 
         foreach (var surface in surfaces)
         {
@@ -959,8 +959,8 @@ public sealed class HomeWorkspaceSurfaceTests
         using var harness = CreateHarness(shellNavigation: shellNavigation);
         var component = Render(harness);
 
-        component.Find("[data-testid='dashboard-toggle-button']").Click();
-        component.WaitForAssertion(() => Assert.Equal("dashboard", shellNavigation.LastSurface));
+        component.Find("[data-testid='insights-toggle-button']").Click();
+        component.WaitForAssertion(() => Assert.Equal("insights", shellNavigation.LastSurface));
 
         // The name the sessions list has always been remembered by, so a file
         // written while it was a Dashboard tab reopens on it too.
@@ -1010,7 +1010,7 @@ public sealed class HomeWorkspaceSurfaceTests
         component.WaitForAssertion(() =>
         {
             Assert.NotEmpty(component.FindAll("[data-testid='sessions-surface'] [data-testid='sessions-panel']"));
-            Assert.Empty(component.FindAll("[data-testid='dashboard-surface']"));
+            Assert.Empty(component.FindAll("[data-testid='insights-surface']"));
             Assert.Empty(component.FindAll("[data-testid='workspace']"));
         });
     }
@@ -1137,9 +1137,9 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.Equal("true", component.Find("[data-testid='roadmap-view-option']").GetAttribute("aria-pressed"));
         });
 
-        component.Find("[data-testid='dashboard-toggle-button']").Click();
-        component.WaitForAssertion(() => Assert.Equal("dashboard", shellNavigation.LastSurface));
-        component.Find("[data-testid='dashboard-toggle-button']").Click();
+        component.Find("[data-testid='insights-toggle-button']").Click();
+        component.WaitForAssertion(() => Assert.Equal("insights", shellNavigation.LastSurface));
+        component.Find("[data-testid='insights-toggle-button']").Click();
         component.WaitForAssertion(() => Assert.Null(shellNavigation.LastSurface));
 
         Assert.DoesNotContain("\"lastSurface\": \"Roadmap\"", ShellNavigationStoreTests.Written(path), StringComparison.Ordinal);
@@ -1584,7 +1584,7 @@ public sealed class HomeWorkspaceSurfaceTests
     [InlineData("sessions-toggle-button", "square-terminal-icon", "Sessions")]
     [InlineData("pull-requests-toggle-button", "git-pull-request-icon", "Pull requests")]
     [InlineData("inbox-pane-option", "inbox-icon", "Inbox")]
-    [InlineData("dashboard-toggle-button", "layout-dashboard-icon", "Dashboard")]
+    [InlineData("insights-toggle-button", "layout-dashboard-icon", "Insights")]
     public void Each_header_option_leads_with_a_hidden_glyph_and_keeps_its_word_as_its_name(
         string option, string glyph, string name)
     {
@@ -1616,7 +1616,7 @@ public sealed class HomeWorkspaceSurfaceTests
     /// folded option still says what it is on hover.
     /// </summary>
     [Theory]
-    [InlineData("dashboard-toggle-button", "Dashboard", 1)]
+    [InlineData("insights-toggle-button", "Insights", 1)]
     [InlineData("goals-view-option", "Goals", 2)]
     [InlineData("sessions-toggle-button", "Sessions", 2)]
     [InlineData("pull-requests-toggle-button", "Pull requests", 2)]
@@ -1861,10 +1861,10 @@ public sealed class HomeWorkspaceSurfaceTests
         using var harness = CreateHarness(features => features.SetEnabled(SessionFeatures.Sessions, false));
         var component = Render(harness);
 
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='dashboard-toggle-button']")));
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='insights-toggle-button']")));
         Assert.Empty(component.FindAll("[data-testid='sessions-toggle-button']"));
 
-        component.Find("[data-testid='dashboard-toggle-button']").Click();
+        component.Find("[data-testid='insights-toggle-button']").Click();
 
         component.WaitForAssertion(() =>
         {
@@ -1974,19 +1974,19 @@ public sealed class HomeWorkspaceSurfaceTests
         var component = Render(harness);
 
         OpenTheRoadmap(component);
-        component.Find("[data-testid='dashboard-toggle-button']").Click();
+        component.Find("[data-testid='insights-toggle-button']").Click();
         component.WaitForAssertion(() =>
         {
-            Assert.NotEmpty(component.FindAll("[data-testid='dashboard-surface']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='insights-surface']"));
             Assert.Empty(component.FindAll("[data-testid='roadmap-band']"));
             Assert.Equal("false", component.Find("[data-testid='roadmap-view-option']").GetAttribute("aria-pressed"));
         });
 
-        component.Find("[data-testid='dashboard-toggle-button']").Click();
+        component.Find("[data-testid='insights-toggle-button']").Click();
 
         component.WaitForAssertion(() =>
         {
-            Assert.Empty(component.FindAll("[data-testid='dashboard-surface']"));
+            Assert.Empty(component.FindAll("[data-testid='insights-surface']"));
             Assert.NotEmpty(component.FindAll("[data-testid='roadmap-band']"));
             Assert.Equal("true", component.Find("[data-testid='roadmap-view-option']").GetAttribute("aria-pressed"));
         });
@@ -2049,7 +2049,7 @@ public sealed class HomeWorkspaceSurfaceTests
 
     /// <summary>
     /// The weekly review is offered only behind its own flag, which is off until asked
-    /// for (.devbook/domain/progress/features.md#the-weekly-review).
+    /// for (.devbook/domain/goals/features.md#the-weekly-review).
     /// </summary>
     [Fact]
     public void The_weekly_review_option_is_absent_while_its_flag_is_off()
@@ -2062,7 +2062,7 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane-option']"));
             Assert.Empty(component.FindAll("[data-testid='weekly-review-option']"));
         });
-        Assert.False(AppFeatures.All.Single(feature => feature.Key == ProgressFeatures.WeeklyReview).EnabledByDefault);
+        Assert.False(AppFeatures.All.Single(feature => feature.Key == GoalsFeatures.WeeklyReview).EnabledByDefault);
     }
 
     /// <summary>
@@ -2075,7 +2075,7 @@ public sealed class HomeWorkspaceSurfaceTests
         using var harness = CreateHarness(features =>
         {
             features.SetEnabled(AppFeatures.InboxPane, true);
-            features.SetEnabled(ProgressFeatures.WeeklyReview, true);
+            features.SetEnabled(GoalsFeatures.WeeklyReview, true);
         });
         var component = Render(harness);
 
@@ -2099,7 +2099,7 @@ public sealed class HomeWorkspaceSurfaceTests
     [Fact]
     public void The_weekly_review_takes_the_screen_over_the_view_and_a_second_press_returns_to_it()
     {
-        using var harness = CreateHarness(features => features.SetEnabled(ProgressFeatures.WeeklyReview, true));
+        using var harness = CreateHarness(features => features.SetEnabled(GoalsFeatures.WeeklyReview, true));
         var component = Render(harness);
 
         OpenTheRoadmap(component);
@@ -2126,7 +2126,7 @@ public sealed class HomeWorkspaceSurfaceTests
     [Fact]
     public async Task Escape_heard_at_the_document_closes_the_weekly_review()
     {
-        using var harness = CreateHarness(features => features.SetEnabled(ProgressFeatures.WeeklyReview, true));
+        using var harness = CreateHarness(features => features.SetEnabled(GoalsFeatures.WeeklyReview, true));
         var component = Render(harness);
 
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='weekly-review-option']")));
@@ -2160,8 +2160,8 @@ public sealed class HomeWorkspaceSurfaceTests
             Assert.Empty(component.FindAll("[data-testid='devbook-pane-option'] [data-testid$='-feature-status']"));
             Assert.NotEmpty(component.FindAll("[data-testid='roadmap-view-option']"));
             Assert.Empty(component.FindAll("[data-testid='roadmap-view-option'] [data-testid$='-feature-status']"));
-            Assert.NotEmpty(component.FindAll("[data-testid='dashboard-toggle-button']"));
-            Assert.Empty(component.FindAll("[data-testid='dashboard-toggle-button'] [data-testid$='-feature-status']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='insights-toggle-button']"));
+            Assert.Empty(component.FindAll("[data-testid='insights-toggle-button'] [data-testid$='-feature-status']"));
 
             // Present and flagged — proving the absence above is the status
             // talking rather than the badge being broken everywhere.
@@ -2319,7 +2319,7 @@ public sealed class HomeWorkspaceSurfaceTests
         shellNavigation.SetLastSurface("PullRequests");
 
         using var harness = CreateHarness(
-            features => features.SetEnabled(RepositoryManagementFeatures.PullRequests, false),
+            features => features.SetEnabled(RepositoriesFeatures.PullRequests, false),
             shellNavigation);
         var component = Render(harness);
 
@@ -2621,8 +2621,8 @@ public sealed class HomeWorkspaceSurfaceTests
         var component = Render(harness);
         harness.Context.JSInterop.SetupVoid("backlogFocus", _ => true);
 
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='dashboard-toggle-button']")));
-        component.Find("[data-testid='dashboard-toggle-button']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='insights-toggle-button']")));
+        component.Find("[data-testid='insights-toggle-button']").Click();
         component.WaitForElement("[data-testid='dashboard-headline-ask-ai']");
         Assert.Empty(component.FindAll("[data-testid='ai-assistant-panel']"));
 
@@ -2631,7 +2631,7 @@ public sealed class HomeWorkspaceSurfaceTests
         component.WaitForAssertion(() =>
         {
             Assert.NotEmpty(component.FindAll("[data-testid='ai-assistant-panel']"));
-            Assert.Equal("Answers from the Dashboard content.", component.Find(".ai-panel__body").TextContent.Trim());
+            Assert.Equal("Answers from the Insights content.", component.Find(".ai-panel__body").TextContent.Trim());
             Assert.Equal(ThroughputPrefix, component.Find("[data-testid='ai-question-input']").GetAttribute("value"));
             Assert.Contains(
                 harness.Context.JSInterop.Invocations["backlogFocus"],
@@ -2644,7 +2644,7 @@ public sealed class HomeWorkspaceSurfaceTests
         {
             var request = Assert.Single(harness.FoundryChat.Requests);
             Assert.Equal(ThroughputPrefix, request.Question);
-            Assert.StartsWith("Dashboard (", request.Content, StringComparison.Ordinal);
+            Assert.StartsWith("Insights (", request.Content, StringComparison.Ordinal);
         });
     }
 
@@ -2657,8 +2657,8 @@ public sealed class HomeWorkspaceSurfaceTests
         var component = Render(harness);
         harness.Context.JSInterop.SetupVoid("backlogFocus", _ => true);
 
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='dashboard-toggle-button']")));
-        component.Find("[data-testid='dashboard-toggle-button']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='insights-toggle-button']")));
+        component.Find("[data-testid='insights-toggle-button']").Click();
         component.WaitForElement("[data-testid='dashboard-headline-ask-ai']");
         component.Find("[data-testid='ai-toggle-button']").Click();
         component.WaitForElement("[data-testid='ai-question-input']").Input("What changed?");
@@ -2680,15 +2680,15 @@ public sealed class HomeWorkspaceSurfaceTests
     [Fact]
     public void A_dashboard_parts_ask_ai_ends_an_ask_in_flight()
     {
-        var hanging = new HangingSource("dashboard", "Dashboard");
+        var hanging = new HangingSource("insights", "Insights");
         using var harness = CreateHarness(
             features => features.SetEnabled(AppFeatures.AiAssistant, true),
             configureServices: services => services.AddScoped<IAiContentSource>(_ => hanging));
         var component = Render(harness);
         harness.Context.JSInterop.SetupVoid("backlogFocus", _ => true);
 
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='dashboard-toggle-button']")));
-        component.Find("[data-testid='dashboard-toggle-button']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='insights-toggle-button']")));
+        component.Find("[data-testid='insights-toggle-button']").Click();
         component.WaitForElement("[data-testid='dashboard-headline-ask-ai']");
         component.Find("[data-testid='ai-toggle-button']").Click();
         component.WaitForElement("[data-testid='ai-question-input']").Input("What changed?");
@@ -2718,8 +2718,8 @@ public sealed class HomeWorkspaceSurfaceTests
         using var harness = CreateHarness();
         var component = Render(harness);
 
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='dashboard-toggle-button']")));
-        component.Find("[data-testid='dashboard-toggle-button']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='insights-toggle-button']")));
+        component.Find("[data-testid='insights-toggle-button']").Click();
         component.WaitForElement("[data-testid='dashboard-headline-refresh']");
 
         Assert.Empty(component.FindAll("[data-testid$='-ask-ai']"));
@@ -2759,7 +2759,7 @@ public sealed class HomeWorkspaceSurfaceTests
     /// </summary>
     [Theory]
     [InlineData("tools-toggle-button", "tools-surface")]
-    [InlineData("dashboard-toggle-button", "dashboard-surface")]
+    [InlineData("insights-toggle-button", "insights-surface")]
     [InlineData("sessions-toggle-button", "sessions-surface")]
     [InlineData("pull-requests-toggle-button", "pull-requests-surface")]
     public async Task Escape_heard_at_the_document_closes_the_takeover(string toggle, string surface)
@@ -2793,7 +2793,7 @@ public sealed class HomeWorkspaceSurfaceTests
     /// </summary>
     [Theory]
     [InlineData("tools-toggle-button", "tools-surface", "Close tools pane")]
-    [InlineData("dashboard-toggle-button", "dashboard-surface", "Close dashboard")]
+    [InlineData("insights-toggle-button", "insights-surface", "Close dashboard")]
     [InlineData("sessions-toggle-button", "sessions-surface", "Close sessions pane")]
     [InlineData("pull-requests-toggle-button", "pull-requests-surface", "Close pull requests pane")]
     public void A_takeover_draws_no_close_and_its_option_pressed_again_returns_to_the_workspace(string toggle, string surface, string formerClose)
@@ -2914,7 +2914,7 @@ public sealed class HomeWorkspaceSurfaceTests
             features =>
             {
                 features.SetEnabled(SessionFeatures.Sessions, false);
-                features.SetEnabled(RepositoryManagementFeatures.PullRequests, false);
+                features.SetEnabled(RepositoriesFeatures.PullRequests, false);
             });
         var component = Render(harness);
 
@@ -2927,7 +2927,7 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
-    /// The Goals view in the shell draws the board from the Progress ports over the
+    /// The Goals view in the shell draws the board from the Goals ports over the
     /// shell's own task list: the goals and the stand-up aside, and the task in progress
     /// that no goal holds under No goal. Without the ports — every other test here —
     /// the view says the module is not set up rather than drawing nothing.
@@ -2939,11 +2939,11 @@ public sealed class HomeWorkspaceSurfaceTests
             seed: InProgressEntryText,
             configureServices: services =>
             {
-                services.AddSingleton<Backlog.Modules.Progress.Abstractions.Services.IStandUp>(new GoalsHostTests.FakeStandUp());
-                services.AddSingleton<Backlog.Modules.Progress.Abstractions.Services.IGoals>(new GoalsHostTests.FakeGoals());
-                services.AddSingleton<Backlog.Modules.Progress.Abstractions.Services.IImpediments>(new GoalsHostTests.FakeImpediments());
-                services.AddSingleton<Backlog.Modules.Progress.Abstractions.Services.IIterationSettings>(new GoalsHostTests.FakeIterationSettings());
-                services.AddSingleton<Backlog.Modules.Progress.Abstractions.Services.IGoalPullRequestReader>(new GoalsHostTests.FakePullRequests());
+                services.AddSingleton<Backlog.Modules.Goals.Abstractions.Services.IStandUp>(new GoalsHostTests.FakeStandUp());
+                services.AddSingleton<Backlog.Modules.Goals.Abstractions.Services.IGoals>(new GoalsHostTests.FakeGoals());
+                services.AddSingleton<Backlog.Modules.Goals.Abstractions.Services.IImpediments>(new GoalsHostTests.FakeImpediments());
+                services.AddSingleton<Backlog.Modules.Goals.Abstractions.Services.IIterationSettings>(new GoalsHostTests.FakeIterationSettings());
+                services.AddSingleton<Backlog.Modules.Goals.Abstractions.Services.IGoalPullRequestReader>(new GoalsHostTests.FakePullRequests());
             });
         var component = Render(harness);
 
@@ -3009,7 +3009,7 @@ public sealed class HomeWorkspaceSurfaceTests
             features => features.SetEnabled(AppFeatures.AiAssistant, true),
             configureServices: services =>
             {
-                services.AddSingleton<Backlog.Modules.Progress.Abstractions.Services.IStandUp>(new GoalsHostTests.FakeStandUp());
+                services.AddSingleton<Backlog.Modules.Goals.Abstractions.Services.IStandUp>(new GoalsHostTests.FakeStandUp());
                 services.AddGoalsAiContentSource();
             });
         var component = Render(harness);
@@ -3185,7 +3185,7 @@ public sealed class HomeWorkspaceSurfaceTests
         using var harness = CreateHarness(configureServices: AddLobes);
         var component = Render(harness);
 
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='dashboard-toggle-button']")));
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='insights-toggle-button']")));
         Assert.Empty(component.FindAll("[data-testid='atlas-toggle-button']"));
     }
 
@@ -3387,17 +3387,17 @@ public sealed class HomeWorkspaceSurfaceTests
         using var harness = CreateHarness(features => features.SetEnabled(DevbookFeatures.LobesAtlas, true), configureServices: AddLobes);
         var component = Render(harness);
 
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='dashboard-toggle-button']")));
-        component.Find("[data-testid='dashboard-toggle-button']").Click();
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='dashboard-surface']")));
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='insights-toggle-button']")));
+        component.Find("[data-testid='insights-toggle-button']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='insights-surface']")));
 
         component.Find("[data-testid='atlas-toggle-button']").Click();
         component.WaitForAssertion(() =>
         {
-            Assert.Empty(component.FindAll("[data-testid='dashboard-surface']"));
+            Assert.Empty(component.FindAll("[data-testid='insights-surface']"));
             Assert.NotEmpty(component.FindAll("[data-testid='atlas-surface']"));
-            Assert.Equal("false", component.Find("[data-testid='dashboard-toggle-button']").GetAttribute("aria-pressed"));
-            Assert.Equal("Back to Dashboard", component.Find("[data-testid='atlas-toggle-button']").GetAttribute("title"));
+            Assert.Equal("false", component.Find("[data-testid='insights-toggle-button']").GetAttribute("aria-pressed"));
+            Assert.Equal("Back to Insights", component.Find("[data-testid='atlas-toggle-button']").GetAttribute("title"));
         });
 
         await component.InvokeAsync(component.Instance.CloseSurfaceOnEscapeAsync);
@@ -3405,8 +3405,8 @@ public sealed class HomeWorkspaceSurfaceTests
         component.WaitForAssertion(() =>
         {
             Assert.Empty(component.FindAll("[data-testid='atlas-surface']"));
-            Assert.NotEmpty(component.FindAll("[data-testid='dashboard-surface']"));
-            Assert.Equal("true", component.Find("[data-testid='dashboard-toggle-button']").GetAttribute("aria-pressed"));
+            Assert.NotEmpty(component.FindAll("[data-testid='insights-surface']"));
+            Assert.Equal("true", component.Find("[data-testid='insights-toggle-button']").GetAttribute("aria-pressed"));
         });
     }
 
@@ -3427,9 +3427,9 @@ public sealed class HomeWorkspaceSurfaceTests
         {
             var component = Render(harness);
 
-            component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='dashboard-toggle-button']")));
-            component.Find("[data-testid='dashboard-toggle-button']").Click();
-            component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='dashboard-surface']")));
+            component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='insights-toggle-button']")));
+            component.Find("[data-testid='insights-toggle-button']").Click();
+            component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='insights-surface']")));
             component.Find("[data-testid='atlas-toggle-button']").Click();
             component.WaitForAssertion(() => component.Find("[data-testid='lobes-atlas-ghosts']").Click());
             component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='lobes-atlas-row'][data-scope='ghost:devbook-stack']")));
@@ -3449,7 +3449,7 @@ public sealed class HomeWorkspaceSurfaceTests
         reopened.WaitForAssertion(() =>
         {
             Assert.Equal("ghost:devbook-stack", reopened.Find("[data-testid='atlas-surface'] [data-testid='lobes-atlas']").GetAttribute("data-scope"));
-            Assert.Equal("Back to Dashboard", reopened.Find("[data-testid='atlas-toggle-button']").GetAttribute("title"));
+            Assert.Equal("Back to Insights", reopened.Find("[data-testid='atlas-toggle-button']").GetAttribute("title"));
         });
 
         reopened.Find("[data-testid='atlas-toggle-button']").Click();
@@ -3457,7 +3457,7 @@ public sealed class HomeWorkspaceSurfaceTests
         reopened.WaitForAssertion(() =>
         {
             Assert.Empty(reopened.FindAll("[data-testid='atlas-surface']"));
-            Assert.NotEmpty(reopened.FindAll("[data-testid='dashboard-surface']"));
+            Assert.NotEmpty(reopened.FindAll("[data-testid='insights-surface']"));
         });
     }
 
@@ -3917,7 +3917,7 @@ public sealed class HomeWorkspaceSurfaceTests
         // chrome or a network call in the way is off.
         _ = featureSettings.SetEnabled(DevPcFeatures.SystemTools, true);
         _ = featureSettings.SetEnabled(SessionFeatures.Sessions, true);
-        _ = featureSettings.SetEnabled(RepositoryManagementFeatures.PullRequests, true);
+        _ = featureSettings.SetEnabled(RepositoriesFeatures.PullRequests, true);
         _ = featureSettings.SetEnabled(AppFeatures.InboxPane, false);
         _ = featureSettings.SetEnabled(AppFeatures.AiAssistant, false);
         _ = featureSettings.SetEnabled(TasksFeatures.GitHubIntegration, false);
@@ -3997,8 +3997,8 @@ public sealed class HomeWorkspaceSurfaceTests
         context.Services.AddSingleton<DevbookSourceSelection>();
         context.Services.AddSingleton(new DevbookCopilotCli(new UnavailableCopilotCliLauncher()));
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
-        // The dashboard takeover, with no provider behind it — see DashboardTestHost.
-        _ = context.Services.AddUnavailableDashboard("backlog", "backlog-ide");
+        // The dashboard takeover, with no provider behind it — see InsightsTestHost.
+        _ = context.Services.AddUnavailableInsights("backlog", "backlog-ide");
         context.Services.AddScoped(sp => new DomainDevbookStore(sp.GetRequiredService<IDevbookFolderSource>()));
         context.Services.AddScoped(sp => TasksTestHost.StateFor(
             sp.GetRequiredService<WorkspaceSettingsStore>(),
@@ -4045,11 +4045,11 @@ public sealed class HomeWorkspaceSurfaceTests
         context.Services.AddDevbookAiContentSource();
         context.Services.AddRoadmapAiContentSource();
         context.Services.AddSingleton<IActivitySource>(new UnavailableActivitySource());
-        context.Services.AddScoped<IAiContentSource>(sp => new DashboardAiContentSource(
+        context.Services.AddScoped<IAiContentSource>(sp => new InsightsAiContentSource(
             sp.GetRequiredService<IActivitySource>(),
             sp.GetRequiredService<IRepositoryDirectory>(),
-            sp.GetRequiredService<DashboardScopeInView>(),
-            new DashboardInsightPorts(
+            sp.GetRequiredService<InsightsScopeInView>(),
+            new InsightsPorts(
                 sp.GetRequiredService<IProductivityInsights>(),
                 sp.GetRequiredService<ITaskInsights>(),
                 sp.GetRequiredService<ISessionInsights>(),
@@ -4144,10 +4144,10 @@ public sealed class HomeWorkspaceSurfaceTests
     private sealed class UnavailableActivitySource : IActivitySource
     {
         public Task<InsightAvailability> GetAvailabilityAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(InsightAvailability.Unavailable(DashboardTestHost.UnavailableReason));
+            Task.FromResult(InsightAvailability.Unavailable(InsightsTestHost.UnavailableReason));
 
         public Task<ActivityReport> GetActivityAsync(
-            IReadOnlyList<DashboardRepository> repositories,
+            IReadOnlyList<InsightsRepository> repositories,
             DateTimeOffset from,
             DateTimeOffset to,
             CancellationToken cancellationToken = default) =>

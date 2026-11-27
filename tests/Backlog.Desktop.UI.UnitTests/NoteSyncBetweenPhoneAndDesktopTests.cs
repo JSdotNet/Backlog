@@ -13,7 +13,7 @@ using Backlog.Modules.Inbox.Extensions;
 using Backlog.Modules.Inbox.Features.ArchiveItem;
 using Backlog.Modules.Inbox.Features.DeleteItem;
 using Backlog.Modules.Inbox.Features.EditNote;
-using Backlog.Modules.Tasks;
+using Backlog.Modules.Work.Tasks;
 using Backlog.SharedKernel.Results;
 
 using Microsoft.Data.Sqlite;

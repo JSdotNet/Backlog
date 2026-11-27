@@ -95,6 +95,7 @@ public sealed class FileMcpGrantStore : IMcpGrantStore
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(scopes);
         ArgumentException.ThrowIfNullOrWhiteSpace(createdBy);
+        scopes = McpScopes.Resolve(scopes);
 
         // Only a scope a grant may hold (local ADR 0058 §4): devbook:decide, a misspelling or a
         // name no policy knows is refused rather than dropped, so the caller cannot believe it
@@ -135,6 +136,7 @@ public sealed class FileMcpGrantStore : IMcpGrantStore
     public McpGrant? SetScopes(string id, IReadOnlyList<string> scopes)
     {
         ArgumentNullException.ThrowIfNull(scopes);
+        scopes = McpScopes.Resolve(scopes);
 
         if (scopes.FirstOrDefault(scope => !McpScopes.IsGrantable(scope)) is { } refused)
         {
@@ -169,6 +171,7 @@ public sealed class FileMcpGrantStore : IMcpGrantStore
     {
         ArgumentNullException.ThrowIfNull(scopes);
         ArgumentException.ThrowIfNullOrWhiteSpace(grantedBy);
+        scopes = McpScopes.Resolve(scopes);
 
         if (scopes.FirstOrDefault(scope => !McpScopes.IsDelegable(scope)) is { } refused)
         {
@@ -283,7 +286,10 @@ public sealed class FileMcpGrantStore : IMcpGrantStore
 
         foreach (var record in file.Grants)
         {
-            record.Scopes ??= [];
+            // A grant stored under a scope's old name holds it under the new one (local ADR 0073
+            // §10). Read so rather than rewritten: the version stays, so no token it holds is
+            // retired and the person approves nothing again; the next write stores the new name.
+            record.Scopes = [.. McpScopes.Resolve(record.Scopes ?? [])];
 
             if (string.IsNullOrWhiteSpace(record.Secret))
             {

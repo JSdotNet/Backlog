@@ -40,7 +40,7 @@ related: [".devbook/arc42/adr/0061-the-events-map-uses-online-tiles-and-geocodes
 | **YouTube** | in | HTTPS (API) | Poll subscribed channels for content capture |
 | **Websites / RSS** | in | HTTPS (RSS, DOM diff) | Monitor sites for new content |
 | **Email / IMAP** | in | IMAP | Ingest configured mailboxes as inbox items |
-| **Package Registries** (npm, NuGet, PyPI) | in | HTTPS | Dependency scanning for Repository Management |
+| **Package Registries** (npm, NuGet, PyPI) | in | HTTPS | Dependency scanning for Repositories |
 | **Application Insights** | in | HTTPS | Read telemetry signals for monitoring dashboards |
 | **Push Provider** (FCM) | out | HTTPS | Deliver push notifications to the Android mobile app |
 | **Azure Maps** | out | HTTPS, EU endpoint | Look up a saved event address and load the Events map's tiles ([local ADR 0061](adr/0061-the-events-map-uses-online-tiles-and-geocodes-an-address-on-save.md)) |

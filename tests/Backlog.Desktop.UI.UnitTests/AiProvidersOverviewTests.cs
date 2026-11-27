@@ -1,4 +1,4 @@
-using Backlog.Modules.Dashboard.Abstractions.Services;
+using Backlog.Modules.Insights.Abstractions.Services;
 
 namespace Backlog.Desktop.UI.UnitTests;
 

@@ -1,7 +1,7 @@
 using System.Net;
 
 using Backlog.Infrastructure.SpecManager.Questions;
-using Backlog.Modules.Tasks.Abstractions.Connectors;
+using Backlog.Modules.Work.Abstractions.Tasks.Connectors;
 
 namespace Backlog.Infrastructure.SpecManager.UnitTests;
 

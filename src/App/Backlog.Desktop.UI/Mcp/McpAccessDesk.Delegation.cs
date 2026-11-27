@@ -73,6 +73,9 @@ public sealed partial class McpAccessDesk : IAgentGrants
         IReadOnlyList<string>? scopes,
         CancellationToken cancellationToken = default)
     {
+        // A scope asked for under its old name is the scope it now names (local ADR 0073 §10).
+        if (scopes is not null) scopes = McpScopes.Resolve(scopes);
+
         McpGrant granter;
         McpGrant granted;
         McpAccessRequest request;
@@ -146,6 +149,7 @@ public sealed partial class McpAccessDesk : IAgentGrants
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(scopes);
+        scopes = McpScopes.Resolve(scopes);
 
         McpGrant granter;
         McpGrant edited;

@@ -2,7 +2,7 @@
 
 ```meta
 date: 2026-11-26
-related: [".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0024-claude-code-telemetry-arrives-on-the-mcp-listener.md", ".devbook/arc42/08-crosscutting-concepts.md#feature-enablement", ".devbook/domain/sessions/context.md#session-requests", ".devbook/domain/sessions/domain.md#session-request-queue", ".devbook/domain/sessions/domain.md#session-request", ".devbook/domain/sessions/features.md#start-a-session-from-an-entry", ".devbook/domain/tasks/features.md#copy-as-a-runnable-paste", ".devbook/domain/tasks/features.md#filing-a-follow-up-after-an-entry", ".devbook/domain/notifications/requirements.md#asking-from-the-contexts", ".devbook/design/interaction-guidelines.md#drag-and-drop-reordering"]
+related: [".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0024-claude-code-telemetry-arrives-on-the-mcp-listener.md", ".devbook/arc42/08-crosscutting-concepts.md#feature-enablement", ".devbook/domain/sessions/context.md#session-requests", ".devbook/domain/sessions/domain.md#session-request-queue", ".devbook/domain/sessions/domain.md#session-request", ".devbook/domain/sessions/features.md#start-a-session-from-an-entry", ".devbook/domain/work/features.md#copy-as-a-runnable-paste", ".devbook/domain/work/features.md#filing-a-follow-up-after-an-entry", ".devbook/domain/notifications/requirements.md#asking-from-the-contexts", ".devbook/design/interaction-guidelines.md#drag-and-drop-reordering"]
 ```
 
 A click on an entry in the desktop app creates a **session request**: a Backlog record
@@ -39,7 +39,7 @@ the way ADR 0024 added `/v1/logs`, and changes none of ADR 0012's decisions.
 
 **A person wants a button that starts the work.** An entry already knows its
 repository, and the GitHub settings on this machine know that repository's clone
-folder. [Copy as a runnable paste](../../domain/tasks/features.md#copy-as-a-runnable-paste)
+folder. [Copy as a runnable paste](../../domain/work/features.md#copy-as-a-runnable-paste)
 already puts the one line on the clipboard that runs an entry safely:
 `/backlog-tools:run-plan-item entry `<id>`:`. The skill checks the entry is still
 outstanding, moves it to In progress and calls `link_session`. What is missing is the
@@ -107,7 +107,7 @@ Validation question a run asks
 ([Asking from the contexts](../../domain/notifications/requirements.md#asking-from-the-contexts))
 can be answered **Approve + follow-up** on any paired device. That answer files one
 ready prompt entry in the gated entry's plan and repository, `after:` the gated entry
-([Tasks](../../domain/tasks/features.md#filing-a-follow-up-after-an-entry)). An `execute-plan` session running that plan
+([Tasks](../../domain/work/features.md#filing-a-follow-up-after-an-entry)). An `execute-plan` session running that plan
 re-reads the plan after each entry lands and dispatches it like any ready entry. The answer never creates a session request, so
 only a click still creates one. The accepted trust is that a paired device already
 approves the gate, so it may also queue the next step behind it. `run-plan-item` still

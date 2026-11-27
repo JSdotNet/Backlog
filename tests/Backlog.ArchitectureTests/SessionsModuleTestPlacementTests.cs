@@ -47,7 +47,7 @@ public class SessionsModuleTestPlacementTests
         "SessionPullRequestStatusesTests.cs",
         "DeliveryRunTelemetryTests.cs",
         "ClaudeCodeOtlpLogsTests.cs",
-        "DashboardSessionsTabTests.cs",
+        "InsightsSessionsTabTests.cs",
         "SessionDevbookAnnotationStoreTests.cs"
     ];
 

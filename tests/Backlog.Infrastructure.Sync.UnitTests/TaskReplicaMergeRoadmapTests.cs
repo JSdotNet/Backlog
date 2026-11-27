@@ -1,4 +1,4 @@
-using Backlog.Modules.Roadmap.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Plans.Services;
 using Backlog.SharedKernel.Replication;
 
 namespace Backlog.Infrastructure.Sync.UnitTests;
@@ -157,6 +157,39 @@ public sealed class TaskReplicaMergeRoadmapTests
         Assert.Equal("medium", plan.Task.Priority);
         Assert.Empty(plan.Task.Tags);
         Assert.Null(plan.Task.SourceInboxId);
+    }
+
+    /// <summary>Local ADR 0073 §10: a paired device on a build before the rename still
+    /// pushes the plan under <c>roadmap-plan</c>, and the replica keeps what it pushed. It
+    /// is read as the plan, whole, and never as a task.</summary>
+    [Fact]
+    public async Task A_plan_under_its_kind_before_the_rename_still_goes_to_the_roadmap()
+    {
+        var tasks = new InMemoryTaskStore();
+        var roadmap = new RecordingRoadmapReplication();
+        var legacy = RoadmapReplicaChanges.Plan(PlanJson, Morning);
+        legacy = legacy with { Task = legacy.Task with { Type = "roadmap-plan" } };
+
+        var merged = await new TaskReplicaMerge(tasks, roadmap: roadmap).ApplyAsync(
+            [TaskChanges.Record(legacy, OtherPc, 100)],
+            Cancellation);
+
+        Assert.Equal(1, merged.Applied);
+        Assert.Empty(tasks.Tasks);
+        var offer = Assert.Single(roadmap.Offered);
+        Assert.Equal(RoadmapReplicaDocument.Plan, offer.Document);
+        Assert.Equal(PlanJson, offer.Copy.Content);
+    }
+
+    [Fact]
+    public void Both_plan_kinds_read_as_the_plan_and_the_old_one_is_still_written()
+    {
+        // Two steps (local ADR 0073 §10): read both from this build, write the new one only
+        // once no paired device runs a build without that read.
+        Assert.Equal("roadmap-plan", RoadmapReplicaDocuments.TypeOf(RoadmapReplicaDocument.Plan));
+        Assert.Equal(RoadmapReplicaDocument.Plan, RoadmapReplicaDocuments.KindOf("work-plan"));
+        Assert.Equal(RoadmapReplicaDocument.Plan, RoadmapReplicaDocuments.KindOf("roadmap-plan"));
+        Assert.Equal(RoadmapReplicaDocument.Pace, RoadmapReplicaDocuments.KindOf("planning-pace"));
     }
 
     /// <summary>The ids are written on every device and a changed one forks the plan,

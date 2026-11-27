@@ -1,5 +1,5 @@
-using Backlog.Modules.Tasks;
-using Backlog.Modules.Tasks.DomainModels;
+using Backlog.Modules.Work.Tasks;
+using Backlog.Modules.Work.Tasks.DomainModels;
 
 namespace Backlog.Tests;
 

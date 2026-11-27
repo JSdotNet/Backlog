@@ -2,9 +2,9 @@
 
 ```meta
 date: 2026-10-03
-related: [".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/domain/roadmap/context.md#story-points-a-week", ".devbook/domain/roadmap/features.md#placing-a-plan-in-time", ".devbook/domain/roadmap/features.md#carrying-the-pace-with-the-person", ".devbook/domain/roadmap/features.md#reading-the-near-term-closely", ".devbook/domain/roadmap/domain.md#working-week", ".devbook/domain/roadmap/dependencies.md", ".devbook/domain/productivity/context.md#working-week", ".devbook/domain/productivity/features.md#personal-productivity-dashboard", ".devbook/domain/productivity/features.md#personal-productivity-dashboard", ".devbook/domain/sessions/domain.md", ".devbook/domain/sessions/domain.md#activity-window"]
-c4: [backlog.desktop.roadmap]
-c4-touches: [backlog.desktop.dashboard, backlog.desktop.sessions, backlog.cloud]
+related: [".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/domain/work/context.md#story-points-a-week", ".devbook/domain/work/features.md#placing-a-plan-in-time", ".devbook/domain/work/features.md#carrying-the-pace-with-the-person", ".devbook/domain/work/features.md#reading-the-near-term-closely", ".devbook/domain/work/domain.md#working-week", ".devbook/domain/work/dependencies.md", ".devbook/domain/work/context.md#working-week", ".devbook/domain/insights/features.md#personal-productivity-dashboard", ".devbook/domain/insights/features.md#personal-productivity-dashboard", ".devbook/domain/sessions/domain.md", ".devbook/domain/sessions/domain.md#activity-window"]
+c4: [backlog.desktop.work]
+c4-touches: [backlog.desktop.insights, backlog.desktop.sessions, backlog.cloud]
 ```
 
 The roadmap places an effort-sized window by counting the person's working
@@ -109,7 +109,7 @@ is worked or not, and has its own start and end. `WorkingHoursSettingsStore`
 keeps it per device in `working-hours.json`. The default is Monday to Friday,
 09:00 to 17:30, which is 42.5 hours. Today it only outlines hours on the
 dashboard's hour grids
-([Working week](../../domain/productivity/context.md#working-week)).
+([Working week](../../domain/work/context.md#working-week)).
 
 **Placement counts calendar days.** A window's length is effort × 7 ÷ the pace,
 rounded up, in calendar days (ADR 0013, Deviations of 2026-09-25). A pace of 5
@@ -475,7 +475,7 @@ flowchart TD
 ```
 
 The Dashboard, in the Productivity context
-([Personal productivity dashboard](../../domain/productivity/features.md#personal-productivity-dashboard)),
+([Personal productivity dashboard](../../domain/insights/features.md#personal-productivity-dashboard)),
 gains an **"Hours worked"** part. Per
 day and per week, over the period the dashboard's own period selector picks, it
 shows the actual hours split into **inside office hours** and **outside office

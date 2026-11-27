@@ -69,6 +69,6 @@ Exporter endpoints come from environment variables, never from code.
   `sync.push_tasks`, `sync.pull_tasks`, and the `backlog.sync.cursor_rejected`
   counter tagged by the reason a cursor was refused. No handler outside the Sync
   module starts an activity, and no business KPI is counted anywhere.
-- `IActivitySource` in `Backlog.Modules.Dashboard.Abstractions` is **not**
+- `IActivitySource` in `Backlog.Modules.Insights.Abstractions` is **not**
   OpenTelemetry: it is a domain port over sources of developer activity, such as
   GitHub. The name collision is unfortunate; do not wire one to the other.

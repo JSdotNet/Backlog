@@ -1,6 +1,6 @@
 using Backlog.Infrastructure.Sqlite;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
-using Backlog.Modules.Tasks;
+using Backlog.Modules.Work.Tasks;
 using Backlog.Tests;
 
 namespace Backlog.Infrastructure.Sync.UnitTests;

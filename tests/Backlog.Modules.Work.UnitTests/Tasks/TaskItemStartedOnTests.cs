@@ -1,0 +1,155 @@
+using Backlog.Modules.Work.Abstractions.Tasks;
+using Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects;
+using Backlog.Modules.Work.Tasks.DomainModels;
+using Backlog.Modules.Work.Tasks.Features.SaveTaskFromText;
+using Backlog.SharedKernel.Results;
+
+namespace Backlog.Modules.Work.Tasks.UnitTests;
+
+/// <summary>
+/// <see cref="TaskItem.StartedOn"/> records the local day work first moved to
+/// In progress, and is never moved once set.
+/// <para>
+/// The aggregate half is driven directly, against a date the test names: the
+/// aggregate reads no clock, so the first-in-progress rule is pinned without
+/// one. The save half goes through the real save use case, because what matters
+/// there is the order in which the parsed token and the status land — a
+/// <c>started:</c> token in the text wins, and a text with none still gets
+/// stamped by the status change — and that the use case hands the aggregate the
+/// local date.
+/// </para>
+/// </summary>
+public sealed class TaskItemStartedOnTests
+{
+    /// <summary>The day the aggregate half says it is. Deliberately not today, so
+    /// a stamp read off a real clock cannot pass for it.</summary>
+    private static readonly DateOnly Day = new(2025, 3, 14);
+
+    private static readonly DateOnly NextDay = Day.AddDays(1);
+
+    private static DateOnly Today => DateOnly.FromDateTime(DateTime.Now);
+
+    [Fact]
+    public void A_new_entry_has_not_started()
+    {
+        var entry = new TaskItem("Title", string.Empty, EntryType.Task);
+
+        Assert.Null(entry.StartedOn);
+    }
+
+    [Fact]
+    public void Moving_to_in_progress_stamps_the_day_it_is_given()
+    {
+        var entry = new TaskItem("Title", string.Empty, EntryType.Task);
+
+        entry.ChangeStatus(EntryStatus.Ready, Day);
+        Assert.Null(entry.StartedOn);
+
+        entry.ChangeStatus(EntryStatus.InProgress, Day);
+        Assert.Equal(Day, entry.StartedOn);
+    }
+
+    [Fact]
+    public void Setting_the_status_to_in_progress_stamps_the_day_it_is_given()
+    {
+        var entry = new TaskItem("Title", string.Empty, EntryType.Task);
+
+        entry.SetStatus(EntryStatus.InProgress, Day);
+
+        Assert.Equal(Day, entry.StartedOn);
+    }
+
+    [Theory]
+    [InlineData(EntryStatus.Draft)]
+    [InlineData(EntryStatus.Ready)]
+    [InlineData(EntryStatus.Done)]
+    [InlineData(EntryStatus.Archived)]
+    public void Other_statuses_do_not_stamp(EntryStatus status)
+    {
+        var entry = new TaskItem("Title", string.Empty, EntryType.Task);
+
+        entry.SetStatus(status, Day);
+
+        Assert.Null(entry.StartedOn);
+    }
+
+    /// <summary>Out of progress on one day and back in on the next started on
+    /// the first day, not the second — through either status path.</summary>
+    [Fact]
+    public void Leaving_in_progress_and_coming_back_on_a_later_day_keeps_the_first_day()
+    {
+        var entry = new TaskItem("Title", string.Empty, EntryType.Task);
+
+        entry.ChangeStatus(EntryStatus.Ready, Day);
+        entry.ChangeStatus(EntryStatus.InProgress, Day);
+        entry.ChangeStatus(EntryStatus.Ready, NextDay);
+        entry.ChangeStatus(EntryStatus.InProgress, NextDay);
+        Assert.Equal(Day, entry.StartedOn);
+
+        entry.SetStatus(EntryStatus.Draft, NextDay);
+        entry.SetStatus(EntryStatus.InProgress, NextDay);
+        Assert.Equal(Day, entry.StartedOn);
+    }
+
+    /// <summary>Back to Ready and in again started on the first day, not the
+    /// second — and neither status path moves a date already carried.</summary>
+    [Fact]
+    public void The_first_start_is_kept_through_a_round_trip_out_of_and_back_into_progress()
+    {
+        var first = new DateOnly(2026, 9, 2);
+        var entry = new TaskItem("Title", string.Empty, EntryType.Task);
+        entry.SetStartedOn(first);
+
+        entry.ChangeStatus(EntryStatus.Ready, Day);
+        entry.ChangeStatus(EntryStatus.InProgress, Day);
+        Assert.Equal(first, entry.StartedOn);
+
+        entry.SetStatus(EntryStatus.Draft, Day);
+        entry.SetStatus(EntryStatus.InProgress, Day);
+        Assert.Equal(first, entry.StartedOn);
+    }
+
+    [Fact]
+    public async Task Saving_text_that_moves_an_entry_in_progress_stamps_it_with_the_local_date()
+    {
+        var store = new InMemoryTaskRepository();
+        var id = await Save(store, null, "# Title\n`task` `!ready`\n");
+        Assert.Null(store.Entries[id].StartedOn);
+
+        await Save(store, id, "# Title\n`task` `!in-progress`\n");
+
+        Assert.Equal(Today, store.Entries[id].StartedOn);
+    }
+
+    [Fact]
+    public async Task Creating_an_entry_already_in_progress_stamps_it_with_the_local_date()
+    {
+        var store = new InMemoryTaskRepository();
+
+        var id = await Save(store, null, "# Title\n`task` `!in-progress`\n");
+
+        Assert.Equal(Today, store.Entries[id].StartedOn);
+    }
+
+    [Fact]
+    public async Task A_started_token_in_the_text_is_kept_over_the_automatic_stamp()
+    {
+        var store = new InMemoryTaskRepository();
+
+        var created = await Save(store, null, "# Title\n`task` `!in-progress` `started:2026-09-02`\n");
+        Assert.Equal(new DateOnly(2026, 9, 2), store.Entries[created].StartedOn);
+
+        var updated = await Save(store, null, "# Other\n`task` `!ready`\n");
+        await Save(store, updated, "# Other\n`task` `!in-progress` `started:2026-08-30`\n");
+        Assert.Equal(new DateOnly(2026, 8, 30), store.Entries[updated].StartedOn);
+    }
+
+    private static async Task<Guid> Save(InMemoryTaskRepository store, Guid? id, string rawText)
+    {
+        var result = await new SaveTaskFromTextCommandHandler(store, new FakeRepositoryDirectory())
+            .Handle(new SaveTaskFromTextCommand(id, rawText, 0));
+
+        var ok = Assert.IsType<Ok<SavedTaskDto>>(result.Value);
+        return ok.Value.Entry.Id;
+    }
+}

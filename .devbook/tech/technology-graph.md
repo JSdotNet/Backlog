@@ -2,7 +2,7 @@
 
 ```meta
 rating: adopted
-related: [".devbook/arc42/04-solution-strategy.md#technology-choices", ".devbook/arc42/07-deployment-view.md", ".devbook/arc42/09-architecture-decisions.md", ".devbook/domain/devbook/features.md#technology-view"]
+related: [".devbook/arc42/04-solution-strategy.md#technology-choices", ".devbook/arc42/07-deployment-view.md", ".devbook/arc42/09-architecture-decisions.md", ".devbook/domain/devbook/features.md#technology-view", ".devbook/arc42/adr/0073-the-bounded-contexts-are-redrawn.md"]
 ```
 
 > The root view of `.devbook/tech`: which technologies this project is built with,
@@ -420,6 +420,18 @@ project. They fall into five groups:
 | `adopted` | In active use and the default choice for its role |
 | `hold` | Kept but no longer expanded; avoid new usage |
 | `retired` | No longer used; kept for history |
+
+The ladder and each chapter's `version` are this repository's technology policy.
+No bounded context keeps a baseline beside them (local ADR 0073 §5):
+
+- **An approved version** is the chapter's `version`: the one the repository
+  builds on, or the one it moves to next.
+- **A deprecation** is `hold`: kept, with nothing new built on it. The chapter
+  names what replaces it and links the decision record. `retired` ends it.
+
+Repositories reads these ratings from every registered repository's
+devbook for its
+[portfolio technology adoption](../domain/repositories/features.md#portfolio-technology-adoption).
 
 ## AI development vocabulary
 

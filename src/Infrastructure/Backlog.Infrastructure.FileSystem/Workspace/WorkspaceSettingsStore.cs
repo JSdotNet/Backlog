@@ -1164,10 +1164,11 @@ public sealed class WorkspaceSettingsStore : IRepositoryAliasKeyedStore
     }
 
     /// <summary>The scopes of <paramref name="scopes"/> the Unauthenticated row offers, once each,
-    /// in <see cref="McpScopes.All"/>'s order.</summary>
+    /// in <see cref="McpScopes.All"/>'s order. A row saved under a scope's old name (local ADR
+    /// 0073 §10) holds it under its new one.</summary>
     private static IReadOnlyList<string> OfferableUnauthenticated(IEnumerable<string?> scopes)
     {
-        var held = scopes.OfType<string>().ToHashSet(StringComparer.Ordinal);
+        var held = McpScopes.Resolve(scopes.OfType<string>()).ToHashSet(StringComparer.Ordinal);
         return [.. McpScopes.UnauthenticatedOfferable.Where(held.Contains)];
     }
 

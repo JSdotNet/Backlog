@@ -1,7 +1,7 @@
-using Backlog.Modules.Roadmap.Abstractions;
-using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
-using Backlog.Modules.Roadmap.Abstractions.Services;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Plans;
+using Backlog.Modules.Work.Abstractions.Plans.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Plans.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 
 using Microsoft.Extensions.Time.Testing;
 
@@ -49,7 +49,7 @@ public class RoadmapToolsTests
 
         var tools = new RoadmapTools(new FakeRoadmapPlanning(plan), new FakeRepositoryDirectory([Backlog, Other]));
 
-        var answer = await tools.GetRoadmapAsync("JSdotNet/Backlog", TestContext.Current.CancellationToken);
+        var answer = await tools.GetPlannedWorkAsync("JSdotNet/Backlog", TestContext.Current.CancellationToken);
 
         Assert.Equal(["Ours"], answer.Items.Select(item => item.Title));
 
@@ -62,6 +62,13 @@ public class RoadmapToolsTests
         var contradiction = Assert.Single(answer.Contradictions);
         Assert.Equal(mine, contradiction.NodeId);
         Assert.Equal(release, contradiction.DependsOnId);
+
+        // get_roadmap, the tool's name before the Work merge (local ADR 0073 §10), is an
+        // alias: it answers exactly what get_planned_work answers.
+        var alias = await tools.GetRoadmapAsync("JSdotNet/Backlog", TestContext.Current.CancellationToken);
+        Assert.Equal(answer.Items.Select(item => item.Title), alias.Items.Select(item => item.Title));
+        Assert.Equal(answer.Milestones.Select(milestone => milestone.Title), alias.Milestones.Select(milestone => milestone.Title));
+        Assert.Equal(answer.Contradictions, alias.Contradictions);
     }
 
     /// <summary>Tuesday 1 September 2026 — the day the windows below are read on.</summary>
@@ -85,7 +92,7 @@ public class RoadmapToolsTests
             new GlobalPace(7m),
             OnFirstSeptember());
 
-        var answer = await tools.GetRoadmapAsync("JSdotNet/Backlog", TestContext.Current.CancellationToken);
+        var answer = await tools.GetPlannedWorkAsync("JSdotNet/Backlog", TestContext.Current.CancellationToken);
 
         // 14 points at 7 a week: two weeks from 1 September.
         var drawn = Assert.Single(answer.Items, item => item.Title == "Sized");
@@ -111,7 +118,7 @@ public class RoadmapToolsTests
             new GlobalPace(7m),
             OnFirstSeptember());
 
-        var answer = await tools.GetRoadmapAsync("JSdotNet/Backlog", TestContext.Current.CancellationToken);
+        var answer = await tools.GetPlannedWorkAsync("JSdotNet/Backlog", TestContext.Current.CancellationToken);
 
         // Theirs runs 1 to 14 September; mine the two weeks after.
         var drawn = Assert.Single(answer.Items);
@@ -153,7 +160,7 @@ public class RoadmapToolsTests
         var tools = new RoadmapTools(new FakeRoadmapPlanning(RoadmapPlanDto.Empty), directory);
 
         var failure = await Assert.ThrowsAsync<McpException>(() =>
-            tools.GetRoadmapAsync("JSdotNet/Nowhere", TestContext.Current.CancellationToken));
+            tools.GetPlannedWorkAsync("JSdotNet/Nowhere", TestContext.Current.CancellationToken));
 
         Assert.Contains("repository.not_found", failure.Message, StringComparison.Ordinal);
         Assert.Empty(directory.Registered);

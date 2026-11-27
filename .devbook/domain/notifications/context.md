@@ -33,7 +33,7 @@ Outside it:
   envelope: kind, severity, title, summary, and whether the
   notification is private.
 - the device identity. The owner instance is the shared kernel's
-  [Device](../tasks/domain.md#device).
+  [Device](../work/domain.md#device).
 
 ```mermaid
 flowchart LR
@@ -226,6 +226,14 @@ published, pushed to the phone, answered with the answer and its device
 (or acknowledged, for the alert), and closed. **Clear test** closes the test, as does sending a new one. The push row reads *not reported*, because the phone push
 carries no delivery receipt.
 
+## Over MCP
+
+Agents reach this context through the [MCP channel](../../arc42/05-building-block-view.md#mcp-channel), `Backlog.Infrastructure.Mcp` (local ADRs 0012, 0073 §6).
+
+- `NotificationTools`: `notify`, `ask`, `get_answer` and `close`, behind the `notifications` flag.
+
+The channel's own `ChangeTools` publishes its restore proposal through this context's port, as any other source does.
+
 ## Dependencies
 
 Notifications is downstream of Sync and upstream of every context that publishes.
@@ -237,7 +245,7 @@ contract, as an open host service.
 | Depends on (context/module) | DDD pattern | Integration mechanism | Contract | Why |
 |---|---|---|---|---|
 | [Sync](../sync/context.md) | Conformist (Notifications = conformist) | A notification exchange in `Backlog.Infrastructure.Sync`, and the phone's device outbox | The replica protocol in `Backlog.Modules.Sync.Abstractions`; local ADR 0039 | Notifications and replies reach every paired device. |
-| Shared kernel device identity | Conformist | `DeviceIdentity` in `Backlog.SharedKernel` | `.devbook/domain/tasks/domain.md#device` | The owner instance is named by the device that published the notification. |
+| Shared kernel device identity | Conformist | `DeviceIdentity` in `Backlog.SharedKernel` | `.devbook/domain/work/domain.md#device` | The owner instance is named by the device that published the notification. |
 
 - **Sync, the exchange.** The exchange pushes to the `notifications` container and
   takes replies from `notificationReplies`. The push preview travels on each
@@ -253,7 +261,7 @@ contract, as an open host service.
 | MCP server (`Backlog.Infrastructure.Mcp`) | OHS + Published Language (Notifications = supplier) | `notify` and `ask` publish as source `mcp`; `get_answer` and `close` read and withdraw | `Backlog.Modules.Notifications.Abstractions` | `ask` answers the id at once and never waits. |
 | [Sync](../sync/context.md) | OHS + Published Language (Notifications = supplier) | Publishes "Pair *device name*?", and `PairingAnswers` for the `sync` source; closes by subject | `Backlog.Modules.Notifications.Abstractions` | Allow keeps the device. Refuse revokes it once Windows Hello confirms; an unconfirmed Refuse keeps it and raises an alert. |
 | [Devbook](../devbook/context.md) | OHS + Published Language (Notifications = supplier) | Publishes an info alert when a remark left on another device syncs in | `Backlog.Modules.Notifications.Abstractions` | The alert links to the chapter. |
-| [Tasks](../tasks/domain.md#task) | OHS + Published Language (Notifications = supplier) | Closes by subject when a task ends, here or synced in; answers the startup probe | `Backlog.Modules.Notifications.Abstractions` | A question about a finished task is closed on every device. |
+| [Work](../work/domain.task.md#task) | OHS + Published Language (Notifications = supplier) | Closes by subject when a task ends, here or synced in; answers the startup probe | `Backlog.Modules.Notifications.Abstractions` | A question about a finished task is closed on every device. |
 
 - **Sessions.** It closes by subject when a
   session is archived or deleted, a run finishes, or a pull request merges or
@@ -262,7 +270,7 @@ contract, as an open host service.
   probe for all three, and asks it again every five minutes about the runs an open
   validation question is about. It reads a pull request's state (open, draft,
   merged or closed) through `ISessionPullRequestStates`, which the desktop shell
-  implements over Repository Management's `IPullRequests` (local ADR 0042). A choice's text reaches
+  implements over Repositories' `IPullRequests` (local ADR 0042). A choice's text reaches
   the handler with the answer. Closing by subject also closes the MCP tools'
   notifications about a session.
 - **MCP server, publishing.** `notify` and `ask` publish keyed by the call. A

@@ -1,7 +1,7 @@
-using Backlog.Desktop.UI.Goals;
-using Backlog.Infrastructure.FileSystem.Progress;
+using Backlog.Desktop.UI.ShellGoals;
+using Backlog.Infrastructure.FileSystem.Goals;
 using Backlog.Infrastructure.GitHub;
-using Backlog.Modules.Progress.Abstractions;
+using Backlog.Modules.Goals.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 
@@ -9,7 +9,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// One cache for every reader of a pull request (local ADR 0042 §3, V3): a task's side
-/// panel and the Goals view read the same pull request through Repository Management's
+/// panel and the Goals view read the same pull request through Repositories'
 /// contract, composed as the hosts compose it over one GitHub client that counts what it
 /// is sent — and within the minute GitHub is asked about it once.
 /// </summary>
@@ -28,9 +28,9 @@ public sealed class PullRequestOneCacheTests
         host.Client.PullRequestsByNumber.Add(new PullRequestByNumber(
             656, $"https://github.com/{Repository}/pull/656", "Pull request 656", Repository, GitHubItemState.Closed, "octocat", null));
         var clock = new FakeTimeProvider(Noon);
-        var contract = RepositoryManagementChain.For(host.GitHub, clock);
+        var contract = RepositoriesChain.For(host.GitHub, clock);
         var sidePanel = new WorkInProgressReader(contract, new StubSessionSource(), clock, () => [new(Repository, 656), new(Repository, 700)]);
-        var goals = new RepositoryManagementGoalPullRequests(() => contract);
+        var goals = new RepositoriesGoalPullRequests(() => contract);
 
         await sidePanel.ReadAsync();
         await sidePanel.LinkedRead;
@@ -38,7 +38,7 @@ public sealed class PullRequestOneCacheTests
         var answer = await goals.ReadAsync([new(Repository, "656"), new(Repository, "700")], TestContext.Current.CancellationToken);
 
         // The side panel's open read answered for 700, its read by number for 656, and
-        // Progress asked GitHub about neither again.
+        // Goals asked GitHub about neither again.
         Assert.Equal([$"{Repository} 656"], host.Client.PinnedReadByNumber);
         Assert.Equal([LinkedPullRequestState.Closed, LinkedPullRequestState.Open], answer.Select(pull => pull.State));
         Assert.Equal(656, Assert.Single(sidePanel.LinkedPullRequests).Number);
@@ -53,9 +53,9 @@ public sealed class PullRequestOneCacheTests
         host.Client.PullRequestsByNumber.Add(new PullRequestByNumber(
             656, $"https://github.com/{Repository}/pull/656", "Pull request 656", Repository, GitHubItemState.Closed, "octocat", null));
         var clock = new FakeTimeProvider(Noon);
-        var contract = RepositoryManagementChain.For(host.GitHub, clock);
+        var contract = RepositoriesChain.For(host.GitHub, clock);
         var sidePanel = new WorkInProgressReader(contract, new StubSessionSource(), clock, () => [new(Repository, 656)]);
-        var goals = new RepositoryManagementGoalPullRequests(() => contract);
+        var goals = new RepositoriesGoalPullRequests(() => contract);
 
         await sidePanel.ReadAsync();
         await sidePanel.LinkedRead;

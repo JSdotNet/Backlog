@@ -3,7 +3,7 @@ using System.Collections.Concurrent;
 using Backlog.Infrastructure.Devbook.Building;
 using Backlog.Infrastructure.Devbook.Scenarios;
 using Backlog.Modules.Devbook.Abstractions;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.SharedKernel;
 using Backlog.SharedKernel.Markdown;
 

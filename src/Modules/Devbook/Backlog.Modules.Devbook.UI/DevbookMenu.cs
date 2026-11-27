@@ -53,22 +53,18 @@ public sealed partial class DevbookMenu(IDevbookFolderSource source)
     /// (<c>domain</c>, <c>design</c>, <c>ai</c>) and none of the pane's
     /// repository special cases reaches it. The value is stored in the pane's
     /// navigation state and stays <c>brain/</c>.</summary>
-    public const string PersonalTabPrefix = "brain/";
+    public const string PersonalTabPrefix = DevbookTabKeys.PersonalTabPrefix;
 
     /// <summary>The key of the personal tab over <paramref name="folder"/>:
     /// <c>brain/work</c> for <c>work</c>.</summary>
     public static string PersonalTabKey(string folder)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(folder);
-        return PersonalTabPrefix + folder.ToLowerInvariant();
+        return DevbookTabKeys.PersonalTabKey(folder);
     }
 
     /// <summary>Whether <paramref name="tabKey"/> names a personal tab rather
     /// than a repository folder.</summary>
-    public static bool IsPersonalTabKey(string? tabKey) =>
-        tabKey is not null
-        && tabKey.Length > PersonalTabPrefix.Length
-        && tabKey.StartsWith(PersonalTabPrefix, StringComparison.Ordinal);
+    public static bool IsPersonalTabKey(string? tabKey) => DevbookTabKeys.IsPersonalTabKey(tabKey);
 
     /// <summary>
     /// The rail over the personal devbook — the Brain (local ADR 0040 §2): one
@@ -390,16 +386,7 @@ public sealed partial class DevbookMenu(IDevbookFolderSource source)
         }
     }
 
-    internal static string AreaKey(string folderKey) => folderKey.ToLowerInvariant() switch
-    {
-        ".domain" => "domain",
-        ".arc42" => "arc42",
-        ".tech" => "tech",
-        ".design" => "design",
-        ".ai" => "ai",
-        "instructions" => "instructions",
-        _ => folderKey.TrimStart('.').ToLowerInvariant()
-    };
+    internal static string AreaKey(string folderKey) => DevbookTabKeys.AreaKey(folderKey);
 
     /// <summary>
     /// One level of the rail in reading order: the entries in the order the

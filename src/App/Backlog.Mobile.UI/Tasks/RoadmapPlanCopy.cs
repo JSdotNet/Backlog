@@ -94,7 +94,7 @@ public sealed record RoadmapPlanCopy(DateTimeOffset UpdatedAt, long ServerTimest
         foreach (var record in records)
         {
             var change = record.Change;
-            if (!string.Equals(change.Task.Type, TaskFold.RoadmapPlanType, StringComparison.Ordinal)) continue;
+            if (!TaskFold.IsRoadmapPlan(change.Task.Type)) continue;
             if (change.DeletedAt is not null || !IsReadable(change.Task.ContentMd)) continue;
 
             var incoming = new RoadmapPlanCopy(change.UpdatedAt, record.ServerTimestamp, change.Task.ContentMd);

@@ -1,7 +1,7 @@
 using System.ComponentModel;
 
 using Backlog.Modules.Sessions.Abstractions;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 
 using ModelContextProtocol.Server;
 

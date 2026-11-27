@@ -2,7 +2,7 @@ using System.Threading.Channels;
 
 using Backlog.Infrastructure.SpecManager.OAuth;
 using Backlog.Modules.Notifications.Abstractions;
-using Backlog.Modules.Tasks.Abstractions.Connectors;
+using Backlog.Modules.Work.Abstractions.Tasks.Connectors;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;

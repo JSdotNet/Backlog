@@ -31,9 +31,12 @@ public class ProcessLaunchTests
     /// <item><c>CopilotCliLauncher.cs</c> — launches the interactive Copilot CLI,
     /// where the terminal is the point. It is not redirected and not read: the
     /// window it opens is the thing the user was handed.</item>
+    /// <item><c>ConsoleEnvironmentCommandRunner.cs</c> — runs an environment's
+    /// command (local ADR 0073 §3) in a console of its own, so the person sees what
+    /// it prints and closes it themselves. Not redirected and not read.</item>
     /// </list>
     /// </summary>
-    private static readonly string[] AllowedConsoleWindows = ["CopilotCliLauncher.cs"];
+    private static readonly string[] AllowedConsoleWindows = ["CopilotCliLauncher.cs", "ConsoleEnvironmentCommandRunner.cs"];
 
     /// <summary>How far past the <c>new ProcessStartInfo</c> the object
     /// initializer is read before giving up looking for its closing brace. Every

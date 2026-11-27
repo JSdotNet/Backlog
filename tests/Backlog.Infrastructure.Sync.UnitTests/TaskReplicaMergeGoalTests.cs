@@ -1,11 +1,11 @@
-using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
-using Backlog.Modules.Progress.Abstractions.Services;
+using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
+using Backlog.Modules.Goals.Abstractions.Services;
 using Backlog.SharedKernel.Replication;
 
 namespace Backlog.Infrastructure.Sync.UnitTests;
 
 /// <summary>
-/// A <c>goal</c> document is not a task (local ADR 0035 §9). It goes to Progress's goal
+/// A <c>goal</c> document is not a task (local ADR 0035 §9). It goes to Goals' goal
 /// replication port whole — its id, its text and its stamp — never to the task store, and
 /// how it is counted follows what the port said.
 /// </summary>

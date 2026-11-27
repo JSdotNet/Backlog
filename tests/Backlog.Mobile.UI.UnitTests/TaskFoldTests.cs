@@ -132,6 +132,7 @@ public sealed class TaskFoldTests
     /// <summary>ADR 0018 Verification 8: the phone never lists the roadmap's two
     /// documents, so its view store keeps no row for either.</summary>
     [Theory]
+    [InlineData("work-plan")]
     [InlineData("roadmap-plan")]
     [InlineData("planning-pace")]
     public void A_roadmap_document_is_never_a_row(string type)

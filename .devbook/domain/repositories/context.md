@@ -1,0 +1,67 @@
+# Repositories
+
+```meta
+index: root
+type: context
+related: [.devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md]
+```
+
+Repositories maintains a [registry](domain.md#repository-registry) of development repositories and tracks their health across the portfolio, so outdated or at-risk repositories surface without manual investigation. Health covers:
+
+- package versions and dependencies;
+- the technology stack;
+- GitHub issues and pull requests;
+- a computed health score.
+
+It also owns the state of the registered repositories' pull requests:
+
+- each one's [status](domain.md#pull-request-status);
+- its [readiness verdict](domain.md#readiness-verdict);
+- the stack it sits in;
+- the [merge commands](domain.md#merge-command) that act on it.
+
+A pull request is a fact about a registered repository. This context already decides which repositories are read from GitHub, and with which account. Health counts the open pull requests of a repository; readiness says what each one waits on. Both come from the same reads. Local [ADR 0042](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#1-repository-management-owns-pull-request-state) widens the subject this way.
+
+It reads each registered repository's technologies, their ratings and approved versions from that repository's devbook `tech/` folder, through [Devbook](../devbook/context.md)'s reader, for [portfolio technology adoption](features.md#portfolio-technology-adoption) (local ADR 0073 §5). The registry is built; scanning, health scoring and that read are planned.
+
+It holds each repository's named [environments](domain.md#environment) — its local harness, development, staging and production, its dashboards — each with a launch link, and a [no-repository group](domain.md#no-repository-group) for a destination no repository owns ([Environment quick access](features.md#environment-quick-access)). Environment folded into this context, which was renamed Repositories from Repository Management (local [ADR 0073 §3](../../arc42/adr/0073-the-bounded-contexts-are-redrawn.md#3-repositories)). Environments are built: the module keeps their rules, `environments.json` keeps them per device beside `github.json`, and Settings → Repositories shows each repository's on its card and the no-repository group's on a card of its own. This context stores no credential for one, only where it is kept.
+
+Pull request state is built in this context's module, `Backlog.Modules.Repositories` (local ADR 0073 §3). Its `.Abstractions` project holds the contract every reader uses, and the rules every screen shares:
+
+- the readiness verdict;
+- the stacks;
+- which merge a pull request is offered;
+- the label filter.
+
+The module holds the one cache and the merge commands. The pull requests pane's markup and status lines stay in the desktop shell and read that contract.
+
+No feature flag gates [archiving a repository](features.md#archiving-a-repository): it is a registry edit like a rename, so it is there wherever the repository list is.
+
+Outside it:
+
+| Concern | Answered by |
+| --- | --- |
+| A technology's rating and its approved version | The repository's own devbook `tech/` folder, read through [Devbook](../devbook/context.md) |
+| The work items a finding turns into, and which task a session or pull request belongs to | [Work](../work/domain.task.md#task) |
+| Which session opened a pull request | [Sessions](../sessions/context.md) |
+| Where an agent session ran, which Sessions also calls an [Environment](../sessions/domain.md#environment) | [Sessions](../sessions/context.md) |
+| An environment's credential | The credential store an [Access Hint](domain.md#access-hint) names |
+| The goal a pull request counts toward | [Goals](../goals/context.md) |
+| The history of merged work the dashboard counts | [Insights](../insights/features.md#personal-productivity-dashboard), which reads it on its own |
+
+## Pull requests
+
+```meta
+type: feature-flag
+key: pull-requests
+related: [".devbook/domain/repositories/features.md#pull-request-readiness", ".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md"]
+tests: [unit:dotnet:Backlog.Modules.Repositories.UnitTests.RepositoriesFeaturesTests.The_pull_requests_key_keeps_the_value_it_was_stored_under]
+```
+
+With the `pull-requests` flag on, the shell offers the pull requests pane, with its lanes, detail panel and acts. Off, the pane is not offered, and a task's side panel names only sessions under its linked work.
+
+The flag is marked `DEV` in the feature catalog in `AppFeatures.cs`, the settings screen's mark for a feature still under construction ([Feature Enablement](../../arc42/08-crosscutting-concepts.md#feature-enablement)). A person's choice is kept in `features.json` beside the app's other per-device choices. The key is declared as `RepositoriesFeatures.PullRequests` in this context's `.Abstractions` project. Local [ADR 0042](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#7-the-flag-pull-requests-moves-owner-and-keeps-its-key) moved the declaration here from `SessionFeatures` and kept the key, so a stored choice still applies. It is retired when the pane leaves `DEV`.
+
+## Over MCP
+
+This context has no tool group on the [MCP channel](../../arc42/05-building-block-view.md#mcp-channel), `Backlog.Infrastructure.Mcp` (local ADRs 0012, 0073 §6). A tool's `repository` argument is resolved against the registered repositories and never registers one (local ADR 0012 §4).

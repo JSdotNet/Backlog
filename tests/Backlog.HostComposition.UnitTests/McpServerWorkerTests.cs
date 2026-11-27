@@ -716,7 +716,7 @@ public sealed class McpServerWorkerTests : IDisposable
         await ListeningAsync(worker, settings.McpServerPort);
 
         using var client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{settings.McpServerPort}") };
-        var grant = grants.Create("Claude Code", ["tasks:read"], "jobsc");
+        var grant = grants.Create("Claude Code", ["work:read"], "jobsc");
         var token = tokens.Mint(grant.Id).Token!.Value;
 
         using (var response = await client.SendAsync(Rpc("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}", token), TestContext.Current.CancellationToken))
@@ -906,7 +906,7 @@ public sealed class McpServerWorkerTests : IDisposable
         var tokens = new McpGrantTokens(grants, TimeProvider.System);
         var services = new GatedProvider(new ServiceCollection().AddSingleton(tokens).BuildServiceProvider());
         var settings = Settings(FreePort());
-        Assert.Null(settings.SetMcpServerUnauthenticatedScopes([McpScopes.NotifyAsk, McpScopes.TasksRead]));
+        Assert.Null(settings.SetMcpServerUnauthenticatedScopes([McpScopes.NotifyAsk, McpScopes.WorkRead]));
 
         using var worker = new McpServerWorker(services, settings);
         await ListeningAsync(worker, settings.McpServerPort);

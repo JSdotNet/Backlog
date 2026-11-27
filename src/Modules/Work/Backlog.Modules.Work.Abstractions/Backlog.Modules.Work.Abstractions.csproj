@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Work module's public surface — everything a host or another module is
+    allowed to see (ADR 0005, ADR 0009), one folder per aggregate:
+      Tasks/   Backlog.Modules.Work.Abstractions.Tasks
+               DataTransferObjects/  what a caller receives instead of the task
+               EntryTextParser       the entry text format, this context's published
+                                     language (.devbook/domain/work); pure text in, text out
+               Enums                 the vocabulary those DTOs and that text are written in
+               TaskEntryErrorCodes   the error codes a host must branch on rather than
+                                     merely show (guideline 0004)
+      Plans/   Backlog.Modules.Work.Abstractions.Plans
+               DataTransferObjects/  what a caller receives instead of the plan
+               Services/             IRoadmapPlanning, the one port a host calls, and the
+                                     ports the plan asks outward through
+               RoadmapFeatures       the feature key the shell gates the band on
+    The aggregates, their repository ports, and the use-case handlers stay in the
+    implementation project. Nothing here may reference it, or anything else in
+    the solution beyond the shared kernel.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Backlog.Modules.Work.Abstractions</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The text format is worth testing directly rather than only through
+         whatever happens to call it. -->
+    <InternalsVisibleTo Include="Backlog.Modules.Work.UnitTests" />
+  </ItemGroup>
+
+</Project>

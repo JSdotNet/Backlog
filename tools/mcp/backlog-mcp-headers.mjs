@@ -102,7 +102,7 @@ export function parseArgs(argv) {
     }
     if ("register" in options) {
         if (!options.register) throw new Error("--register needs the agent's name, as in --register \"Claude Code · Backlog\".");
-        if (!options.scopes?.length) throw new Error("--register needs --scopes, as in --scopes tasks:read,devbook:read.");
+        if (!options.scopes?.length) throw new Error("--register needs --scopes, as in --scopes work:read,devbook:read.");
         if (options.grant) throw new Error("--register makes a new grant, so it takes no --grant.");
     } else if ("scopes" in options) throw new Error("--scopes goes with --register.");
     return options;

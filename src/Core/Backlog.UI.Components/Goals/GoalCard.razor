@@ -1,0 +1,659 @@
+@*
+    One goal in the Goals view (.devbook/domain/goals/features.md#the-goals-view).
+    Folded, it is one row: the title, the stacked bar, "5/6 · due 23 Oct" — or "due 23 Oct
+    (end of iteration)" for a goal without a due date of its own — and its forecast badge,
+    and a chevron at its end that points down folded and up open. A press
+    anywhere on that row opens the goal, or folds the open one; the title is its button,
+    which the keyboard reaches and which carries aria-expanded. Nothing in the body
+    toggles. Opened, the bar runs under the title and the goal lists what is
+    attached to it in three columns — Plan with each plan's own stacked bar and a line
+    such as "5/9 · 2 in progress · 1 blocked", Tasks with a status dot and the status in a
+    word under the title each, Pull requests with a status line each under its title when
+    one is known, the merged ones gathered on one line as pills and "merged", the title
+    their tooltip — and below them the attach search.
+
+    The attach search is the library's WorkItemSearch, drawn in this card's classes. It
+    matches the host's candidates — plans, tasks and pull requests — by
+    title, or a pull request by its number, and lists each match under its kind label.
+    A query is tried as typed and with one leading + or # dropped, since a plan is titled
+    with its bare slug and the app writes its tag as +slug; a title that holds the sigil
+    still matches as typed.
+    A query that names a pull request — #N or N, read in each of the host's Repositories,
+    owner/name#N, or its GitHub address — leads the list with it, titled with its
+    repository, even when no candidate holds it: attaching names it by identity alone.
+    Picking one hands its GoalSubject back through OnAttach and puts the focus back in the
+    search box; the host attaches it — through the GoalPicker, which
+    names the other goal and asks first, when another goal holds it — and reads the view
+    again. It is a list of matches over the view's own candidates; choosing the goal is
+    GoalPicker's.
+
+    With a host listening on OnQuickAdd, a query that is not blank ends the list with
+    "New task “‹query›”", shown even when nothing matches. Picking it hands the trimmed
+    query back; the host creates the task and attaches it. Once a task exists that did not
+    before — on the goal, or among the candidates when the attach after the create was
+    refused — the query clears and the focus goes back to the search box, as a pick does, so
+    the row cannot create the task twice; a refused create leaves the typed text. The row
+    waits while the host writes.
+
+    With a host listening on OnEdit, the open goal leads with its title, outcome and due
+    date as fields, edited in place (.devbook/design/interaction-guidelines.md
+    #auto-save-no-save-buttons): there is no Save button, a field is handed back when it
+    changes — on leaving it, on Enter, on a picked date — with the other two as stored,
+    and a value the goal already says is not handed back. Escape abandons what was typed
+    in a field and stops there (interaction-guidelines.md#task-rows). A value handed back
+    stays the field's until a reading says otherwise, so a second edit sent before the
+    first one's reading lands carries both. The module owns the rules, so a blank title or
+    a second outcome line comes back as the module's refusal in EditError, on the refused
+    field, and the field shows what the goal still says — written back onto the same
+    input, so the focus stays (the way ImpedimentRow's picker does it). The Due field holds
+    the goal's own date, empty for a goal without one: the iteration end such a goal is
+    shown due on is read, never handed back as its date. Emptying the field clears the
+    date; a date the field cannot read is not handed back, and leaving the field puts the
+    goal's date back. The date is handed back on leaving the field or Enter, never per
+    keystroke, since a date field reads 0002, 0020 and 0202 on its way to a typed year.
+    Delete goal… sits beside them and asks first, through the board's ConfirmDialog.
+    Without a listener the outcome is a line of text and nothing is editable.
+
+    With a host listening on OnDetach, each Plan, Tasks and Pull requests row the goal
+    holds itself carries an icon-only Detach, named for the item. A pull request the goal
+    holds only through one of its tasks has none: detaching the task is what lets it go.
+    Detaching changes nothing on the item, so it does not ask; the focus then waits in the
+    attach search, since the row goes with the next reading.
+
+    With a host listening on OnMove, the head row leads with a grip and carries Move up and
+    Move down before the chevron, each named for the goal; a press on any of them neither
+    opens nor folds the goal. The grip is a press origin for the library's shared pointer
+    reorder (data-reorder-grip on a data-reorder-item); the board owns the drag. Move up
+    and Move down hand -1 or +1 back, are disabled at the ends (CanMoveUp, CanMoveDown) and
+    while the host writes, and keep the focus on the button pressed — on the other one once
+    the goal has reached that end. Dragging draws the goal held set back, in the place it
+    would land.
+
+    With DropTarget the board can carry a No goal row onto the goal: the section is an item
+    of the same shared pointer reorder (data-reorder-item, with no data-draggable unless the
+    goal moves itself), so the hit test finds the whole card, folded or open. DropArmed
+    outlines it as the row's drop target (.devbook/design/interaction-guidelines.md
+    #drop-indicators); the board owns the carry and what a drop means.
+
+    The forecast badge is the forecast family of .devbook/design/color-scheme.md
+    #goal-forecast-badges: At risk takes the fault fill with its own ink as edge, On
+    track the settled fill inside the strong edge.
+*@
+@inject IJSRuntime Js
+<section class="@ClassValue"
+         aria-labelledby="@TitleId"
+         data-testid="@TestId"
+         data-expanded="@(Expanded ? "true" : "false")"
+         data-reorder-item="@(CanMove || DropTarget ? Goal.Id : null)"
+         data-draggable="@(CanMove ? "true" : null)">
+    @* The whole head row opens and folds the goal: most of a folded row is its bar, its
+       line and the space between them, not its title. The title stays the one control
+       the keyboard reaches and the one that says expanded; its press stops at itself so
+       the row does not toggle a second time. *@
+    <div class="goal-card__head" @onclick="() => OnToggle.InvokeAsync()" data-testid="@Part("head")">
+        @if (CanMove)
+        {
+            @* The grip is a press origin for the shared pointer reorder and nothing else, so
+               a press on it never opens or folds the goal; the keyboard moves the goal with
+               Move up and Move down. *@
+            <span class="goal-card__grip" data-reorder-grip aria-hidden="true" @onclick:stopPropagation="true" data-testid="@Part("grip")">⠿</span>
+        }
+        <h3 class="goal-card__title" id="@TitleId">
+            <AppButton Variant="ButtonVariant.None"
+                       BaseClass="goal-card__toggle"
+                       OnClick="() => OnToggle.InvokeAsync()"
+                       StopPropagation="true"
+                       aria-expanded="@(Expanded ? "true" : "false")"
+                       aria-controls="@(Expanded ? BodyId : null)"
+                       TestId="@Part("toggle")">@Goal.Title</AppButton>
+        </h3>
+        @if (!Expanded)
+        {
+            <GoalProgressBar Counts="Goal.Counts" CssClass="goal-card__bar" TestId="@Part("bar")" />
+        }
+        <span class="goal-card__meta" data-testid="@Part("meta")">@GoalsText.GoalLine(Goal)</span>
+        <Badge Kind="forecast" Slug="@(Goal.AtRisk ? "at-risk" : "on-track")" TestId="@Part("forecast")">@GoalsText.Forecast(Goal.AtRisk)</Badge>
+        @if (CanMove)
+        {
+            <span class="goal-card__moves" @onclick:stopPropagation="true">
+                <IconButton AriaLabel="@($"Move {Goal.Title} up")"
+                            Title="Move up"
+                            Disabled="@(Busy || !CanMoveUp)"
+                            CssClass="goal-card__move"
+                            OnClick="() => MoveAsync(-1)"
+                            id="@MoveId(-1)"
+                            TestId="@Part("move-up")">
+                    <ChevronUpIcon Size="14" />
+                </IconButton>
+                <IconButton AriaLabel="@($"Move {Goal.Title} down")"
+                            Title="Move down"
+                            Disabled="@(Busy || !CanMoveDown)"
+                            CssClass="goal-card__move goal-card__move--down"
+                            OnClick="() => MoveAsync(1)"
+                            id="@MoveId(1)"
+                            TestId="@Part("move-down")">
+                    <ChevronUpIcon Size="14" />
+                </IconButton>
+            </span>
+        }
+        <span class="@(Expanded ? "goal-card__chevron goal-card__chevron--open" : "goal-card__chevron")" aria-hidden="true" data-testid="@Part("chevron")">
+            <ChevronUpIcon />
+        </span>
+    </div>
+
+    @if (Expanded)
+    {
+        <GoalProgressBar Counts="Goal.Counts" Large="true" TestId="@Part("bar")" />
+
+        <div class="goal-card__body" id="@BodyId">
+            @if (CanEdit)
+            {
+                <div class="goal-card__details" data-testid="@Part("details")">
+                    <div class="goal-card__fields">
+                        @FieldBox(GoalField.Title, "Title", "text", null)
+                        @FieldBox(GoalField.Outcome, "Outcome", "text", "One line on what is true once it lands")
+                        @FieldBox(GoalField.Due, "Due date", "date", null)
+                    </div>
+                    @if (OnDelete.HasDelegate)
+                    {
+                        <AppButton Variant="ButtonVariant.Danger"
+                                   Size="ButtonSize.Small"
+                                   Disabled="Busy"
+                                   CssClass="goal-card__delete"
+                                   OnClick="() => OnDelete.InvokeAsync()"
+                                   TestId="@Part("delete")">Delete goal…</AppButton>
+                    }
+                </div>
+                <Alert Message="@(_refused is null ? EditError : null)" TestId="@Part("edit-error")" />
+            }
+            else if (!string.IsNullOrWhiteSpace(Goal.Outcome))
+            {
+                <p class="goal-card__outcome" data-testid="@Part("outcome")">@Goal.Outcome</p>
+            }
+
+            <div class="goal-card__columns">
+                <div class="goal-card__column" data-testid="@Part("plans")">
+                    <span class="goal-card__column-title">Plan</span>
+                    @foreach (var plan in Goal.Plans)
+                    {
+                        <div class="goal-card__plan">
+                            <div class="goal-card__plan-head">
+                                <span class="goal-card__plan-title">@plan.Title</span>
+                                @Detach(plan.Subject, $"plan {plan.Title}")
+                            </div>
+                            <GoalProgressBar Counts="plan.Counts" TestId="@Part("plan-bar")" />
+                            <span class="goal-card__plan-count">@GoalsText.PlanLine(plan)</span>
+                        </div>
+                    }
+                    @if (Goal.Plans.Count == 0)
+                    {
+                        <span class="goal-card__none">None</span>
+                    }
+                </div>
+
+                <div class="goal-card__column" data-testid="@Part("tasks")">
+                    <span class="goal-card__column-title">Tasks</span>
+                    @foreach (var task in Goal.Tasks)
+                    {
+                        <span class="goal-card__task" data-status="@GoalTaskStatusText.Slug(task.Status)">
+                            <StatusDot Tone="@GoalTaskStatusText.Tone(task.Status)" />
+                            <span class="goal-card__task-text">
+                                <span class="goal-card__task-title">@task.Title</span>
+                                <span class="goal-card__task-word">@GoalTaskStatusText.Words(task.Status)</span>
+                            </span>
+                            @Detach(task.Subject, $"task {task.Title}")
+                        </span>
+                    }
+                    @if (Goal.Tasks.Count == 0)
+                    {
+                        <span class="goal-card__none">None</span>
+                    }
+                </div>
+
+                <div class="goal-card__column" data-testid="@Part("pull-requests")">
+                    <span class="goal-card__column-title">Pull requests</span>
+                    @foreach (var (pull, subject) in Pulls.Where(p => !p.Pull.IsMerged))
+                    {
+                        <span class="goal-card__pull">
+                            <span class="goal-card__pull-body">
+                                @if (!string.IsNullOrWhiteSpace(pull.Title))
+                                {
+                                    <span class="goal-card__pull-title" data-testid="@Part($"pull-request-{pull.Number}-title")">@pull.Title</span>
+                                }
+                                <PullRequestStatus Model="pull" TestId="@Part($"pull-request-{pull.Number}")" />
+                            </span>
+                            @Detach(subject, $"pull request #{pull.Number}")
+                        </span>
+                    }
+                    @if (Merged.Count > 0)
+                    {
+                        <span class="goal-card__merged" data-testid="@Part("merged")">
+                            @foreach (var (pull, subject) in Merged)
+                            {
+                                <span class="goal-card__merged-pull">
+                                    <Badge Kind="gh" Slug="merged" Href="@pull.Url" Title="@pull.Title">#@pull.Number</Badge>
+                                    @Detach(subject, $"pull request #{pull.Number}")
+                                </span>
+                            }
+                            <span>merged</span>
+                        </span>
+                    }
+                    @if (Goal.PullRequests.Count == 0)
+                    {
+                        <span class="goal-card__none">None</span>
+                    }
+                </div>
+            </div>
+
+            <div class="goal-card__attach">
+                <WorkItemSearch @ref="_search"
+                                Bare="true"
+                                BaseClass="goal-card"
+                                Label="@AttachLabel"
+                                Candidates="Candidates"
+                                Repositories="Repositories"
+                                OnPick="match => OnAttach.InvokeAsync(match.Subject)"
+                                OnQuickAdd="@(OnQuickAdd.HasDelegate ? EventCallback.Factory.Create<string>(this, QuickAddAsync) : default)"
+                                Busy="Busy"
+                                TestId="@TestId"
+                                SearchTestId="@Part("attach")" />
+            </div>
+        </div>
+    }
+</section>
+
+@code {
+    /// <summary>The attach search's placeholder and accessible name.</summary>
+    public const string AttachLabel = "Attach a plan, task or pull request";
+
+    private readonly string _id = "goal-" + Guid.NewGuid().ToString("N");
+    private WorkItemSearch? _search;
+    private bool _focusSearch;
+
+    [Parameter, EditorRequired]
+    public GoalCardModel Goal { get; set; } = default!;
+
+    /// <summary>Whether the goal is open, with its columns and the attach search.</summary>
+    [Parameter]
+    public bool Expanded { get; set; }
+
+    /// <summary>The title, or anywhere on the head row, was pressed: open the goal, or fold
+    /// it.</summary>
+    [Parameter]
+    public EventCallback OnToggle { get; set; }
+
+    /// <summary>A field of the open goal changed: its title, outcome and due date, the other
+    /// two as stored. Without a listener nothing on the goal is editable.</summary>
+    [Parameter]
+    public EventCallback<GoalEditRequest> OnEdit { get; set; }
+
+    /// <summary>Delete goal… was pressed; the board asks first. Without a listener there is
+    /// no Delete goal….</summary>
+    [Parameter]
+    public EventCallback OnDelete { get; set; }
+
+    /// <summary>A row's Detach was pressed: the item it is for. Without a listener no row has
+    /// one.</summary>
+    [Parameter]
+    public EventCallback<GoalSubject> OnDetach { get; set; }
+
+    /// <summary>Why the last edit was refused, in the module's words, under the fields.</summary>
+    [Parameter]
+    public string? EditError { get; set; }
+
+    /// <summary>While the host writes: Delete goal… and Detach wait. The fields stay live so
+    /// the focus is never taken from under the person.</summary>
+    [Parameter]
+    public bool Busy { get; set; }
+
+    /// <summary>What the attach search matches over.</summary>
+    [Parameter]
+    public IReadOnlyList<GoalsItem> Candidates { get; set; } = [];
+
+    /// <summary>The repositories a bare pull request number in the attach search is read
+    /// in, <c>owner/name</c> each, so a pull request no candidate holds can be attached by
+    /// its number. Empty reads a bare number against <see cref="Candidates"/> alone.</summary>
+    [Parameter]
+    public IReadOnlyList<string> Repositories { get; set; } = [];
+
+    /// <summary>A match was picked: the work it names.</summary>
+    [Parameter]
+    public EventCallback<GoalSubject> OnAttach { get; set; }
+
+    /// <summary>The "New task" row was picked: the title typed, trimmed, for the host to
+    /// create a task with and attach. Without a listener there is no such row.</summary>
+    [Parameter]
+    public EventCallback<string> OnQuickAdd { get; set; }
+
+    /// <summary>Move up or Move down was pressed: -1 or +1, one place. Without a listener the
+    /// goal has no grip and no Move buttons and cannot be picked up.</summary>
+    [Parameter]
+    public EventCallback<int> OnMove { get; set; }
+
+    /// <summary>Whether a goal sits above this one, so Move up has somewhere to go.</summary>
+    [Parameter]
+    public bool CanMoveUp { get; set; }
+
+    /// <summary>Whether a goal sits below this one, so Move down has somewhere to go.</summary>
+    [Parameter]
+    public bool CanMoveDown { get; set; }
+
+    /// <summary>Whether the goal is the one held in a drag, which the board draws in the
+    /// place it would land.</summary>
+    [Parameter]
+    public bool Dragging { get; set; }
+
+    /// <summary>Whether the board can carry a No goal row onto this goal, which makes the
+    /// whole card an item the shared pointer reorder's hit test finds.</summary>
+    [Parameter]
+    public bool DropTarget { get; set; }
+
+    /// <summary>Whether a carried No goal row is over this goal, so a drop attaches it here:
+    /// the card is outlined as the drop target.</summary>
+    [Parameter]
+    public bool DropArmed { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>Lands on the section; its parts take it as a prefix.</summary>
+    [Parameter]
+    public string? TestId { get; set; }
+
+    private string TitleId => _id + "-title";
+
+    private string BodyId => _id + "-body";
+
+    private string ClassValue
+    {
+        get
+        {
+            var expanded = Expanded ? " goal-card--expanded" : string.Empty;
+            var dragging = Dragging ? " goal-card--dragging" : string.Empty;
+            var armed = DropArmed ? " goal-card--drop-target" : string.Empty;
+            var extra = string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass;
+            return $"goal-card{expanded}{dragging}{armed}{extra}";
+        }
+    }
+
+    private bool CanEdit => OnEdit.HasDelegate;
+
+    private bool CanMove => OnMove.HasDelegate;
+
+    private string MoveId(int direction) => _id + (direction < 0 ? "-move-up" : "-move-down");
+
+    /// <summary>The Move button to give the focus back to once the goal has moved, or null.</summary>
+    private int? _focusMove;
+
+    /// <summary>Hands the move to the board. The goal's element is moved, not drawn again,
+    /// so the focus is put back on the Move button pressed — or on the other one, once the
+    /// goal has reached the end the pressed one pointed at.</summary>
+    private async Task MoveAsync(int direction)
+    {
+        await OnMove.InvokeAsync(direction);
+        _focusMove = direction;
+    }
+
+    /// <summary>Each pull request with its subject, in the goal's order.</summary>
+    private List<(PullRequestStatusModel Pull, GoalSubject? Subject)> Pulls =>
+        [.. Goal.PullRequests.Select((pull, index) => (pull, Goal.PullRequestSubject(index)))];
+
+    private List<(PullRequestStatusModel Pull, GoalSubject? Subject)> Merged => [.. Pulls.Where(p => p.Pull.IsMerged)];
+
+    /// <summary>A row's Detach, named for <paramref name="what"/>; nothing without a subject
+    /// or a listener.</summary>
+    private RenderFragment Detach(GoalSubject? subject, string what) => __builder =>
+    {
+        if (subject is null || !OnDetach.HasDelegate) return;
+
+        <IconButton AriaLabel="@($"Detach {what} from {Goal.Title}")"
+                    Title="@($"Detach from {Goal.Title}")"
+                    Disabled="Busy"
+                    CssClass="goal-card__detach"
+                    OnClick="() => DetachAsync(subject)"
+                    TestId="@Part($"detach-{subject.Key}")">
+            <XIcon Size="14" />
+        </IconButton>
+    };
+
+    /// <summary>The due date as a date field writes it.</summary>
+    public static string DueText(DateOnly day) => day.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+
+    private enum GoalField { Title, Outcome, Due }
+
+    // Per field, as text: what the person has typed since the field last drew a value; what
+    // was handed back and the goal does not say yet, so a second edit sent before the first
+    // one's reading lands carries it rather than the stored value; and a value drawn for one
+    // render only, so the stored one is then written back onto the same input and the focus
+    // stays where it is.
+    private readonly Dictionary<GoalField, string> _typed = [];
+    private readonly Dictionary<GoalField, string> _pending = [];
+    private readonly Dictionary<GoalField, string> _override = [];
+    private readonly Dictionary<GoalField, string> _seen = [];
+    private string? _seenGoalId;
+    private GoalField? _refused;
+
+    private RenderFragment FieldBox(GoalField field, string label, string type, string? placeholder) => __builder =>
+    {
+        <div class="goal-card__field-box"
+             @onkeydown="key => FieldKeyAsync(field, key)"
+             @onkeydown:stopPropagation="@_typed.ContainsKey(field)"
+             @onfocusout="() => LeaveAsync(field)">
+            <TextField Label="@label"
+                       Type="@type"
+                       Value="@Shown(field)"
+                       ValueChanged="value => _typed[field] = value"
+                       Placeholder="@placeholder"
+                       Compact="true"
+                       ErrorMessage="@(_refused == field ? EditError : null)"
+                       CssClass="@($"goal-card__field goal-card__field--{Slug(field)}")"
+                       TestId="@Part(Slug(field))"
+                       @onchange="change => ChangedAsync(field, change.Value as string)" />
+        </div>
+    };
+
+    private static string Slug(GoalField field) => field switch
+    {
+        GoalField.Title => "title",
+        GoalField.Outcome => "outcome",
+        _ => "due"
+    };
+
+    private string Stored(GoalField field) => field switch
+    {
+        GoalField.Title => Goal.Title,
+        GoalField.Outcome => Goal.Outcome ?? string.Empty,
+        // The goal's own date: a derived iteration end is shown, never handed back as one.
+        _ => Goal.OwnDueDate is { } own ? DueText(own) : string.Empty
+    };
+
+    /// <summary>What the field holds: the value handed back while the goal does not say it
+    /// yet, the stored one otherwise.</summary>
+    private string Current(GoalField field) => _pending.TryGetValue(field, out var pending) ? pending : Stored(field);
+
+    private string Shown(GoalField field) => _override.TryGetValue(field, out var drawn) ? drawn : Current(field);
+
+    protected override void OnParametersSet()
+    {
+        if (_seenGoalId != Goal.Id)
+        {
+            _seenGoalId = Goal.Id;
+            _typed.Clear();
+            _pending.Clear();
+            _seen.Clear();
+            _refused = null;
+        }
+
+        // A reading that changes a field - this edit landing, or anyone's - is the newest
+        // word on it: the value handed back gives way.
+        foreach (var field in Enum.GetValues<GoalField>())
+        {
+            var stored = Stored(field);
+            if (_seen.TryGetValue(field, out var seen) && seen != stored) _pending.Remove(field);
+            _seen[field] = stored;
+            if (_pending.TryGetValue(field, out var pending) && pending == stored) _pending.Remove(field);
+        }
+
+        if (EditError is null) _refused = null;
+    }
+
+    private static string? Clean(string? text) => string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+
+    /// <summary>Whether the Due field's text is one to hand back: a date, or empty, which
+    /// clears the goal's date.</summary>
+    private static bool SettlesDue(string text) => text.Length == 0 || ReadDue(text) is not null;
+
+    private static DateOnly? ReadDue(string? text) =>
+        DateOnly.TryParseExact(text?.Trim(), "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None, out var day) ? day : null;
+
+    /// <summary>Hands the three back once a field changes, each the value the card holds
+    /// for it. A value the field already holds is not handed back, and neither is a date
+    /// the field cannot read - leaving it puts the goal's date back. A refusal, read once
+    /// the host has answered, puts the stored value back on the same input and names the
+    /// field.</summary>
+    private async Task CommitAsync(GoalField field, string? raw)
+    {
+        _typed.Remove(field);
+        var value = field switch
+        {
+            GoalField.Due => (raw ?? string.Empty).Trim(),
+            _ => Clean(raw) ?? string.Empty
+        };
+
+        if (field == GoalField.Due && !SettlesDue(value))
+        {
+            // Kept as typed, so leaving the field puts the goal's date back.
+            _typed[field] = value;
+            return;
+        }
+
+        if (value == Current(field)) return;
+
+        _pending[field] = value;
+        _refused = null;
+        await OnEdit.InvokeAsync(new GoalEditRequest(
+            Goal.Id,
+            Current(GoalField.Title),
+            Clean(Current(GoalField.Outcome)),
+            ReadDue(Current(GoalField.Due))));
+
+        // Let the host's answer render, so EditError is this edit's.
+        await Task.Yield();
+        if (EditError is null || !_pending.TryGetValue(field, out var sent) || sent != value) return;
+
+        _pending.Remove(field);
+        _refused = field;
+        await DrawAgainAsync(field, value);
+    }
+
+    /// <summary>Escape abandons what was typed in the field and stops there.</summary>
+    private async Task FieldKeyAsync(GoalField field, KeyboardEventArgs key)
+    {
+        if (key.Key == "Enter" && field == GoalField.Due)
+        {
+            await SettleDueAsync();
+            return;
+        }
+
+        if (key.Key != "Escape" || !_typed.Remove(field, out var typed)) return;
+
+        await DrawAgainAsync(field, typed);
+    }
+
+    /// <summary>A text field is handed back on its change — leaving it or Enter. A date
+    /// field changes on every keystroke that makes a whole date, so typing a year passes
+    /// through 0002, 0020 and 0202: it is only held, and handed back on leaving or Enter.</summary>
+    private Task ChangedAsync(GoalField field, string? raw)
+    {
+        if (field != GoalField.Due) return CommitAsync(field, raw);
+
+        _typed[field] = (raw ?? string.Empty).Trim();
+        return Task.CompletedTask;
+    }
+
+    private Task LeaveAsync(GoalField field) => field == GoalField.Due ? SettleDueAsync() : Task.CompletedTask;
+
+    /// <summary>Hands the held date back — an empty field as no date — or puts the goal's
+    /// date back when the field cannot read what it holds.</summary>
+    private async Task SettleDueAsync()
+    {
+        if (!_typed.TryGetValue(GoalField.Due, out var typed)) return;
+
+        if (SettlesDue(typed))
+        {
+            await CommitAsync(GoalField.Due, typed);
+            return;
+        }
+
+        _typed.Remove(GoalField.Due);
+        await DrawAgainAsync(GoalField.Due, typed);
+    }
+
+    /// <summary>Draws <paramref name="was"/> for one render and then the value the card
+    /// holds, so the field writes it back onto the same input rather than a new one.</summary>
+    private async Task DrawAgainAsync(GoalField field, string was)
+    {
+        _override[field] = was;
+        StateHasChanged();
+        await Task.Yield();
+        _override.Remove(field);
+        StateHasChanged();
+    }
+
+    private async Task DetachAsync(GoalSubject subject)
+    {
+        await OnDetach.InvokeAsync(subject);
+        await Task.Yield();
+
+        // The row goes with the reading: the focus waits in the attach search. A refused
+        // detach leaves the row, and the focus on its Detach.
+        _focusSearch = !Holds(subject);
+    }
+
+    private bool Holds(GoalSubject subject) =>
+        Goal.Plans.Any(plan => plan.Subject == subject)
+        || Goal.Tasks.Any(task => task.Subject == subject)
+        || Enumerable.Range(0, Goal.PullRequests.Count).Any(index => Goal.PullRequestSubject(index) == subject);
+
+    private string? Part(string part) => TestId is null ? null : $"{TestId}-{part}";
+
+    /// <summary>Hands the title back for the host to create and attach. Once a task exists
+    /// that did not before — held by the goal, or among the candidates when the attach after
+    /// the create was refused — the search clears and takes the focus back, as a pick does,
+    /// so the row cannot create it a second time. A refused create leaves the typed text, to
+    /// change and try again.</summary>
+    private async Task QuickAddAsync(string title)
+    {
+        var known = TasksKnown();
+
+        await OnQuickAdd.InvokeAsync(title);
+        await Task.Yield();
+
+        if (TasksKnown().IsSubsetOf(known)) return;
+
+        _search?.Clear();
+    }
+
+    /// <summary>Every task the card can see: the goal's own and the candidates'.</summary>
+    private HashSet<string> TasksKnown() =>
+    [
+        .. Goal.Tasks.Select(task => "goal:" + task.Id),
+        .. Candidates.Where(item => item.Kind == GoalSubjectKind.Task).Select(item => item.Subject.Key)
+    ];
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_focusMove is { } direction)
+        {
+            _focusMove = null;
+            var stillGoes = direction < 0 ? CanMoveUp : CanMoveDown;
+            await global::Backlog.UI.Components.Tasks.QuickEditField.FocusAsync(Js, MoveId(stillGoes ? direction : -direction), select: false);
+        }
+
+        if (!_focusSearch || _search is null) return;
+
+        _focusSearch = false;
+        await _search.FocusAsync();
+    }
+}

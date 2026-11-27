@@ -1,0 +1,44 @@
+using Backlog.Modules.Work.Abstractions.Plans;
+using Backlog.Modules.Work.Abstractions.Plans.DataTransferObjects;
+using Backlog.Modules.Work.Plans.DomainModels;
+using Backlog.Modules.Work.Plans.Services;
+using Backlog.SharedKernel.Handlers;
+using Backlog.SharedKernel.Results;
+
+namespace Backlog.Modules.Work.Plans.Features.AddMilestone;
+
+/// <summary>Puts a fixed point on the plan — a release, a freeze, a review, a
+/// commitment. One day, no duration.</summary>
+public sealed record AddMilestoneCommand(
+    string Title,
+    DateOnly On,
+    MilestoneKind Kind = MilestoneKind.Release,
+    IReadOnlyList<string>? RepositoryAliases = null,
+    string? Lane = null,
+    bool IsPlanWide = false);
+
+public sealed class AddMilestoneCommandHandler(IRoadmapPlanRepository plans, RoadmapPlanGate gate)
+    : ICommandHandler<AddMilestoneCommand, Result<RoadmapMilestoneDto>>
+{
+    public async Task<Result<RoadmapMilestoneDto>> Handle(
+        AddMilestoneCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        using var held = await gate.EnterAsync(cancellationToken);
+        var plan = await plans.LoadAsync(cancellationToken);
+        var added = plan.AddMilestone(
+            command.Title,
+            command.On,
+            command.Kind,
+            RepositoryScope.Of(command.RepositoryAliases),
+            PlanningLane.Of(command.Lane),
+            command.IsPlanWide);
+
+        if (added is not Ok<Milestone>(var milestone)) return (Error)added.Value!;
+
+        await plans.SaveAsync(plan, cancellationToken);
+        return Result.Success(milestone.ToDto());
+    }
+}

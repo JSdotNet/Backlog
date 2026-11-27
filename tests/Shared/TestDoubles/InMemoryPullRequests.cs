@@ -1,12 +1,12 @@
-using Backlog.Modules.RepositoryManagement.Abstractions;
-using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects;
-using Backlog.Modules.RepositoryManagement.Abstractions.Services;
+using Backlog.Modules.Repositories.Abstractions;
+using Backlog.Modules.Repositories.Abstractions.DataTransferObjects;
+using Backlog.Modules.Repositories.Abstractions.Services;
 using Backlog.SharedKernel.Results;
 
 namespace Backlog.Tests;
 
 /// <summary>
-/// Repository Management's contract (local ADR 0042) as a reader of it sees it: the pull
+/// Repositories' contract (local ADR 0042) as a reader of it sees it: the pull
 /// requests a test says GitHub holds, each repository a test says refused, and every
 /// read and command asked of it, in order. It keeps nothing between reads — the one
 /// cache is the module's, and its own tests prove it — so a reader's test counts what

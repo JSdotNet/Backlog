@@ -6,7 +6,7 @@
 ## Storage and Sync
 
 ```meta
-related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/06-runtime-view.md#copilot-app-session-capture", ".devbook/arc42/08-crosscutting-concepts.md#session-record-sync", ".devbook/arc42/08-crosscutting-concepts.md#task-sync", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0019-roadmap-counts-the-working-week.md", ".devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md", ".devbook/domain/capture/domain.md#source-adapter", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/progress/features.md#syncing-goals-and-impediments", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/arc42/adr/0050-events-is-its-own-bounded-context.md", ".devbook/arc42/06-runtime-view.md#talk-note-attach"]
+related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/06-runtime-view.md#copilot-app-session-capture", ".devbook/arc42/08-crosscutting-concepts.md#session-record-sync", ".devbook/arc42/08-crosscutting-concepts.md#task-sync", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0019-roadmap-counts-the-working-week.md", ".devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md", ".devbook/domain/capture/domain.md#source-adapter", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/goals/features.md#syncing-goals-and-impediments", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md", ".devbook/arc42/adr/0050-events-is-its-own-bounded-context.md", ".devbook/arc42/06-runtime-view.md#talk-note-attach"]
 ```
 
 - **Local-first, one canonical local store.** The desktop's own store is the single
@@ -16,7 +16,7 @@ related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/ar
   in the same database. JSON files hold the workspace settings and feature flags,
   which are per-device.
 
-  See `.devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md`. Three owners share the file and not the schema: Tasks (`tasks`), Roadmap Planning (`roadmap_plan`) and the Inbox (`inbox_items`, `inbox_lists`, `inbox_groups`).
+  See `.devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md`. Three owners share the file and not the schema: Work (`tasks` and `work_plan`, which was `roadmap_plan` before local ADR 0073 §10) and the Inbox (`inbox_items`, `inbox_lists`, `inbox_groups`).
 - **The Devbook is the other way round.** A repository's devbook folders stay markdown-canonical, and only the layer derived from them is a database. The app owns a task; the repository owns a devbook chapter, edited outside the app. See
   `.devbook/arc42/08-crosscutting-concepts.md#devbook-database`.
 - **Repository paths are configurable.** A repo registry in `config/repos.json` holds them.
@@ -28,7 +28,7 @@ Optional cloud sync carries this state between a person's devices. Every kind ri
 | Task aggregate | a task document in the `tasks` container | [last-write-wins](12-glossary.md#terms), whole document ([Task Sync](#task-sync)) | local ADR 0005 |
 | Phone capture | kind `capture` in `tasks` | the desktop takes it into the Inbox and acknowledges it by tombstone; a tombstone beats a live copy whatever the stamps | local ADR 0009 |
 | Note | kind `note` in `tasks` | the later edit wins, in both directions | local ADR 0025 |
-| Roadmap plan | kind `roadmap-plan` in `tasks` | last-write-wins on `roadmap_plan.updated_at` | local ADR 0018 |
+| Roadmap plan | kind `roadmap-plan` in `tasks`; `work-plan`, its name since local ADR 0073 §10, is read too and written once no paired device lacks that read | last-write-wins on `work_plan.updated_at` | local ADRs 0018 and 0073 |
 | Planning pace and working week | kind `planning-pace` in `tasks`, with a `workingWeek` key | last-write-wins | local ADRs 0018 and 0019 |
 | Repository registry | kind `repository-registry` in `tasks` | last-write-wins | local ADR 0021 |
 | GitHub accounts | kind `github-accounts` in `tasks`, never a token | last-write-wins | local ADR 0021 |
@@ -136,7 +136,7 @@ The per-device JSON files sit in one of two folders under `%LOCALAPPDATA%`, whic
 ## Task Sync
 
 ```meta
-related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md", ".devbook/domain/capture/domain.md#capture", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/sync/domain.md#device-assertion", ".devbook/domain/sync/domain.md#ownerid", ".devbook/domain/tasks/domain.md#task"]
+related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0058-agents-and-devices-authenticate-by-grant-and-key-the-owner-by-github-sign-in.md", ".devbook/domain/capture/domain.md#capture", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/sync/domain.md#device-assertion", ".devbook/domain/sync/domain.md#ownerid", ".devbook/domain/work/domain.task.md#task"]
 ```
 
 Local ADR 0005 settles the direction for the Task aggregate. All of it is built, including the identity model (pairing, tokens and the query-scoping check) and the Cosmos replica with its change feed and reconciliation.
@@ -169,7 +169,7 @@ sequenceDiagram
 
 - **Every task carries `updated_at` and `deleted_at`.** The device stamps the
   first on each mutation. The second marks a tombstone
-  (`.devbook/domain/tasks/domain.md#tombstone`), because a deletion has to
+  (`.devbook/domain/work/domain.md#tombstone`), because a deletion has to
   replicate and a row that is simply gone cannot.
 - **The server orders, the device does not.** Two machines' clocks disagree, and
   last-write-wins decided by a skewed clock discards real edits. The Cosmos `_ts`
@@ -564,7 +564,7 @@ screen can be relied on.
 ## Tagging and Organization
 
 ```meta
-related: [".devbook/domain/roadmap/domain.md#roadmap-item-gathering"]
+related: [".devbook/domain/work/domain.md#roadmap-item-gathering"]
 ```
 
 Items carry several `#tags` embedded inside markdown. Project tags, cross-cutting tags and PARA-inspired grouping (Projects, Areas, Resources, Archive) all use them, and a tag index enables search across all domains.
@@ -626,10 +626,10 @@ says how each principal is proven today.
   request 429 for 60 seconds, and the trip is audited.
 - **An agent may grant others only within what it holds.** The person switches
   `agents:grant` on for an orchestrator. It then grants, trims and revokes other agents,
-  one level deep, without `devbook:decide`, `agents:grant` or `tasks:admin`. Its grants
+  one level deep, without `devbook:decide`, `agents:grant` or `work:admin`. Its grants
   expire after 7 days unless renewed, and each mint cuts them to its scopes. Local ADR 0058 §5
   has the rules.
-- **Windows Hello confirms what is hard to undo:** a `tasks:admin` tool, revoking a
+- **Windows Hello confirms what is hard to undo:** a `work:admin` tool, revoking a
   device, refusing a pairing, minting a pairing code, allowing an agent's grant,
   switching `agents:grant` on, and widening the Unauthenticated row (local ADR 0059).
   The Refuse prompt expires after 2 minutes, and an unconfirmed Refuse keeps the device
@@ -734,8 +734,8 @@ Aspire. The browser suite, `tests/Backlog.EndToEndTests`, is the only one that r
 related: [".devbook/arc42/09-architecture-decisions.md"]
 ```
 
-Monitoring dashboards read telemetry signals from Application Insights (errors,
-latency per project) alongside local queue/backlog health metrics. Telemetry follows
+An application layer on the dashboard, reading errors and latency per project from
+Application Insights, is not built (`.devbook/domain/insights/features.md#personal-productivity-dashboard`). Telemetry follows
 `.devbook/arc42/adr/guidelines/0010-opentelemetry-observability.md`, wired once in
 `Backlog.Aspire.ServiceDefaults` for services and MAUI hosts alike.
 
@@ -847,7 +847,7 @@ client branches on.
 ## Shared Data Types
 
 ```meta
-related: [".devbook/arc42/12-glossary.md", ".devbook/domain/inbox/domain.md#inbox-item", ".devbook/domain/tasks/domain.md#task", ".devbook/domain/brain/domain.md#knowledge-note", ".devbook/domain/monitoring/domain.md#progress-signal", ".devbook/domain/dev-pc-management/domain.md#machine-registry", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/repository-management/domain.md#repository-registry", ".devbook/domain/technology-stack/domain.md#technology-registry", ".devbook/domain/roadmap/domain.md#roadmap-item-gathering"]
+related: [".devbook/arc42/12-glossary.md", ".devbook/domain/inbox/domain.md#inbox-item", ".devbook/domain/work/domain.task.md#task", ".devbook/domain/brain/domain.md#knowledge-note", ".devbook/domain/dev-pc-management/domain.md#machine-registry", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/repositories/domain.md#repository-registry", ".devbook/domain/work/domain.md#roadmap-item-gathering"]
 ```
 
 Each bounded context in `.devbook/domain` owns the shape, invariants, and lifecycle
@@ -857,16 +857,14 @@ boundaries, which makes them an architectural concern:
 | Type | Owning aggregate |
 |---|---|
 | **InboxItem** | `.devbook/domain/inbox/domain.md#inbox-item` |
-| **TaskItem** (ubiquitous term: Task) | `.devbook/domain/tasks/domain.md#task` |
+| **TaskItem** (ubiquitous term: Task) | `.devbook/domain/work/domain.task.md#task` |
 | **KnowledgeNote** | `.devbook/domain/brain/domain.md#knowledge-note` |
-| **ProgressSignal** (planned; no type in the code yet) | `.devbook/domain/monitoring/domain.md#progress-signal` |
 | **RoutingRule** | Not yet modeled in `.devbook/domain` — tracked in `.devbook/arc42/11-risks-and-technical-debt.md` |
 | **MachineRegistration** | `.devbook/domain/dev-pc-management/domain.md#machine-registry` |
 | **SessionLog** | `.devbook/domain/sessions/domain.md#session-log` |
-| **RepositoryRegistration** | `.devbook/domain/repository-management/domain.md#repository-registry` |
-| **TechBaseline** | `.devbook/domain/technology-stack/domain.md#technology-registry` |
+| **RepositoryRegistration** | `.devbook/domain/repositories/domain.md#repository-registry` |
 
-**Effort** (`.devbook/domain/tasks/domain.md#effort`) is the one shared *scalar*
+**Effort** (`.devbook/domain/work/domain.md#effort`) is the one shared *scalar*
 rather than a shared type. It appears in three places:
 
 - on tasks;

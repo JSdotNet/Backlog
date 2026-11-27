@@ -45,7 +45,7 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("aria-controls=\"@($\"{surfaceId}-surface\")\"", home, StringComparison.Ordinal);
         Assert.Contains("id=\"@($\"{shown.Id}-surface\")\"", home, StringComparison.Ordinal);
         // The roadmap's view landmark is its surface's own (local ADR 0043 §1).
-        Assert.Contains("id=\"roadmap-view\"", NormalizeLineEndings(File.ReadAllText(FindModuleFile("Roadmap", "RoadmapSurface.razor"))), StringComparison.Ordinal);
+        Assert.Contains("id=\"roadmap-view\"", NormalizeLineEndings(File.ReadAllText(FindRoadmapFile("RoadmapSurface.razor"))), StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -82,7 +82,7 @@ public sealed class GlobalPaneMarkupTests
             "TestId=\"sessions-toggle-button\"",
             "TestId=\"pull-requests-toggle-button\"",
             "TestId=\"workspace-surface-switcher\"",
-            "TestId=\"dashboard-toggle-button\"",
+            "TestId=\"insights-toggle-button\"",
             "TestId=\"tools-toggle-button\"",
             "</nav>",
         };
@@ -100,7 +100,7 @@ public sealed class GlobalPaneMarkupTests
         // A selection, not a disclosure. Only Ask AI keeps aria-expanded, because
         // only its panel opens beside the content rather than replacing it.
         Assert.Contains("PressedChanged=\"ToggleTools\"", home, StringComparison.Ordinal);
-        Assert.Contains("PressedChanged=\"ToggleDashboard\"", home, StringComparison.Ordinal);
+        Assert.Contains("PressedChanged=\"ToggleInsights\"", home, StringComparison.Ordinal);
         Assert.Contains("PressedChanged=\"ToggleSessions\"", home, StringComparison.Ordinal);
         Assert.Contains("PressedChanged=\"TogglePullRequests\"", home, StringComparison.Ordinal);
         Assert.DoesNotContain("ToggleRoadmap", home, StringComparison.Ordinal);
@@ -293,7 +293,7 @@ public sealed class GlobalPaneMarkupTests
 
         Assert.Contains("@if (RoadmapViewOffered)", home, StringComparison.Ordinal);
         Assert.Contains("private bool RoadmapViewOffered => ViewOffered(RoadmapViewId);", home, StringComparison.Ordinal);
-        Assert.Contains("ShellSurfaceGroup.View,", NormalizeLineEndings(File.ReadAllText(FindModuleFile("Roadmap", "RoadmapSurfaceRegistration.cs"))), StringComparison.Ordinal);
+        Assert.Contains("ShellSurfaceGroup.View,", NormalizeLineEndings(File.ReadAllText(FindRoadmapFile("RoadmapSurfaceRegistration.cs"))), StringComparison.Ordinal);
         Assert.Contains("private bool WorkspaceVisible => TakeoverOnScreen is null;", home, StringComparison.Ordinal);
         Assert.Contains(
             "private string EffectiveView => ViewOffered(_view) ? _view : TasksViewId;",
@@ -537,7 +537,7 @@ public sealed class GlobalPaneMarkupTests
 
         // Every takeover is a module's surface, rendered from its catalog entry in one
         // branch (local ADR 0043 §1): the if chain that named each is gone.
-        foreach (var gone in new[] { "@if (ToolsVisible)", "else if (DashboardVisible)", "else if (SessionsVisible)", "else if (PullRequestsVisible)", "else if (InboxVisible)" })
+        foreach (var gone in new[] { "@if (ToolsVisible)", "else if (InsightsVisible)", "else if (SessionsVisible)", "else if (PullRequestsVisible)", "else if (InboxVisible)" })
         {
             Assert.DoesNotContain(gone, home, StringComparison.Ordinal);
         }
@@ -555,7 +555,7 @@ public sealed class GlobalPaneMarkupTests
         Assert.DoesNotContain("<LobesAtlasTakeover", home, StringComparison.Ordinal);
 
         // The shell names none of the takeovers' panes (local ADR 0043 §1).
-        foreach (var pane in new[] { "<DevbookPane ", "<ToolsPane ", "<DashboardPane ", "<SessionsPane ", "<PullRequestsPane ", "<NotificationCentrePane ", "<InboxPane " })
+        foreach (var pane in new[] { "<DevbookPane ", "<ToolsPane ", "<InsightsPane ", "<SessionsPane ", "<PullRequestsPane ", "<NotificationCentrePane ", "<InboxPane " })
         {
             Assert.Equal(0, CountOccurrences(home, pane));
         }
@@ -573,7 +573,7 @@ public sealed class GlobalPaneMarkupTests
         Assert.Equal(0, CountOccurrences(home, "<TasksPane "));
         Assert.Equal(0, CountOccurrences(home, "<RoadmapBand "));
         Assert.Equal(0, CountOccurrences(home, "<GoalsHost "));
-        Assert.Contains("<div class=\"roadmap-view\" id=\"roadmap-view\" data-testid=\"roadmap-view\">", NormalizeLineEndings(File.ReadAllText(FindModuleFile("Roadmap", "RoadmapSurface.razor"))), StringComparison.Ordinal);
+        Assert.Contains("<div class=\"roadmap-view\" id=\"roadmap-view\" data-testid=\"roadmap-view\">", NormalizeLineEndings(File.ReadAllText(FindRoadmapFile("RoadmapSurface.razor"))), StringComparison.Ordinal);
         Assert.DoesNotContain("devbook-layout", home, StringComparison.Ordinal);
     }
 
@@ -974,10 +974,10 @@ public sealed class GlobalPaneMarkupTests
         // Dashboard, which draws its pane, and the shell only decides where it goes.
         // The roadmap's "Open in Tasks" is a jump through the window's navigator, from
         // its own surface.
-        Assert.DoesNotContain("<DashboardPane ", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("<InsightsPane ", home, StringComparison.Ordinal);
         Assert.Contains(
-            "<DashboardPane RepositoryAliases=",
-            NormalizeLineEndings(File.ReadAllText(FindModuleFile("Dashboard", "DashboardSurface.razor"))),
+            "<InsightsPane RepositoryAliases=",
+            NormalizeLineEndings(File.ReadAllText(FindModuleFile("Insights", "InsightsSurface.razor"))),
             StringComparison.Ordinal);
 
         Assert.DoesNotContain("entry-doc__meta", home, StringComparison.Ordinal);
@@ -1418,7 +1418,9 @@ public sealed class GlobalPaneMarkupTests
     // projects under src/Modules; only the shell's own chrome stayed behind.
     private static string FindInboxPane() => RepositoryRoot.File("src", "Modules", "Inbox", "Backlog.Modules.Inbox.UI", "InboxPane.razor");
 
-    private static string FindTasksPane() => RepositoryRoot.File("src", "Modules", "Tasks", "Backlog.Modules.Tasks.UI", "TasksPane.razor");
+    private static string FindTasksPane() => RepositoryRoot.File("src", "Modules", "Work", "Backlog.Modules.Work.UI", "Tasks", "TasksPane.razor");
+
+    private static string FindRoadmapFile(string file) => RepositoryRoot.File("src", "Modules", "Work", "Backlog.Modules.Work.UI", "Roadmap", file);
 
     private static string FindModuleFile(string module, string file) =>
         RepositoryRoot.File("src", "Modules", module, $"Backlog.Modules.{module}.UI", file);

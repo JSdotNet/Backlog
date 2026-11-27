@@ -2,7 +2,7 @@
 
 ```meta
 date: 2026-11-11
-related: [".devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md", ".devbook/arc42/adr/0040-the-brain-is-its-own-bounded-context.md", ".devbook/arc42/adr/0052-the-app-may-write-links-into-a-brain-note-and-move-a-finished-project-note-to-the-archive.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0002-backlog-module-owns-the-entry-text-language.md", ".devbook/domain/inbox/features.md#per-item-triage-actions", ".devbook/domain/inbox/features.md#quick-triage-shortcuts", ".devbook/domain/inbox/features.md#route-to-brain", ".devbook/domain/inbox/features.md#work-the-queue-over-mcp", ".devbook/domain/brain/domain.md#para-category", ".devbook/domain/tasks/domain.md#waiting-for", ".devbook/design/content-editing.md#scheduling-and-dependency-tokens"]
+related: [".devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md", ".devbook/arc42/adr/0040-the-brain-is-its-own-bounded-context.md", ".devbook/arc42/adr/0052-the-app-may-write-links-into-a-brain-note-and-move-a-finished-project-note-to-the-archive.md", ".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0002-backlog-module-owns-the-entry-text-language.md", ".devbook/domain/inbox/features.md#per-item-triage-actions", ".devbook/domain/inbox/features.md#quick-triage-shortcuts", ".devbook/domain/inbox/features.md#route-to-brain", ".devbook/domain/inbox/features.md#work-the-queue-over-mcp", ".devbook/domain/brain/domain.md#para-category", ".devbook/domain/work/domain.md#waiting-for", ".devbook/design/content-editing.md#scheduling-and-dependency-tokens"]
 ```
 
 Every Inbox decision is one outcome of the GTD clarify step, and every item ends
@@ -58,7 +58,7 @@ area, so a capture already judged worth keeping is sorted again in the Brain.
 inbox area. An assistant asked to "remind me to call Anna" makes a note, not
 something the person decides on.
 
-**Waiting is not an impediment.** An [Impediment](../../domain/progress/domain.md#impediment)
+**Waiting is not an impediment.** An [Impediment](../../domain/goals/domain.md#impediment)
 holds back a goal and has its own lifecycle in Progress. A task waiting on a
 reply from one person needs only a name and a date to chase it.
 

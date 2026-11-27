@@ -36,14 +36,15 @@ public sealed class McpToolScopesTests
             McpToolScopes.All.Where(pair => pair.Value == McpScopes.InboxCapture).Select(pair => pair.Key));
 
     [Theory]
-    [InlineData("find_item", McpScopes.TasksRead)]
-    [InlineData("list_entries", McpScopes.TasksRead)]
-    [InlineData("get_roadmap", McpScopes.TasksRead)]
-    [InlineData("list_goals", McpScopes.TasksRead)]
-    [InlineData("create_item", McpScopes.TasksWrite)]
-    [InlineData("capture_note", McpScopes.TasksWrite)]
-    [InlineData("attach_to_goal", McpScopes.TasksWrite)]
-    [InlineData("delete_goal", McpScopes.TasksAdmin)]
+    [InlineData("find_item", McpScopes.WorkRead)]
+    [InlineData("list_entries", McpScopes.WorkRead)]
+    [InlineData("get_planned_work", McpScopes.WorkRead)]
+    [InlineData("get_roadmap", McpScopes.WorkRead)]
+    [InlineData("list_goals", McpScopes.WorkRead)]
+    [InlineData("create_item", McpScopes.WorkWrite)]
+    [InlineData("capture_note", McpScopes.WorkWrite)]
+    [InlineData("attach_to_goal", McpScopes.WorkWrite)]
+    [InlineData("delete_goal", McpScopes.WorkAdmin)]
     [InlineData("read_knowledge_chapter", McpScopes.DevbookRead)]
     [InlineData("list_sync_directions", McpScopes.DevbookRead)]
     [InlineData("devbook_set_state", McpScopes.DevbookWrite)]
@@ -55,15 +56,15 @@ public sealed class McpToolScopesTests
     [InlineData("open_window", McpScopes.UiOpen)]
     [InlineData("claim_session_request", McpScopes.SessionsDispatch)]
     [InlineData("claim_delivery", McpScopes.SessionsDispatch)]
-    [InlineData("read_inbox_item", McpScopes.TasksRead)]
-    [InlineData("archive_inbox_item", McpScopes.TasksWrite)]
+    [InlineData("read_inbox_item", McpScopes.WorkRead)]
+    [InlineData("archive_inbox_item", McpScopes.WorkWrite)]
     public void Each_tool_requires_the_scope_the_adr_table_gives_it(string tool, string scope) =>
         Assert.Equal(scope, McpToolScopes.ScopeOf(tool));
 
     [Fact]
     public void A_name_is_matched_without_regard_to_case_and_an_unknown_one_has_no_scope()
     {
-        Assert.Equal(McpScopes.TasksAdmin, McpToolScopes.ScopeOf("DELETE_GOAL"));
+        Assert.Equal(McpScopes.WorkAdmin, McpToolScopes.ScopeOf("DELETE_GOAL"));
         Assert.Null(McpToolScopes.ScopeOf("devbook_approve"));
         Assert.Null(McpToolScopes.ScopeOf(null));
     }

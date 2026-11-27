@@ -14,7 +14,7 @@ namespace Backlog.Modules.Sync.Api.Endpoints;
 /// One tool group is served, <c>inbox:capture</c>, and the whole endpoint stands behind its
 /// policy: a token without the scope is refused before any MCP message is read. The tool
 /// list is <see cref="RemoteInboxTools"/> and nothing else — the desktop's tool classes are
-/// never registered here, so <c>tasks:admin</c> and <c>devbook:decide</c> cannot arrive by a
+/// never registered here, so <c>work:admin</c> and <c>devbook:decide</c> cannot arrive by a
 /// registration that read a shared table.
 /// </para>
 /// </summary>

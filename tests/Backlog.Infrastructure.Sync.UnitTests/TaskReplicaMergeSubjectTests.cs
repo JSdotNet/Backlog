@@ -1,7 +1,7 @@
 using Backlog.Infrastructure.Sqlite;
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
-using Backlog.Modules.Tasks.Abstractions;
+using Backlog.Modules.Work.Abstractions.Tasks;
 using Backlog.Tests;
 
 namespace Backlog.Infrastructure.Sync.UnitTests;
@@ -37,7 +37,7 @@ public sealed class TaskReplicaMergeSubjectTests : IDisposable
             TestContext.Current.CancellationToken);
 
         var closed = Assert.Single(_notifications.Closed);
-        Assert.Equal(new NotificationSubject("tasks", "task", local.Id.ToString("D")), closed.Subject);
+        Assert.Equal(new NotificationSubject("work", "task", local.Id.ToString("D")), closed.Subject);
         Assert.Equal("Task done", closed.Reason);
     }
 

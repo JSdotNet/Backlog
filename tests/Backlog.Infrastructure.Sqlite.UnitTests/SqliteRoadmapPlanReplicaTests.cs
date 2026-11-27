@@ -1,11 +1,11 @@
 using System.Globalization;
 
 using Backlog.Infrastructure.Sqlite.Roadmap;
-using Backlog.Modules.Roadmap;
-using Backlog.Modules.Roadmap.Abstractions;
-using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
-using Backlog.Modules.Roadmap.Abstractions.Services;
-using Backlog.Modules.Roadmap.DomainModels;
+using Backlog.Modules.Work.Plans;
+using Backlog.Modules.Work.Abstractions.Plans;
+using Backlog.Modules.Work.Abstractions.Plans.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Plans.Services;
+using Backlog.Modules.Work.Plans.DomainModels;
 
 using Backlog.SharedKernel.Results;
 using Microsoft.Data.Sqlite;
@@ -54,10 +54,10 @@ public sealed class SqliteRoadmapPlanReplicaTests : IDisposable
         var copy = await plans.ReadAsync(Cancellation);
 
         Assert.NotNull(copy);
-        Assert.Equal(await ScalarAsync(plans.DatabasePath, "SELECT document FROM roadmap_plan;"), copy.Content);
+        Assert.Equal(await ScalarAsync(plans.DatabasePath, "SELECT document FROM work_plan;"), copy.Content);
         Assert.Equal(
             DateTimeOffset.Parse(
-                (await ScalarAsync(plans.DatabasePath, "SELECT updated_at FROM roadmap_plan;"))!,
+                (await ScalarAsync(plans.DatabasePath, "SELECT updated_at FROM work_plan;"))!,
                 CultureInfo.InvariantCulture,
                 DateTimeStyles.RoundtripKind),
             copy.UpdatedAt);
@@ -173,10 +173,10 @@ public sealed class SqliteRoadmapPlanReplicaTests : IDisposable
 
         Assert.True(await plans.TryWriteAsync(new RoadmapReplicaCopyDto(content, Morning), Cancellation));
 
-        Assert.Equal(content, await ScalarAsync(plans.DatabasePath, "SELECT document FROM roadmap_plan;"));
+        Assert.Equal(content, await ScalarAsync(plans.DatabasePath, "SELECT document FROM work_plan;"));
         Assert.Equal(
             Morning.ToString("O", CultureInfo.InvariantCulture),
-            await ScalarAsync(plans.DatabasePath, "SELECT updated_at FROM roadmap_plan;"));
+            await ScalarAsync(plans.DatabasePath, "SELECT updated_at FROM work_plan;"));
     }
 
     /// <summary>ADR 0018 Verification 6, at the store: a payload that is not a plan is

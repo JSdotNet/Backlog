@@ -25,13 +25,13 @@ public sealed class AgentComponentsTests
         var row = context.Render<AgentGrantRow>(parameters => parameters
             .Add(r => r.Name, "Manager session")
             .Add(r => r.Meta, "Role: Manager · added in Settings · not used yet")
-            .Add(r => r.Scopes, (IReadOnlyList<string>)["tasks:read", "agents:grant"])
+            .Add(r => r.Scopes, (IReadOnlyList<string>)["work:read", "agents:grant"])
             .Add(r => r.Highlighted, (IReadOnlyCollection<string>)["agents:grant"]));
 
         Assert.Equal("Manager session", row.Find("[data-testid='agent-row-name']").TextContent.Trim());
         Assert.Equal("Role: Manager · added in Settings · not used yet", row.Find("[data-testid='agent-row-meta']").TextContent.Trim());
         var chips = row.FindAll("[data-testid='agent-row-scope']");
-        Assert.Equal(["tasks:read", "agents:grant"], chips.Select(chip => chip.TextContent.Trim()));
+        Assert.Equal(["work:read", "agents:grant"], chips.Select(chip => chip.TextContent.Trim()));
         Assert.Contains("badge--tone-quiet", chips[0].ClassName, StringComparison.Ordinal);
         Assert.Contains("badge--tone-alert", chips[1].ClassName, StringComparison.Ordinal);
         Assert.Equal("Scopes of Manager session", row.Find("[data-testid='agent-row-scopes']").GetAttribute("aria-label"));
@@ -312,19 +312,19 @@ public sealed class AgentComponentsTests
         var switches = context.Render<AgentScopeSwitches>(parameters => parameters
             .Add(s => s.Options, (IReadOnlyList<AgentScopeOption>)
             [
-                new("tasks:read", "Find and read items"),
-                new("tasks:write", "Create, comment"),
+                new("work:read", "Find and read items"),
+                new("work:write", "Create, comment"),
                 new("devbook:decide", "Never for an agent", Locked: true)
             ])
-            .Add(s => s.Selected, (IReadOnlyCollection<string>)["tasks:read"])
+            .Add(s => s.Selected, (IReadOnlyCollection<string>)["work:read"])
             .Add(s => s.AriaLabel, "Scopes of Backlog delivery")
             .Add(s => s.OnChanged, EventCallback.Factory.Create<AgentScopeChange>(this, changes.Add)));
 
         Assert.Equal("group", switches.Find(".agent-scopes").GetAttribute("role"));
         Assert.Equal("Scopes of Backlog delivery", switches.Find(".agent-scopes").GetAttribute("aria-label"));
 
-        var read = switches.Find("[data-scope='tasks:read'] button[role='switch']");
-        var write = switches.Find("[data-scope='tasks:write'] button[role='switch']");
+        var read = switches.Find("[data-scope='work:read'] button[role='switch']");
+        var write = switches.Find("[data-scope='work:write'] button[role='switch']");
         var decide = switches.Find("[data-scope='devbook:decide'] button[role='switch']");
         Assert.Equal("true", read.GetAttribute("aria-checked"));
         Assert.Equal("false", write.GetAttribute("aria-checked"));
@@ -333,9 +333,9 @@ public sealed class AgentComponentsTests
         Assert.Contains("Never for an agent", switches.Find("[data-scope='devbook:decide']").TextContent, StringComparison.Ordinal);
 
         write.Click();
-        switches.Find("[data-scope='tasks:read'] button[role='switch']").Click();
+        switches.Find("[data-scope='work:read'] button[role='switch']").Click();
 
-        Assert.Equal([new AgentScopeChange("tasks:write", true), new AgentScopeChange("tasks:read", false)], changes);
+        Assert.Equal([new AgentScopeChange("work:write", true), new AgentScopeChange("work:read", false)], changes);
     }
 
     [Fact]

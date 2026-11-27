@@ -110,6 +110,11 @@ internal static class SqliteSchema
     {
         await EnsureAsync(connection, schema.Ddl, cancellationToken).ConfigureAwait(false);
 
+        foreach (var renamed in schema.RenamedTables)
+        {
+            await CopyRenamedAsync(connection, renamed, cancellationToken).ConfigureAwait(false);
+        }
+
         foreach (var table in schema.Columns.GroupBy(column => column.Table, StringComparer.OrdinalIgnoreCase))
         {
             var present = await ColumnsOfAsync(connection, table.Key, cancellationToken).ConfigureAwait(false);
@@ -149,6 +154,32 @@ internal static class SqliteSchema
         stamp.Parameters.AddWithValue("$owner", schema.Owner);
         stamp.Parameters.AddWithValue("$fingerprint", schema.Fingerprint);
         await stamp.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Copies the rows of a table a build before a rename wrote into the table
+    /// under its new name, when the file still has the old one (local ADR 0073 §10). A row
+    /// the new table already holds is kept as it is, so the copy is idempotent. It runs only
+    /// inside a setup, and a setup runs only while the owner's stamp is missing or stale, so
+    /// the copy happens once: a row an older build writes into the old table afterwards is
+    /// not carried over and stays where it was written. The old table
+    /// stays in the file, unread: local ADR 0006 adds and never drops.</summary>
+    private static async Task CopyRenamedAsync(
+        SqliteConnection connection,
+        SqliteRenamedTable renamed,
+        CancellationToken cancellationToken)
+    {
+        await using (var probe = connection.CreateCommand())
+        {
+            probe.CommandText = "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = $name;";
+            probe.Parameters.AddWithValue("$name", renamed.From);
+            if (await probe.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) is null) return;
+        }
+
+        var columns = string.Join(", ", renamed.Columns);
+        await EnsureAsync(
+            connection,
+            $"INSERT OR IGNORE INTO {renamed.To} ({columns}) SELECT {columns} FROM {renamed.From};",
+            cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>The fingerprint the file was last set up with for
@@ -207,6 +238,12 @@ internal static class SqliteSchema
 /// what makes composing the DDL by string safe.</summary>
 internal sealed record SqliteColumn(string Table, string Name, string Definition);
 
+/// <summary>A table renamed after files already held it (local ADR 0073 §10): the setup
+/// copies <paramref name="Columns"/> of every row of <paramref name="From"/> into
+/// <paramref name="To"/>, which the owner's DDL creates. Every part is a compile-time
+/// constant from the owning repository, as <see cref="SqliteColumn"/>'s are.</summary>
+internal sealed record SqliteRenamedTable(string From, string To, IReadOnlyList<string> Columns);
+
 /// <summary>
 /// One repository's setup, written as data so the stamp can be derived from it.
 /// <para>
@@ -225,18 +262,24 @@ internal sealed class SqliteSchemaDefinition
     /// <param name="afterColumns">Statements that need those columns — seeds,
     /// rewrites of a retired value, an index over an added column — run after them,
     /// in order. Each idempotent by construction (local ADR 0006).</param>
+    /// <param name="renamedTables">Tables the DDL creates under a new name, whose rows
+    /// are copied over from the old name right after it.</param>
     public SqliteSchemaDefinition(
         string owner,
         string ddl,
         IReadOnlyList<SqliteColumn>? columns = null,
-        IReadOnlyList<string>? afterColumns = null)
+        IReadOnlyList<string>? afterColumns = null,
+        IReadOnlyList<SqliteRenamedTable>? renamedTables = null)
     {
         Owner = owner;
         Ddl = ddl;
         Columns = columns ?? [];
         AfterColumns = afterColumns ?? [];
+        RenamedTables = renamedTables ?? [];
         Fingerprint = ComputeFingerprint();
     }
+
+    public IReadOnlyList<SqliteRenamedTable> RenamedTables { get; }
 
     public string Owner { get; }
 
@@ -262,6 +305,14 @@ internal sealed class SqliteSchemaDefinition
         foreach (var statement in AfterColumns)
         {
             text.Append(statement).Append('\u001f');
+        }
+
+        // Only a definition that renames a table adds to the text, so every other owner's
+        // fingerprint — and with it every stamped file — stays as it was.
+        foreach (var renamed in RenamedTables)
+        {
+            text.Append('\u001c').Append(renamed.From).Append('\u001e').Append(renamed.To).Append('\u001e')
+                .Append(string.Join(",", renamed.Columns)).Append('\u001f');
         }
 
         // Raw string literals take the source file's line endings, so a CRLF

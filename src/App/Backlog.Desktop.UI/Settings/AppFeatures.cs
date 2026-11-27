@@ -1,4 +1,4 @@
-﻿using Backlog.Modules.Tasks.Abstractions;
+﻿using Backlog.Modules.Work.Abstractions.Tasks;
 using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.DevPc.Abstractions;
@@ -6,8 +6,8 @@ using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Events.Abstractions;
-using Backlog.Modules.RepositoryManagement.Abstractions;
-using Backlog.Modules.Progress.Abstractions;
+using Backlog.Modules.Repositories.Abstractions;
+using Backlog.Modules.Goals.Abstractions;
 using Backlog.SharedKernel;
 
 // The namespace deliberately does not match the folder, for the reason
@@ -43,7 +43,7 @@ namespace Backlog.Desktop.UI.Shell;
 /// <para>
 /// A key moves with the context that owns it and keeps its string: the pull
 /// requests key moved from <c>SessionFeatures</c> to
-/// <see cref="RepositoryManagementFeatures"/> when Repository Management took over
+/// <see cref="RepositoriesFeatures"/> when Repositories took over
 /// pull-request state (local ADR 0042), its string <c>"pull-requests"</c> unchanged,
 /// so nobody's settings file forgot what they had switched off.
 /// </para>
@@ -71,7 +71,7 @@ public static class AppFeatures
         // --- Domain: an area of the product ---------------------------------
         new(InboxPane, "Inbox pane", "Show the Inbox option and pane in the Home shell.", EnabledByDefault: false, Status: AppFeatureStatus.Dev),
         new(
-            ProgressFeatures.WeeklyReview,
+            GoalsFeatures.WeeklyReview,
             "Weekly review",
             "Offer the Weekly review beside the Inbox in the Home shell: the GTD review over the Inbox, the Brain and the backlog, one stage at a time, each finding with its action in place.",
             EnabledByDefault: false,
@@ -115,7 +115,7 @@ public static class AppFeatures
             "Open the full-screen list of Claude and Copilot sessions this PC has a record of, grouped by environment or by assistant.",
             Status: AppFeatureStatus.Dev),
         new(
-            RepositoryManagementFeatures.PullRequests,
+            RepositoriesFeatures.PullRequests,
             "Pull requests",
             "Open the full-screen list of your open pull requests across every registered repository, and update, ready or merge them from there.",
             Status: AppFeatureStatus.Dev),

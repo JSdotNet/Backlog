@@ -1,5 +1,5 @@
 using Backlog.Infrastructure.Devbook;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 
 using Microsoft.Data.Sqlite;
 

@@ -1,4 +1,4 @@
-using Backlog.UI.Components.Progress;
+using Backlog.UI.Components.Goals;
 
 namespace Backlog.UI.Components.Integrations;
 
@@ -73,7 +73,7 @@ public sealed record WorkPullRequest(
 
     /// <summary>
     /// The pull request's status line — checks as <c>passed/total</c>, approvals as
-    /// <c>received/required</c> (<c>.devbook/domain/progress/features.md#pull-request-status</c>)
+    /// <c>received/required</c> (<c>.devbook/domain/goals/features.md#pull-request-status</c>)
     /// — where the host read the counts; null where it read none, and the card words
     /// <see cref="Checks"/> as it did before.
     /// <para>

@@ -1,8 +1,8 @@
 using System.Net.Http.Json;
 
 using Backlog.Infrastructure.Sync;
-using Backlog.Modules.Progress.Abstractions;
-using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
+using Backlog.Modules.Goals.Abstractions;
+using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.SharedKernel.Results;
@@ -11,10 +11,10 @@ namespace Backlog.Modules.Sync.Api.UnitTests;
 
 /// <summary>
 /// Two paired desktops sharing their impediments through this service, end to end — the
-/// twin of <see cref="GoalSyncBetweenDevicesTests"/>: each the real Progress module over
-/// real <c>progress_impediments</c> rows in its own <c>backlog.db</c>, the real merge and
+/// twin of <see cref="GoalSyncBetweenDevicesTests"/>: each the real Goals module over
+/// real <c>goals_impediments</c> rows in its own <c>backlog.db</c>, the real merge and
 /// session, and the real sync API between them
-/// (<c>.devbook/domain/progress/requirements.md#syncing-goals-and-impediments</c>).
+/// (<c>.devbook/domain/goals/requirements.md#syncing-goals-and-impediments</c>).
 /// </summary>
 public sealed class ImpedimentSyncBetweenDevicesTests : IDisposable
 {

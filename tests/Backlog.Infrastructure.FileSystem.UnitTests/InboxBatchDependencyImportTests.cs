@@ -1,9 +1,9 @@
 using Backlog.Infrastructure.FileSystem.Inbox;
 using Backlog.Infrastructure.Sqlite;
 using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
-using Backlog.Modules.Tasks;
-using Backlog.Modules.Tasks.Abstractions.Services;
-using Backlog.Modules.Tasks.Extensions;
+using Backlog.Modules.Work.Tasks;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
+using Backlog.Modules.Work.Tasks.Extensions;
 using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -100,7 +100,7 @@ public sealed class InboxBatchDependencyImportTests : IDisposable
         Assert.Equal([gone], waiting.DependsOn);
     }
 
-    private async Task<Backlog.Modules.Tasks.Abstractions.DataTransferObjects.TaskItemDto> EntryAsync(Guid id) =>
+    private async Task<Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects.TaskItemDto> EntryAsync(Guid id) =>
         Assert.Single(await Tasks.ListAsync(TestContext.Current.CancellationToken), entry => entry.Id == id);
 
     public void Dispose()

@@ -439,7 +439,7 @@ public sealed record GitHubReviewSummary(GitHubReviewState Decision, int Approva
     /// asked". False for every read that does not ask — the slim linked read, and an
     /// open or pinned row whose base branch's rules could not be read — and then the
     /// status line says how many approvals there are with no verdict
-    /// (<c>.devbook/domain/progress/features.md#pull-request-status</c>).
+    /// (<c>.devbook/domain/goals/features.md#pull-request-status</c>).
     /// </summary>
     public bool RequiredRead { get; init; }
 }

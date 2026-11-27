@@ -31,8 +31,8 @@ public sealed class McpServerAgentsCardTests
     public void The_headline_counts_the_agents_that_can_reach_Backlog(int count, string headline)
     {
         var grants = new FakeGrantStore();
-        for (var i = 0; i < count; i++) grants.Create($"agent {i}", ["tasks:read"], McpAgents.CreatedInSettings);
-        grants.Revoke(grants.Create("gone", ["tasks:read"], McpAgents.CreatedInSettings).Id);
+        for (var i = 0; i < count; i++) grants.Create($"agent {i}", ["work:read"], McpAgents.CreatedInSettings);
+        grants.Revoke(grants.Create("gone", ["work:read"], McpAgents.CreatedInSettings).Id);
         using var context = Context(new FakeMcpServer { IsListening = true }, grants: grants);
 
         var frame = context.Render<SettingsFrame>(parameters => parameters
@@ -46,7 +46,7 @@ public sealed class McpServerAgentsCardTests
     public void A_listener_that_is_not_listening_keeps_the_headline_about_its_port()
     {
         var grants = new FakeGrantStore();
-        grants.Create("Backlog delivery", ["tasks:read"], McpAgents.CreatedInSettings);
+        grants.Create("Backlog delivery", ["work:read"], McpAgents.CreatedInSettings);
         using var context = Context(new FakeMcpServer { Unavailable = Collision }, grants: grants);
 
         var frame = context.Render<SettingsFrame>(parameters => parameters
@@ -60,8 +60,8 @@ public sealed class McpServerAgentsCardTests
     public void A_row_says_the_agent_s_role_source_and_last_use_and_its_scopes_in_switch_order()
     {
         var grants = new FakeGrantStore();
-        var delivery = grants.Create("Backlog delivery", ["runs:write", "notify:ask", "devbook:read", "tasks:write", "tasks:read"], McpAgents.CreatedInSettings);
-        grants.Create("Hand-made", ["tasks:read", "agents:grant"], "setup");
+        var delivery = grants.Create("Backlog delivery", ["runs:write", "notify:ask", "devbook:read", "work:write", "work:read"], McpAgents.CreatedInSettings);
+        grants.Create("Hand-made", ["work:read", "agents:grant"], "setup");
         var audit = new FakeAuditLog(
             new McpAuditRecord(Now.AddMinutes(-30), $"Backlog delivery ({delivery.Id})", "read_item", "1", McpCallOutcome.Succeeded, "t-1"),
             new McpAuditRecord(Now.AddMinutes(-4), $"Backlog delivery ({delivery.Id})", "comment", "1", McpCallOutcome.Succeeded, "t-2"),
@@ -78,7 +78,7 @@ public sealed class McpServerAgentsCardTests
 
         var rows = page.FindAll("[data-testid='mcp-server-agent']");
         Assert.Equal(
-            ["tasks:read", "tasks:write", "devbook:read", "runs:write", "notify:ask"],
+            ["work:read", "work:write", "devbook:read", "runs:write", "notify:ask"],
             rows[0].QuerySelectorAll("[data-testid='agent-row-scope']").Select(chip => chip.TextContent.Trim()));
         Assert.Contains("badge--tone-alert", rows[1].QuerySelectorAll("[data-testid='agent-row-scope']")[1].ClassName, StringComparison.Ordinal);
         Assert.Equal(delivery.Id, rows[0].GetAttribute("data-grant"));
@@ -88,7 +88,7 @@ public sealed class McpServerAgentsCardTests
     public void Revoke_asks_in_place_and_Keep_leaves_the_agent_alone()
     {
         var grants = new FakeGrantStore();
-        grants.Create("Backlog delivery", ["tasks:read"], McpAgents.CreatedInSettings);
+        grants.Create("Backlog delivery", ["work:read"], McpAgents.CreatedInSettings);
         using var context = Context(new FakeMcpServer { IsListening = true }, grants: grants);
         var page = context.Render<McpServerSettingsPage>();
 
@@ -109,8 +109,8 @@ public sealed class McpServerAgentsCardTests
     public void The_second_Revoke_revokes_the_grant_and_its_row_leaves_the_list()
     {
         var grants = new FakeGrantStore();
-        var delivery = grants.Create("Backlog delivery", ["tasks:read"], McpAgents.CreatedInSettings);
-        grants.Create("Personal assistant", ["tasks:read"], McpAgents.CreatedInSettings);
+        var delivery = grants.Create("Backlog delivery", ["work:read"], McpAgents.CreatedInSettings);
+        grants.Create("Personal assistant", ["work:read"], McpAgents.CreatedInSettings);
         using var context = Context(new FakeMcpServer { IsListening = true }, grants: grants);
         var page = context.Render<McpServerSettingsPage>();
 
@@ -125,8 +125,8 @@ public sealed class McpServerAgentsCardTests
     public void Edit_scopes_opens_the_switches_under_the_row_and_reads_Done_while_open()
     {
         var grants = new FakeGrantStore();
-        var delivery = grants.Create("Backlog delivery", ["tasks:read"], McpAgents.CreatedInSettings);
-        grants.Create("Personal assistant", ["tasks:read"], McpAgents.CreatedInSettings);
+        var delivery = grants.Create("Backlog delivery", ["work:read"], McpAgents.CreatedInSettings);
+        grants.Create("Personal assistant", ["work:read"], McpAgents.CreatedInSettings);
         using var context = Context(new FakeMcpServer { IsListening = true }, grants: grants);
         var page = context.Render<McpServerSettingsPage>();
 
@@ -151,18 +151,18 @@ public sealed class McpServerAgentsCardTests
     public void A_switch_stores_its_scope_at_once_and_raises_the_grant_s_version()
     {
         var grants = new FakeGrantStore();
-        var delivery = grants.Create("Backlog delivery", ["tasks:read"], McpAgents.CreatedInSettings);
+        var delivery = grants.Create("Backlog delivery", ["work:read"], McpAgents.CreatedInSettings);
         using var context = Context(new FakeMcpServer { IsListening = true }, grants: grants);
         var page = context.Render<McpServerSettingsPage>();
         page.Find("[data-testid='agent-row-edit']").Click();
 
         Switch(page, "mcp-server-agent-scopes", "devbook:read").Click();
 
-        Assert.Equal(["tasks:read", "devbook:read"], grants.Find(delivery.Id)?.Scopes);
+        Assert.Equal(["work:read", "devbook:read"], grants.Find(delivery.Id)?.Scopes);
         Assert.Equal(2, grants.Find(delivery.Id)?.Version);
-        Assert.Equal(["tasks:read", "devbook:read"], Column(page, "agent-row-scope"));
+        Assert.Equal(["work:read", "devbook:read"], Column(page, "agent-row-scope"));
 
-        Switch(page, "mcp-server-agent-scopes", "tasks:read").Click();
+        Switch(page, "mcp-server-agent-scopes", "work:read").Click();
 
         Assert.Equal(["devbook:read"], grants.Find(delivery.Id)?.Scopes);
         Assert.DoesNotContain(page.FindAll("button"), button => button.TextContent.Trim() is "Save" or "Apply" or "Cancel");
@@ -191,9 +191,9 @@ public sealed class McpServerAgentsCardTests
         var page = context.Render<McpServerSettingsPage>();
         page.Find("[data-testid='agent-row-edit']").Click();
 
-        Switch(page, "mcp-server-agent-scopes", "tasks:read").Click();
+        Switch(page, "mcp-server-agent-scopes", "work:read").Click();
 
-        Assert.Equal(["tasks:read", "notify:ask"], grants.Find(old.Id)?.Scopes);
+        Assert.Equal(["work:read", "notify:ask"], grants.Find(old.Id)?.Scopes);
         Assert.Empty(page.FindAll("[data-testid='mcp-server-agents-error']"));
     }
 
@@ -201,7 +201,7 @@ public sealed class McpServerAgentsCardTests
     public void Devbook_decide_is_drawn_locked_and_agents_grant_is_switchable()
     {
         var grants = new FakeGrantStore();
-        grants.Create("Manager session", ["tasks:read", "agents:grant"], "setup");
+        grants.Create("Manager session", ["work:read", "agents:grant"], "setup");
         using var context = Context(new FakeMcpServer { IsListening = true }, grants: grants);
         var page = context.Render<McpServerSettingsPage>();
         page.Find("[data-testid='agent-row-edit']").Click();
@@ -222,7 +222,7 @@ public sealed class McpServerAgentsCardTests
     public void Switching_agents_grant_on_asks_Windows_Hello_first(UserConsentOutcome answer, bool granted)
     {
         var grants = new FakeGrantStore();
-        var manager = grants.Create("Manager session", ["sessions:dispatch", "tasks:read"], McpAgents.CreatedInSettings);
+        var manager = grants.Create("Manager session", ["sessions:dispatch", "work:read"], McpAgents.CreatedInSettings);
         var consent = new FakeConsent { Answer = answer };
         using var context = Context(new FakeMcpServer { IsListening = true }, grants: grants);
         context.Services.AddSingleton<IUserConsent>(consent);
@@ -237,7 +237,7 @@ public sealed class McpServerAgentsCardTests
         if (!granted) Assert.NotEmpty(page.FindAll("[data-testid='mcp-server-agents-error']"));
 
         // Any other switch asks nothing.
-        Switch(page, "mcp-server-agent-scopes", "tasks:write").Click();
+        Switch(page, "mcp-server-agent-scopes", "work:write").Click();
         Assert.Single(consent.Asked);
     }
 
@@ -247,7 +247,7 @@ public sealed class McpServerAgentsCardTests
     public async Task Switching_agents_grant_on_asks_Windows_Hello_even_within_a_remembered_confirmation()
     {
         var grants = new FakeGrantStore();
-        var manager = grants.Create("Manager session", ["sessions:dispatch", "tasks:read"], McpAgents.CreatedInSettings);
+        var manager = grants.Create("Manager session", ["sessions:dispatch", "work:read"], McpAgents.CreatedInSettings);
         var consent = new FakeConsent();
         var remembered = new RememberedUserConsent(consent);
         Assert.Equal(UserConsentOutcome.Verified, await remembered.VerifyAsync("A setting a moment ago", TestContext.Current.CancellationToken));
@@ -289,10 +289,10 @@ public sealed class McpServerAgentsCardTests
     public void A_delegated_agent_is_drawn_under_its_granter_with_who_granted_it_its_expiry_and_Revoke_only()
     {
         var grants = new FakeGrantStore();
-        var manager = grants.Create("Manager session", ["sessions:dispatch", "tasks:read", "tasks:write", "agents:grant"], McpAgents.CreatedInSettings);
-        grants.Create("Backlog delivery", ["tasks:read"], McpAgents.CreatedInSettings);
+        var manager = grants.Create("Manager session", ["sessions:dispatch", "work:read", "work:write", "agents:grant"], McpAgents.CreatedInSettings);
+        grants.Create("Backlog delivery", ["work:read"], McpAgents.CreatedInSettings);
         var worker = grants.Create("Worker · Copilot", [], "self-registration");
-        grants.Delegate(worker.Id, ["tasks:read", "tasks:write"], manager.Id, Now.AddDays(6).AddHours(2));
+        grants.Delegate(worker.Id, ["work:read", "work:write"], manager.Id, Now.AddDays(6).AddHours(2));
         using var context = Context(new FakeMcpServer { IsListening = true }, grants: grants);
         context.Services.AddSingleton<TimeProvider>(new FakeTimeProvider(Now));
 
@@ -311,9 +311,9 @@ public sealed class McpServerAgentsCardTests
     public void Revoking_a_granter_on_the_card_takes_the_agents_it_granted_with_it()
     {
         var grants = new FakeGrantStore();
-        var manager = grants.Create("Manager session", ["tasks:read", "agents:grant"], McpAgents.CreatedInSettings);
+        var manager = grants.Create("Manager session", ["work:read", "agents:grant"], McpAgents.CreatedInSettings);
         var worker = grants.Create("Worker · Copilot", [], "self-registration");
-        grants.Delegate(worker.Id, ["tasks:read"], manager.Id, Now.AddDays(7));
+        grants.Delegate(worker.Id, ["work:read"], manager.Id, Now.AddDays(7));
         using var context = Context(new FakeMcpServer { IsListening = true }, grants: grants);
         var page = context.Render<McpServerSettingsPage>();
 
@@ -355,12 +355,12 @@ public sealed class McpServerAgentsCardTests
 
         RoleSelect(page).Change("Read-only + capture");
 
-        Assert.Equal(["tasks:read", "devbook:read", "inbox:capture"], OnSwitches(page, "mcp-agent-new-scopes"));
+        Assert.Equal(["work:read", "devbook:read", "inbox:capture"], OnSwitches(page, "mcp-agent-new-scopes"));
 
         Switch(page, "mcp-agent-new-scopes", "notify:ask").Click();
 
         Assert.Equal("Custom", SelectedRole(page));
-        Assert.Equal(["tasks:read", "devbook:read", "notify:ask", "inbox:capture"], OnSwitches(page, "mcp-agent-new-scopes"));
+        Assert.Equal(["work:read", "devbook:read", "notify:ask", "inbox:capture"], OnSwitches(page, "mcp-agent-new-scopes"));
     }
 
     [Fact]
@@ -377,7 +377,7 @@ public sealed class McpServerAgentsCardTests
 
         var created = Assert.Single(grants.List());
         Assert.Equal("Copilot CLI · Backlog", created.Name);
-        Assert.Equal(["tasks:read", "tasks:write", "devbook:read", "runs:write", "notify:ask"], created.Scopes);
+        Assert.Equal(["work:read", "work:write", "devbook:read", "runs:write", "notify:ask"], created.Scopes);
         Assert.Equal(McpAgents.CreatedInSettings, created.CreatedBy);
 
         Assert.Empty(page.FindAll("[data-testid='mcp-server-agent-add']"));
@@ -404,7 +404,7 @@ public sealed class McpServerAgentsCardTests
     public void A_blank_or_taken_name_is_refused_beside_the_field_and_nothing_is_made(string name, string refusal)
     {
         var grants = new FakeGrantStore();
-        grants.Create("Backlog delivery", ["tasks:read"], McpAgents.CreatedInSettings);
+        grants.Create("Backlog delivery", ["work:read"], McpAgents.CreatedInSettings);
         using var context = Context(new FakeMcpServer { IsListening = true }, grants: grants);
         var page = context.Render<McpServerSettingsPage>();
         page.Find("[data-testid='mcp-agent-add-toggle']").Click();
@@ -422,7 +422,7 @@ public sealed class McpServerAgentsCardTests
     public void A_store_that_cannot_be_written_says_so_on_the_card()
     {
         var grants = new FakeGrantStore();
-        grants.Create("Backlog delivery", ["tasks:read"], McpAgents.CreatedInSettings);
+        grants.Create("Backlog delivery", ["work:read"], McpAgents.CreatedInSettings);
         using var context = Context(new FakeMcpServer { IsListening = true }, grants: grants);
         var page = context.Render<McpServerSettingsPage>();
         grants.Failure = new IOException("mcp-grants.json does not parse");
@@ -442,9 +442,9 @@ public sealed class McpServerAgentsCardTests
     {
         using var temp = new TemporaryDirectory("mcp-agents-card-unauthenticated");
         var workspace = Workspace(temp);
-        Assert.Null(workspace.SetMcpServerUnauthenticatedScopes([McpScopes.TasksRead]));
+        Assert.Null(workspace.SetMcpServerUnauthenticatedScopes([McpScopes.WorkRead]));
         var grants = new FakeGrantStore();
-        grants.Create("Backlog delivery", ["tasks:read"], McpAgents.CreatedInSettings);
+        grants.Create("Backlog delivery", ["work:read"], McpAgents.CreatedInSettings);
         using var context = Context(new FakeMcpServer { IsListening = true }, grants: grants);
         context.Services.AddSingleton(workspace);
 
@@ -463,7 +463,7 @@ public sealed class McpServerAgentsCardTests
 
         var row = frame.Find("[data-testid='mcp-server-agent-unauthenticated']");
         Assert.Equal(McpAgents.UnauthenticatedMeta, row.QuerySelector("[data-testid='agent-row-meta']")!.TextContent.Trim());
-        Assert.Equal(["tasks:read"], row.QuerySelectorAll("[data-testid='agent-row-scope']").Select(chip => chip.TextContent.Trim()));
+        Assert.Equal(["work:read"], row.QuerySelectorAll("[data-testid='agent-row-scope']").Select(chip => chip.TextContent.Trim()));
         Assert.Null(row.QuerySelector("[data-testid='agent-row-revoke']"));
         Assert.NotNull(row.QuerySelector("[data-testid='agent-row-edit']"));
     }
@@ -536,7 +536,7 @@ public sealed class McpServerAgentsCardTests
     {
         using var temp = new TemporaryDirectory("mcp-agents-card-unauthenticated");
         var workspace = Workspace(temp);
-        Assert.Null(workspace.SetMcpServerUnauthenticatedScopes([McpScopes.TasksRead]));
+        Assert.Null(workspace.SetMcpServerUnauthenticatedScopes([McpScopes.WorkRead]));
         var consent = new FakeConsent { Answer = answer };
         using var context = Context(new FakeMcpServer { IsListening = true }, grants: new FakeGrantStore());
         context.Services.AddSingleton(workspace);
@@ -548,16 +548,16 @@ public sealed class McpServerAgentsCardTests
 
         Assert.Equal([McpAgents.UnauthenticatedConsent(McpScopes.DevbookRead)], consent.Asked);
         Assert.Equal(
-            opened ? [McpScopes.TasksRead, McpScopes.DevbookRead] : [McpScopes.TasksRead],
+            opened ? [McpScopes.WorkRead, McpScopes.DevbookRead] : [McpScopes.WorkRead],
             workspace.McpServerUnauthenticatedScopes);
         Assert.Equal(opened ? "true" : "false", Switch(page, "mcp-server-unauthenticated-scopes", McpScopes.DevbookRead).GetAttribute("aria-checked"));
         if (!opened) Assert.NotEmpty(page.FindAll("[data-testid='mcp-server-agents-error']"));
 
         // Closing one asks nothing and stores at once.
-        Switch(page, "mcp-server-unauthenticated-scopes", McpScopes.TasksRead).Click();
+        Switch(page, "mcp-server-unauthenticated-scopes", McpScopes.WorkRead).Click();
 
         Assert.Single(consent.Asked);
-        Assert.DoesNotContain(McpScopes.TasksRead, workspace.McpServerUnauthenticatedScopes);
+        Assert.DoesNotContain(McpScopes.WorkRead, workspace.McpServerUnauthenticatedScopes);
     }
 
     /// <summary>Widening the Unauthenticated row must be a prompt UI automation cannot pass

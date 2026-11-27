@@ -1,6 +1,6 @@
 using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.Services;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.SharedKernel;
 
 using Microsoft.Extensions.DependencyInjection;

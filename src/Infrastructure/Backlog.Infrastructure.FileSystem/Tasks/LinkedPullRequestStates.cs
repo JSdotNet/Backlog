@@ -1,17 +1,17 @@
-using Backlog.Modules.RepositoryManagement.Abstractions;
-using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects;
-using Backlog.Modules.RepositoryManagement.Abstractions.Services;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Repositories.Abstractions;
+using Backlog.Modules.Repositories.Abstractions.DataTransferObjects;
+using Backlog.Modules.Repositories.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.SharedKernel.Results;
 
 namespace Backlog.Infrastructure.FileSystem.Tasks;
 
 /// <summary>
-/// The pull requests a task links to, answered out of Repository Management's contract
+/// The pull requests a task links to, answered out of Repositories' contract
 /// (local ADR 0042 §4).
 /// <para>
 /// A cross-context join, beside <see cref="LinkedSessionStates"/> for the same reason:
-/// the task list may not reference Repository Management's published surface, so an
+/// the task list may not reference Repositories' published surface, so an
 /// adapter that may see both answers Tasks' port. It is a mapping and nothing else. The
 /// verdict is the module's (<see cref="PullRequestVerdict.Of(PullRequestStatus)"/>) and
 /// the merge offer its one rule (<see cref="PullRequestMerges.For"/>), so the row says
@@ -23,7 +23,7 @@ namespace Backlog.Infrastructure.FileSystem.Tasks;
 /// (<see cref="PullRequestStacks.PlaceAmong"/>): a read by number carries no parent, and a
 /// stacked pull request merged now would land on its parent's branch. One based on the
 /// default branch waits on nothing; any other takes its parent from its repository's open
-/// list — a cache hit whenever the pane, Progress or an earlier check listed the
+/// list — a cache hit whenever the pane, Goals or an earlier check listed the
 /// repository within the minute — and waits on nothing where that list holds no parent
 /// for it. Only one whose repository's list could not be read, based off the default
 /// branch, has no verdict and no merge offer.

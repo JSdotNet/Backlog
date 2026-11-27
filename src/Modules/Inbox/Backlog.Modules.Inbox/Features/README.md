@@ -9,7 +9,7 @@ Features/
     └── RouteToBacklogCommand.cs   the request record and its handler
 ```
 
-Rules for a slice, the same ones `Backlog.Modules.Tasks/Features/README.md`
+Rules for a slice, the same ones `Backlog.Modules.Work/Tasks/Features/README.md`
 states:
 
 - It returns `Result` / `Result<T>` from `Backlog.SharedKernel.Results`. Failures a

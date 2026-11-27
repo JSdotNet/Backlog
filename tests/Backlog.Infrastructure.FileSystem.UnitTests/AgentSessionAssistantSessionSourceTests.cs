@@ -1,4 +1,4 @@
-using Backlog.Infrastructure.FileSystem.Dashboard;
+using Backlog.Infrastructure.FileSystem.Insights;
 using Backlog.Modules.Sessions.Abstractions;
 
 namespace Backlog.Infrastructure.FileSystem.UnitTests;

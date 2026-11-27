@@ -135,7 +135,7 @@
     private const string AdoptionChart = """
         flowchart LR
             DevPC[Dev PC Management] -->|tool-version reports| AT
-            Repo[Repository Management] -->|tech-stack scans| AT
+            Repo[Repositories] -->|tech-stack scans| AT
             Reg["Public package registries<br/>(supplier)"] -.->|latest versions| AT
             AT[Adoption Tracking] -->|daily snapshots| AA[Adoption Analytics]
             AA -->|adoption metrics feed| Mon[Monitoring & Dashboard]

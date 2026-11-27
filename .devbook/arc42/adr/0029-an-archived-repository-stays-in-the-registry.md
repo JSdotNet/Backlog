@@ -2,8 +2,8 @@
 
 ```meta
 date: 2026-10-15
-related: [".devbook/domain/repository-management/requirements.md#archiving-a-repository", ".devbook/domain/repository-management/domain.md#repository", ".devbook/domain/repository-management/domain.md#repository-registry", ".devbook/domain/repository-management/domain.md#removal-record", ".devbook/domain/repository-management/features.md#repository-registry-configuration", ".devbook/domain/repository-management/features.md#following-a-repository-rename", ".devbook/domain/repository-management/features.md#github-integration", ".devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md", ".devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/domain/tasks/features.md#search-filter-and-organize", ".devbook/domain/tasks/features.md#board-view", ".devbook/domain/tasks/features.md#linked-tasks", ".devbook/domain/roadmap/features.md#reading-the-plan-by-repository", ".devbook/domain/devbook/features.md#area-selection-and-scope", ".devbook/domain/devbook/features.md#the-devbook-on-the-repositorys-latest-version", ".devbook/domain/repository-management/features.md#pull-request-readiness", ".devbook/domain/sessions/features.md#in-progress-by-task", ".devbook/domain/productivity/features.md#personal-productivity-dashboard", ".devbook/domain/progress/features.md#pull-request-status", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md"]
-c4-touches: [backlog.desktop.roadmap, backlog.desktop.devbook, github]
+related: [".devbook/domain/repositories/requirements.md#archiving-a-repository", ".devbook/domain/repositories/domain.md#repository", ".devbook/domain/repositories/domain.md#repository-registry", ".devbook/domain/repositories/domain.md#removal-record", ".devbook/domain/repositories/features.md#repository-registry-configuration", ".devbook/domain/repositories/features.md#following-a-repository-rename", ".devbook/domain/repositories/features.md#github-integration", ".devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md", ".devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md", ".devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md", ".devbook/domain/work/features.md#search-filter-and-organize", ".devbook/domain/work/features.md#board-view", ".devbook/domain/work/features.md#linked-tasks", ".devbook/domain/work/features.md#reading-the-plan-by-repository", ".devbook/domain/devbook/features.md#area-selection-and-scope", ".devbook/domain/devbook/features.md#the-devbook-on-the-repositorys-latest-version", ".devbook/domain/repositories/features.md#pull-request-readiness", ".devbook/domain/sessions/features.md#in-progress-by-task", ".devbook/domain/insights/features.md#personal-productivity-dashboard", ".devbook/domain/goals/features.md#pull-request-status", ".devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md"]
+c4-touches: [backlog.desktop.work, backlog.desktop.devbook, github]
 ```
 
 A person can mark a registered repository **Archived**. It stays in the registry
@@ -24,7 +24,7 @@ A **local** decision, numbered in the local sequence. Every bare ADR number belo
 means the local one.
 
 The behaviour lives in the
-[repository-management requirements](../../domain/repository-management/requirements.md#archiving-a-repository).
+[repository-management requirements](../../domain/repositories/requirements.md#archiving-a-repository).
 This record holds the choice and what it costs to reverse. It **amends** four
 standing records, each by link from the section that changes it:
 
@@ -46,7 +46,7 @@ from GitHub, and both report "Couldn't read innovadis-dev/Budgetbeheer" on every
 refresh. What GitHub answers for it was not captured.
 
 **Remove is the only way to quiet it, and Remove forgets.** A removal leaves a
-[Removal Record](../../domain/repository-management/domain.md#removal-record) and
+[Removal Record](../../domain/repositories/domain.md#removal-record) and
 drops the row with its settings. Its tasks keep the name, show no repository and
 fall under Brain. Its devbook becomes Unavailable. Nothing brings the settings
 back.
@@ -120,7 +120,7 @@ a merge into an archived repository are refused the same way, with "One
 repository must stay active." Removing every repository stays allowed, because
 an empty list has nothing to default to. The default repository is the
 first entry that is not archived. That entry is also the fallback while
-[Additional repositories](../../domain/repository-management/context.md#additional-repositories)
+[Additional repositories](../../domain/repositories/context.md#additional-repositories)
 is off.
 
 At Archive, Backlog offers to move the repository's open tasks to another
@@ -142,12 +142,12 @@ archived" is a per-device switch, remembered on that device and never synced.
 
 | Consumer | While archived | With "show archived" on |
 |---|---|---|
-| [Tasks](../../domain/tasks/features.md#search-filter-and-organize): scope chips, [board columns](../../domain/tasks/features.md#board-view), repository pickers, task list and Calendar | Hidden. A task leaves the list and the Calendar only when every repository it names is archived. A remembered scope that names it drops it on restore. | Shown. |
-| [Roadmap](../../domain/roadmap/features.md#reading-the-plan-by-repository) | The band stays drawn, greyed and tagged Archived, showing only finished work, while the timeline's whole drawn window holds some. The window is the one the rest of the plan sets, not where the person has scrolled. Its open work is hidden, never folded into the "No repository" band. Finished work still counts toward history and pace. | The whole band, open work included. |
+| [Tasks](../../domain/work/features.md#search-filter-and-organize): scope chips, [board columns](../../domain/work/features.md#board-view), repository pickers, task list and Calendar | Hidden. A task leaves the list and the Calendar only when every repository it names is archived. A remembered scope that names it drops it on restore. | Shown. |
+| [Roadmap](../../domain/work/features.md#reading-the-plan-by-repository) | The band stays drawn, greyed and tagged Archived, showing only finished work, while the timeline's whole drawn window holds some. The window is the one the rest of the plan sets, not where the person has scrolled. Its open work is hidden, never folded into the "No repository" band. Finished work still counts toward history and pace. | The whole band, open work included. |
 | [Devbook](../../domain/devbook/features.md#area-selection-and-scope) | Browsable and read-only, per §4. | The repository is offered in the repository switch. |
-| GitHub reads: [Pull requests](../../domain/repository-management/features.md#pull-request-readiness), [In progress](../../domain/sessions/features.md#in-progress-by-task), [dashboard activity](../../domain/productivity/features.md#personal-productivity-dashboard), [Progress goal pull requests](../../domain/progress/features.md#pull-request-status) (sprints retired by ADR 0035) | Not read. No "Couldn't read" line names it. | Still not read. |
-| [Linked-task sync](../../domain/tasks/features.md#linked-tasks) | Paused, per §5. | Still paused. |
-| [Settings](../../domain/repository-management/features.md#repository-registry-configuration) | The row stays in the list, marked Archived, with Unarchive and the open-task offer. | No difference. |
+| GitHub reads: [Pull requests](../../domain/repositories/features.md#pull-request-readiness), [In progress](../../domain/sessions/features.md#in-progress-by-task), [dashboard activity](../../domain/insights/features.md#personal-productivity-dashboard), [Progress goal pull requests](../../domain/goals/features.md#pull-request-status) (sprints retired by ADR 0035) | Not read. No "Couldn't read" line names it. | Still not read. |
+| [Linked-task sync](../../domain/work/features.md#linked-tasks) | Paused, per §5. | Still paused. |
+| [Settings](../../domain/repositories/features.md#repository-registry-configuration) | The row stays in the list, marked Archived, with Unarchive and the open-task offer. | No difference. |
 
 This amends ADR 0027: the header scope offers an archived repository only while
 "show archived" is on.

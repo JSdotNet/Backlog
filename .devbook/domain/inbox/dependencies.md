@@ -13,7 +13,7 @@ related: [.devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md
 
 | Depends on (context/module) | DDD pattern | Integration mechanism | Contract | Why |
 |---|---|---|---|---|
-| [Tasks](../tasks/domain.md#task) | OHS + Published Language (Inbox = supplier) | In-process port `IInboxBacklogTarget`, adapter over `ITaskItems` | `.devbook/domain/inbox/domain.md#itemtriaged` (realised as `InboxRouteRequestDto`) | Routing an item creates one draft Task per assigned repository. |
+| [Work](../work/domain.task.md#task) | OHS + Published Language (Inbox = supplier) | In-process port `IInboxBacklogTarget`, adapter over `ITaskItems` | `.devbook/domain/inbox/domain.md#itemtriaged` (realised as `InboxRouteRequestDto`) | Routing an item creates one draft Task per assigned repository. |
 | [Brain](../brain/domain.md#knowledge-note) | OHS + Published Language (Inbox = supplier) | In-process port `IInboxBrainTarget`, adapter over `IBrainNoteWriter` | `.devbook/domain/inbox/domain.md#itemtriaged` (realised as `InboxBrainNoteRequestDto`) | Routing To Brain writes a Knowledge Note into the Brain's inbox area. |
 | [Events](../events/context.md) | OHS + Published Language (Inbox = supplier) | In-process port `IInboxEventTarget` in `Backlog.Modules.Inbox.Abstractions`, answered by `InboxEventTarget` over Events' published `IKnowledgeEvents` | `.devbook/domain/inbox/domain.md#itemtriaged`, route `events` | Routing To Event makes a Spotted knowledge event. |
 | [Sync](../sync/context.md) | Customer/Supplier (Inbox = customer of the intake channel) | `IInboxIntake` and `IInboxCaptureOutbox` ports, driven by the desktop sync client | `.devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md` | Captures reach the desktop and the phone learns their fate over one sync path. |
@@ -28,9 +28,9 @@ related: [.devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md
 
 | Consumer (context/module) | DDD pattern | Integration mechanism | Contract | What it relies on |
 |---|---|---|---|---|
+| [Events](../events/context.md) | One-way reference (Inbox = supplier), triage only | `IEventTalkNotes` in Events' abstractions, answered by `EventsTalkNotes` in `Backlog.Infrastructure.Brain` over `IInboxItems` | `IInboxItems` (`GetSnapshotAsync`, `ArchiveAsync`); local ADR 0073 §8 | An event holds its Talk notes by Inbox note id until it is harvested; then each open one is written into the Brain and archived here. The Inbox knows no event. |
 | [Capture](../capture/domain.md#capture) | OHS + Published Language (Capture = supplier) | Publishes `ItemCaptured` to the Inbox, through Sync or through the `IInboxIntake` port | `.devbook/domain/capture/domain.md#itemcaptured` | Normalized items accepted into the incoming queue, keyed by one per-entry id. |
-| [Monitoring](../monitoring/domain.md#progress-signal) | Customer/Supplier (Monitoring = customer) | Read-side queue-health feed | `.devbook/domain/inbox/features.md#queue-health` | Queue-health metrics: unprocessed count, oldest age, automation run status. |
-| [Monitoring](../monitoring/domain.md#progress-signal) | OHS + Published Language (Monitoring = supplier) | Emits `FollowUpCaptured` back into the Inbox | `.devbook/domain/monitoring/domain.md#followupcaptured` | Dashboard follow-ups create new Inbox Items. |
+| [Insights](../insights/features.md#personal-productivity-dashboard) | Customer/Supplier (Insights = customer) | Read-side queue-health feed; not built | `.devbook/domain/inbox/features.md#queue-health` | Queue-health metrics: unprocessed count, oldest age, automation run status. |
 
 - **Capture:** From another device, `ItemCaptured` arrives as a replica capture document through Sync. On the desktop, a source monitor (YouTube channel, website) delivers it in-process through the port, with no replica document. The per-entry id is the same on both paths.
 
@@ -49,4 +49,3 @@ related: [.devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md
   Lists and groups never sync.
 - The inbox is global, one per workspace root. Every source delivers to it, and
   repositories are assigned per item.
-- `.devbook/domain/monitoring/domain.md#signal-aggregation` draws the follow-up loop.

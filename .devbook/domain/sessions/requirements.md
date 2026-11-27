@@ -578,7 +578,7 @@ The system SHALL record dispatcher contact for every call to `GET /session-reque
 
 ```meta
 type: requirement
-tests: [unit:dotnet:Backlog.Modules.Tasks.UnitTests.DispatcherContactReadingTests.A_silent_dispatcher_is_warned_of_only_while_a_request_waits_Requested, unit:dotnet:Backlog.Modules.Tasks.UnitTests.DispatcherContactReadingTests.An_empty_queue_warns_of_nothing_however_long_the_silence, unit:dotnet:Backlog.Modules.Tasks.UnitTests.DispatcherContactReadingTests.One_Requested_request_among_started_ones_is_enough_to_warn, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.The_panel_warns_while_a_request_waits_and_no_dispatcher_is_heard]
+tests: [unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.DispatcherContactReadingTests.A_silent_dispatcher_is_warned_of_only_while_a_request_waits_Requested, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.DispatcherContactReadingTests.An_empty_queue_warns_of_nothing_however_long_the_silence, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.DispatcherContactReadingTests.One_Requested_request_among_started_ones_is_enough_to_warn, unit:dotnet:Backlog.Desktop.UI.UnitTests.TasksSessionRequestTests.The_panel_warns_while_a_request_waits_and_no_dispatcher_is_heard]
 ```
 
 The system SHALL warn in the session queue while a request is Requested and no dispatcher has been heard for more than two minutes, counted from the app's start when none has, and SHALL NOT warn otherwise.

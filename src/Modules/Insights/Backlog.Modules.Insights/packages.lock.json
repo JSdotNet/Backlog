@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "dependencies": {
+    "net11.0": {
+      "backlog.modules.insights.abstractions": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.SharedKernel": "[1.0.0, )"
+        }
+      },
+      "backlog.sharedkernel": {
+        "type": "Project"
+      }
+    }
+  }
+}

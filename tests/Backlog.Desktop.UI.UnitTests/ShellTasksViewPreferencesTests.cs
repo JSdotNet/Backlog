@@ -1,7 +1,7 @@
 using System.Text.Json;
 
 using Backlog.Desktop.UI.Shell;
-using Backlog.Desktop.UI.Tasks;
+using Backlog.Modules.Work.UI.Tasks;
 using Backlog.Infrastructure.FileSystem;
 
 using Microsoft.AspNetCore.Components;
