@@ -284,14 +284,14 @@ public static class SessionQueue
 public sealed record LongRunningAgent(string Command, string Name, string Purpose);
 
 /// <summary>
-/// The commands that start the long-running agents of the <c>backlog-tools</c> plugin, each
+/// The commands that start the long-running agents of the <c>backlog-desktop</c> and <c>backlog-tools</c> plugins, each
 /// the <c>/loop</c> line its own skill names. One set, so the session queue's agents group and
 /// the dispatcher warning cannot drift apart, and a skill renamed changes one place.
 /// </summary>
 public static class LongRunningAgents
 {
     /// <summary>The Manager session that starts what this queue holds (local ADR 0038).</summary>
-    public const string DispatchSessions = "/loop /backlog-tools:dispatch-sessions";
+    public const string DispatchSessions = "/loop /backlog-desktop:dispatch-sessions";
 
     /// <summary>The agent that tends the Brain folder (local ADR 0026).</summary>
     public const string TendBrain = "/loop /backlog-tools:tend-brain";

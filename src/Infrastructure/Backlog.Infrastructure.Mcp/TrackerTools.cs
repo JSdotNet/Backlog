@@ -496,22 +496,26 @@ public sealed class TrackerTools(
         CancellationToken cancellationToken = default)
     {
         var scope = RepositoryScope.Resolve(repositories, repository).ValueOrThrow();
-        var session = (sessionId ?? string.Empty).Trim();
+        var given = (sessionId ?? string.Empty).Trim();
 
-        if (session.Length == 0)
+        if (given.Length == 0)
         {
             throw RepositoryScope.Failure(Error.Validation(
                 "session.required",
                 "A session id is required."));
         }
 
+        // The transcript id is the key; a Claude desktop app id is an alias of it.
+        var aliases = await new DesktopSessionIds(sessions).AliasesAsync(given, cancellationToken).ConfigureAwait(false);
+        var session = aliases[0];
+
         var (existing, version) = await ReadPinnedAsync(id, expectedUpdatedAt, cancellationToken).ConfigureAwait(false);
 
         if (existing.Projections.Any(p =>
                 string.Equals(p.TargetType, EntryProjectionDto.SessionTargetType, StringComparison.OrdinalIgnoreCase)
-                && string.Equals(p.ExternalId, session, StringComparison.OrdinalIgnoreCase)))
+                && aliases.Contains((p.ExternalId ?? string.Empty).Trim(), StringComparer.OrdinalIgnoreCase)))
         {
-            await LinkSessionRequestsAsync(existing, session, cancellationToken).ConfigureAwait(false);
+            await LinkSessionRequestsAsync(existing, aliases, cancellationToken).ConfigureAwait(false);
 
             return new SessionLinkPayload(existing.Id, scope.Id, session, AlreadyLinked: true);
         }
@@ -523,7 +527,7 @@ public sealed class TrackerTools(
 
         var entry = linked.ValueOrThrow();
 
-        await LinkSessionRequestsAsync(entry, session, cancellationToken).ConfigureAwait(false);
+        await LinkSessionRequestsAsync(entry, aliases, cancellationToken).ConfigureAwait(false);
 
         return new SessionLinkPayload(entry.Id, scope.Id, session, AlreadyLinked: false);
     }
@@ -533,11 +537,13 @@ public sealed class TrackerTools(
     /// entry request on this entry, or a plan request for a plan the entry belongs to,
     /// that a dispatcher reported as Started with this very session. A link already
     /// recorded still tells the queue, because the request may have been reported
-    /// after the session first linked itself. A dispatcher reports the Claude desktop
-    /// app's id (<c>local_…</c>) while a session links itself by its transcript id, so the
-    /// queue is told under both.
+    /// after the session first linked itself. A request is stored under the transcript id
+    /// once the dispatcher's report resolves to one, and under the Claude desktop app's id
+    /// (<c>local_…</c>) when it was reported before the desktop record named its session,
+    /// or before the transcript id was canonical, so the queue is told under every id the
+    /// session is known by, the canonical one first.
     /// </summary>
-    private async Task LinkSessionRequestsAsync(TaskItemDto entry, string session, CancellationToken cancellationToken)
+    private async Task LinkSessionRequestsAsync(TaskItemDto entry, IReadOnlyList<string> aliases, CancellationToken cancellationToken)
     {
         if (sessionRequests is null) return;
         if (features is not null && !features.IsEnabled(SessionFeatures.SessionRequests)) return;
@@ -551,15 +557,8 @@ public sealed class TrackerTools(
                 .Where(tag => !string.IsNullOrWhiteSpace(tag))
         ];
 
-        await sessionRequests.LinkAsync(entry.Id, plans, session, cancellationToken).ConfigureAwait(false);
-
-        var desktop = await new DesktopSessionIds(sessions).ResolveAsync([session], cancellationToken).ConfigureAwait(false);
-
-        if (desktop[session] is { Length: > 0 } desktopId
-            && !string.Equals(desktopId, session, StringComparison.OrdinalIgnoreCase))
-        {
-            await sessionRequests.LinkAsync(entry.Id, plans, desktopId, cancellationToken).ConfigureAwait(false);
-        }
+        foreach (var alias in aliases)
+            await sessionRequests.LinkAsync(entry.Id, plans, alias, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>

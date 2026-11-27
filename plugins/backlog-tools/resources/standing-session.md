@@ -1,11 +1,11 @@
 ---
 name: standing-session
-description: How a backlog-tools skill a person keeps running under /loop behaves as a long-running agent — it marks its Claude Desktop session on its first turn (an icon and an ALL CAPS title, pinned, filed under the Agents section) so it stands out from task sessions, and, where it has a loop kind, checks in with Backlog on every tick and obeys the pause, resume or stop the answer carries.
+description: How a Backlog skill a person keeps running under /loop behaves as a long-running agent — it marks its Claude Desktop session on its first turn (an icon and an ALL CAPS title, pinned, filed under the Agents section) so it stands out from task sessions, and, where it has a loop kind, checks in with Backlog on every tick and obeys the pause, resume or stop the answer carries.
 ---
 
 # Standing session
 
-A skill a person starts as `/loop /backlog-tools:<name>` is a long-running agent, not a task.
+A skill a person starts as `/loop /<plugin>:<name>`, from `backlog-tools` or a plugin that depends on it, is a long-running agent, not a task.
 
 | Skill | Title | Kind |
 | --- | --- | --- |

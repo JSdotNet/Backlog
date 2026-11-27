@@ -108,5 +108,5 @@ build/.local/
 .azure/
 
 # The type declarations Claude Code lays beside a plugin of function hooks when it loads one
-# from this checkout (backlog-tools' plan-progress pane), regenerated per release.
+# from this checkout (backlog-desktop's plan-progress pane), regenerated per release.
 plugins/*/.claude-plugin/types/

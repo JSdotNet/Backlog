@@ -10,8 +10,9 @@ that names the entry or the plan, the repository and its clone folder, and nothi
 else. A **dispatcher** waits for requests on a long poll at
 `GET /session-requests/wait` on the MCP listener, claims one through an MCP tool,
 starts a session whose brief is a fixed line built from the request, and reports the
-session back. The first dispatcher is a Manager session in Claude Desktop. The feature
-sits behind the flag `session-requests`, off by default.
+session back. It acts on sessions only through a **session-host port** of five
+operations, so the record names no host; each host is an adapter behind the port. The
+feature sits behind the flag `session-requests`, off by default.
 
 ## Status
 
@@ -23,6 +24,11 @@ Accepted, 2026-11-02, at the Personal Validation gate of the flow-spec run
 flow-spec run `run-mviose3i-v0k24o` that drafted it, the `record-decision` item of the
 `session-dispatch` plan, run unattended. Amended on 2026-10-27, 2026-11-02, 2026-11-11,
 2026-11-18, 2026-11-23 and 2026-11-26 ([History](#history)).
+
+The 2026-11-26 amendment, the session-host port of §4, is proposed: the
+`adr-session-host-port` item of the `agent-factory` plan drafted it, and the dispatcher
+built in PR #1491 still calls one host directly until that plan's later items put it
+behind the port.
 
 Built and merged in PR #1491 on 2026-10-26: the request record and its queue table, the
 wait route, the dispatcher tools, the Start session and Start plan session actions, and
@@ -45,10 +51,15 @@ already puts the one line on the clipboard that runs an entry safely:
 outstanding, moves it to In progress and calls `link_session`. What is missing is the
 first link: something that starts an agent in that folder with that line.
 
-**The app cannot start a Claude Desktop session.** Claude Desktop starts a session
-with a worktree, its sidebar entry and its permission prompts only through its own
-`start_session` tool, which a session running inside it can call. Nothing outside it
-can. The app launches only Copilot CLI today, through `Process.Start`.
+**The app does not host sessions.** A session with a worktree, a place the person can
+watch it and its permission prompts is started by the program that hosts it, through
+that host's own interface. Hosts differ: one lets only a session running inside it
+start another, another takes a command from any process. The app launches only Copilot
+CLI today, through `Process.Start`.
+
+**The host will change.** The person runs agents in more than one host, and the one that
+dispatches today may not be the one that does next. A record that names a host has to be
+rewritten each time it changes, and so does every skill that follows the record.
 
 **The MCP server never pushes.** ADR 0012 made it stateless request/response. A
 session that waits for work has to ask, and asking on a timer costs a model turn per
@@ -68,15 +79,16 @@ sequenceDiagram
   actor Person
   participant App as Backlog app
   participant Listener as MCP listener
-  participant Mgr as Manager session
-  participant CD as Claude Desktop
+  participant Mgr as Dispatcher
+  participant Host as Session-host port
   participant New as New session
   Person->>App: Start session on an entry
   App->>App: create request (Requested)
   Mgr->>Listener: GET /session-requests/wait
   Listener-->>Mgr: request R
   Mgr->>Listener: claim tool (Claimed, 2-minute lease)
-  Mgr->>CD: start_session(clone folder, fixed brief)
+  Mgr->>Host: start(clone folder, new worktree, fixed brief)
+  Host-->>Mgr: session id
   Mgr->>Listener: report tool (Started, session id)
   New->>Listener: link_session
   Listener-->>App: request Linked
@@ -93,7 +105,7 @@ the plan tag, the repository as `owner/name`, that repository's clone folder on 
 machine, and nothing else. No title, body or note of the entry is copied into it.
 
 Only a click in the app creates one. No MCP tool, import, sync or capture creates a
-request, so nothing that writes entry text can start a session. The Manager starts two
+request, so nothing that writes entry text can start a session. A dispatcher starts two
 kinds of session without a request. One is a fixer for a bot's red pull request (§6),
 whose brief no text from the pull request reaches. The other is the cross-repository
 hand-off of a plan session it started itself (§7), whose prompt has one fixed shape.
@@ -120,7 +132,6 @@ treats the follow-up's text as an item to check.
 
 | Kind | Created on | Brief |
 | --- | --- | --- |
-| 2026-11-18 | §3 amended: the app closes a Requested or Started request once its entry, or every entry of its plan, is Done or Archived, at start and after every task write; `link_session` matches a request under the session's desktop id as well as its transcript id, and `execute-plan` links its own session to one entry of its plan. Built in the same pull request. | No request had ever reached Linked: the dispatcher reports the desktop id and a session links by its transcript id, and a plan's `execute-plan` session never linked at all. Plans the person had finished stayed in the session queue as Started. |
 | Entry request | a prompt entry | `/backlog-tools:run-plan-item entry `<id>`:` |
 | Plan request | a plan's roadmap item | `/backlog-tools:execute-plan +<tag> branch` |
 
@@ -169,8 +180,8 @@ stateDiagram-v2
 **Requests never expire.** A request made while no dispatcher runs waits until one
 does, or until the person cancels it. Linked and Cancelled are final.
 
-**Amended 2026-11-02: the holder's late report still counts.** Claude Desktop's
-`start_session` can return after the two-minute lease ran out. The session exists by
+**Amended 2026-11-02: the holder's late report still counts.** The port's start
+operation can return after the two-minute lease ran out. The session exists by
 then, so the holder's `started` report is still accepted while the request is stored
 Claimed by that holder. Once another dispatcher claims the request, the late report is
 refused with "Another dispatcher holds the claim". A holder whose lease ran out still
@@ -178,10 +189,10 @@ cannot release the request, because it already reads Requested. Answer deliverie
 the same rule
 ([Only one Manager holds a delivery](../../domain/sessions/domain.invariants.md#invariant-only-one-manager-holds-a-delivery)).
 
-The rule closes a race in which one Manager dispatched its own request twice. Before it,
+The rule closes a race in which one dispatcher dispatched its own request twice. Before it,
 the refused report left the request reading Requested, and the next wait handed it back.
 A second session can still start when another dispatcher claims the request first. The
-refused report then tells the holder so, and the Manager names both sessions.
+refused report then tells the holder so, and the dispatcher names both sessions.
 
 **Amended 2026-11-18: a paused queue refuses every claim.** The person can pause the
 queue as a whole (§4). While it is paused, a claim on a Requested request, a lapsed one
@@ -218,9 +229,8 @@ as a press of Cancel leaves it. A Claimed request is left to its dispatcher, and
 with no entries is not finished.
 
 **Amended 2026-11-18: a link matches the dispatcher's session id.** A dispatcher reports
-the Claude desktop app's id for the session it started, `local_<guid>`, while a session
-calls `link_session` with its transcript id. `link_session` now matches a request under
-both. The plan's `execute-plan` session links itself to one entry of its plan, because
+the id the host gave the session it started, while a session calls `link_session` with
+its transcript id. `link_session` now matches a request under both. The plan's `execute-plan` session links itself to one entry of its plan, because
 its entry sessions link with their own ids.
 
 ### 4. Dispatchers wait on a long poll and act through MCP tools
@@ -239,18 +249,41 @@ a dispatcher wait in a process that spends no model turn while it waits.
 `session-requests` flag claims a request and reports its session, per ADR 0012 §7.
 The tools take a request id and a session id, never a brief.
 
-**The Manager session is the first dispatcher.** It is a skill a person starts once
-in a pinned Claude Desktop session. It waits on the route, claims each request, calls
-`start_session` with the request's clone folder and the fixed brief, and reports the
-started session. It holds no state of its own, so restarting it loses nothing. How
-many sessions it runs at once, and when it holds back for machine load or usage, is
-the skill's own policy and not this record's.
+**Amended 2026-11-26: a dispatcher is a role, and it acts on sessions through a
+session-host port.** The dispatcher waits on the route, claims each request with the
+Manager grant of ADR 0058 §3, starts its session through the port, and reports the
+session id the port returns. It acts on a session only through the port's five
+operations:
+
+| Operation | Does | The dispatcher uses it to |
+| --- | --- | --- |
+| Start | starts a session in a new worktree of the clone folder, with the fixed brief of §2 as its whole prompt | dispatch a request, or start a fixer (§6) |
+| Report id | answers the id the host gave the session it started | report the request Started (§3) |
+| List | lists the sessions the host is running, each with its id and name | count them against its capacity, and find a watched pull request (§6) |
+| Read state | answers one session's state: working, waiting or idle | count only working sessions, as ADR 0041 has it |
+| Deliver | sends one message to one session, and starts a turn in it when it is idle | hand back an answer (ADR 0041 §3) |
+
+The port takes the clone folder, the fixed brief, a session id and a message built only
+from a stored question and its accepted answer, never entry text, so the trust rule of
+§1 holds whatever host is behind it. Each host is an **adapter** that
+implements the port with that host's own commands. This record names no host, and the
+queue, the claim lease, the pause, the order and the trust rules are the same for every
+adapter.
+
+**A dispatcher is a skill a person starts by hand** in a long-running session of the
+host, as the person's own ask; nothing starts one on its own. It holds no state of its
+own, so restarting it loses nothing. How many sessions it runs at once, and when it
+holds back for machine load or usage, is the skill's own policy and not this record's.
+The skills that need a host — the dispatcher's adapter, and anything else that calls a
+host's own commands — ship in a plugin per host, `backlog-desktop` and `backlog-herdr`,
+beside the shared `backlog-tools`, which keeps every skill that needs no host. The
+plugins' READMEs say which host each one adapts.
 
 **Amended 2026-11-11: the app notes when a dispatcher last waited.** Each call the wait
 route lets in is recorded as dispatcher contact, in memory on this desktop, and counts
 as now for as long as the call is held. A `404` while the flag is off records nothing.
-The record names no dispatcher and is forgotten on restart, and the Manager still holds
-no state. The Tasks filter bar's session queue lists every open request and warns when
+The record names no dispatcher and is forgotten on restart, and the dispatcher still
+holds no state. The Tasks filter bar's session queue lists every open request and warns when
 one waits Requested and no dispatcher has been heard for more than two minutes.
 
 **Amended 2026-11-18: the person can pause the queue.** The session queue offers Pause
@@ -258,7 +291,7 @@ queue and Resume queue. While the queue is paused, the wait route hands out no r
 with nothing else to hand out it holds the call and answers `204`, as on an empty queue,
 and the call is still dispatcher contact. Answer deliveries of local ADR 0041 are not
 paused, so the route still hands them out and a waiting session still gets its answer.
-`list_session_requests` says whether the queue is paused, and the Manager ends its turn
+`list_session_requests` says whether the queue is paused, and a dispatcher waits
 while it is rather than try claims it knows are refused. The person can still queue and
 cancel requests. No MCP tool pauses or resumes the queue: like a request, a pause is the
 person's act in the app. The paused state is kept in the app's local database beside the
@@ -270,7 +303,7 @@ the person sets the order of the Requested requests, a lapsed claim included, in
 session queue's popover. Entry and plan requests share that one order, across every
 repository on this machine. A new request joins at the end, and a request the person
 never moved keeps its place by when it was asked. The wait route, `list_session_requests`
-and the Manager take requests in that order. A Claimed or Started request does not move,
+and every dispatcher take requests in that order. A Claimed or Started request does not move,
 because a dispatcher already acts on it. The order is kept with the requests in the
 app's local database, written in one transaction per move, and does not replicate. Only
 the app reorders: no MCP tool moves a request, for the same reason that only a click
@@ -283,7 +316,7 @@ design guidelines'
 
 A direct launch from the app, the way it starts Copilot CLI, is left for later. It
 would be a second dispatcher for the same request, and neither the request nor the
-Manager would change.
+port would change.
 
 ### 5. Behind the flag `session-requests`, off by default
 
@@ -295,33 +328,34 @@ group. Off, the action is not shown, the route answers `404` and the tools leave
 endpoint. It is off by default while the dispatchers are built
 ([Feature Enablement](../08-crosscutting-concepts.md#feature-enablement)).
 
-### 6. The Manager mends a bot's red pull request
+### 6. The dispatcher mends a bot's red pull request
 
 ```meta
 ```
 
 A pull request a bot opened — Dependabot, Renovate, a workflow — whose checks fail stays
 open until someone fixes it, and no session owns it. After the queue, with room left under
-the same four limits, the Manager lists each clone folder's open pull requests and starts a
+the same limits, the dispatcher lists each clone folder's open pull requests and starts a
 **fixer** session for one that is:
 
 - opened by a bot, on a branch of the repository itself, and not a draft. A fork's is
   never mended: anyone can open one as a bot, and the fixer would build its code here;
 - red: every check has settled and at least one failed;
-- not watched: no open Claude Desktop session is bound to it, no fixer for it is still
+- not watched: no session the port lists is working on it, no fixer for it is still
   open, and it has had fewer than two fixers.
 
-The fixer starts in the clone folder, in its own worktree, titled
-`CI fix <owner/name>#<number>`, which is how a later tick sees it. Its brief is fixed and
-built from the repository, the number and the head commit alone: fix the checks on the
-pull request's own branch through the repository's gate, bind the session to it with
-Auto-fix on, push to that branch and stop at Personal Validation, open no second pull
-request and never merge. The title, body, branch name and check logs never reach the
+The fixer starts through the port's Start, in the clone folder, in its own worktree,
+named `CI fix <owner/name>#<number>`, which is how a later List sees it. Its brief is fixed and
+built from the repository, the number and the head commit alone: watch your pull
+request's checks and fix them, on its own branch and through the repository's gate,
+push to that branch and stop at Personal Validation, open no second pull request and
+never merge. It names no feature of a host: how a session watches checks is the
+session's own tooling. The title, body, branch name and check logs never reach the
 brief. A fixer that needs a decision stops and says so.
 
 Session requests keep priority: a fixer starts only once the queue is empty, and a paused
-queue starts none. The person's `/loop` of the Manager is the ask that starts it, as it is
-for a request. The app counts no fixer among the dispatched sessions, so the Manager adds
+queue starts none. The person's start of the dispatcher is the ask that starts it, as it
+is for a request. The app counts no fixer among the dispatched sessions, so the dispatcher adds
 its running fixers to the count itself. Merging stays with the repository's own rules,
 such as an auto-merge workflow for a green dependency bump.
 
@@ -387,17 +421,19 @@ reaches it beyond the plan tag and the landing mode.
 
 Positive:
 
-- **A button starts the work** in a real Claude Desktop session, with a worktree and
-  the app's permission prompts, in the right repository.
+- **A button starts the work** in a real hosted session, with a worktree and the
+  host's permission prompts, in the right repository.
+- **A host changes without a new decision.** A new host is a new adapter behind the
+  port, in its own plugin; the queue, the tools and this record stay as they are.
 - **A request survives a missing dispatcher.** The app can show it on the entry as
-  waiting, with a Cancel action, until a Manager runs.
+  waiting, with a Cancel action, until a dispatcher runs.
 - **Any MCP-capable agent can dispatch.** The route and the tools name no agent.
 - **A plan crosses repositories without the person copying a prompt.** The Manager starts
   the other repository's plan session and reports the plan's progress in each repository.
 
 Negative:
 
-- **Someone has to start the Manager and keep it running.** Requests made while none
+- **Someone has to start a dispatcher and keep it running.** Requests made while none
   runs wait, which may start work later than the person expected. Since the
   2026-11-11 amendment, the session queue says so when none is heard and names the
   command that starts one.
@@ -405,16 +441,19 @@ Negative:
   takes. The trigger and a callout in the popover say the queue is paused.
 - **A request started late runs late.** A request made days ago starts when a
   dispatcher next runs. `run-plan-item` exits when the entry is already done.
-- **The clone folder may need opening in Claude Desktop once**, so it is trusted
-  before `start_session` uses it.
-- **Each dispatch adds to the Manager's context.** Compaction covers it, and a
+- **The clone folder may need trusting in the host once** before the port's Start
+  can use it, where the host asks for that.
+- **Every adapter has to answer all five operations.** A host that cannot start a turn
+  in an idle session, or cannot say whether a session is waiting, cannot be a
+  dispatcher's host until its adapter makes up the gap.
+- **Each dispatch adds to the dispatcher's context.** Compaction covers it, and a
   restart costs nothing.
 
 - **A fixer waits on the person.** It stops at Personal Validation with its fix pushed,
   and counts against the session limit until the person archives it.
-- **The two-fixer limit reads session titles.** A fixer the person retitles, or one past
-  the 100 newest sessions, no longer counts, so a pull request red for long can get a
-  third.
+- **The two-fixer limit reads session names.** A fixer the person renames, or one the
+  port's List no longer returns, no longer counts, so a pull request red for long can
+  get a third.
 - **A hand-off waits for a turn that may start a session.** Claude Desktop refuses
   `start_session` on any turn a Monitor event or a wake-up drives. Only a turn the person
   typed, or a `<side-sessions-event>` turn right after one, may start a session. A
@@ -432,19 +471,24 @@ Neutral:
 ```meta
 ```
 
-- **The Manager reads requests from chat or from entry text.** Rejected: whoever can
+- **The dispatcher reads requests from chat or from entry text.** Rejected: whoever can
   write an entry could start a session with any brief.
-- **Only a direct launch from the app.** It needs no Manager, but it starts a CLI
-  session, not a Claude Desktop session with a worktree, and the app would have to
+- **Only a direct launch from the app.** It needs no dispatcher, but it starts a CLI
+  session, not a hosted session with a worktree, and the app would have to
   pick an agent and a terminal. Kept as a later second dispatcher.
 - **A cloud routine per request.** Cloud sessions start without the repository's
   plugins and cannot reach the loopback listener or the local database.
-- **A Claude Desktop deep link.** Not confirmed that Claude Desktop accepts one for a
-  Code session.
+- **A host's deep link opened by the app.** Not every host accepts one, and it would
+  be a second way to start a session beside the port.
+- **Naming the host in this record.** Each change of host rewrote the record and every
+  skill that follows it, and the queue's rules never depended on the host. Hosts are
+  named only in their adapters' code and their plugins' READMEs.
+- **One plugin with every host's skills.** A person would install the commands of hosts
+  they do not run, and one host's change would ship to all of them.
 - **Waiting through an MCP tool.** A tool call held open for a minute ties up the
   stateless transport, and a session would have to spend a turn on each call.
-- **A self-paced `/loop` as the wait.** It spends a turn on every tick when nothing
-  changed. A Manager may still keep one as a slow heartbeat.
+- **A self-paced loop as the wait.** It spends a turn on every tick when nothing
+  changed. A dispatcher may still keep one as a slow heartbeat.
 - **Requests that expire.** A request made while no dispatcher runs would be lost
   without the person knowing. Cancelling is explicit.
 - **A plan session queues its hand-off as a session request.** It needs an MCP tool
@@ -461,7 +505,9 @@ Neutral:
 | --- | --- | --- |
 | 2026-11-26 | §3 amended: the session queue offers Cancel on a Claimed request too, as the state diagram allows. It stops no session already started, and a later `link_session` links nothing. It replaces the 2026-11-18 sentence that a Claimed request offers no Cancel. Built in PR #2089. | The owner wanted a claim whose session never starts to be taken back. |
 | 2026-11-26 | §7 added, §1 amended: the Manager starts, once each, the hand-off line a plan session it started writes in its report, in that repository's known clone folder with the fixed `execute-plan` prompt, and follows the plan's progress read-only. No session request, tool or grant is added. | A plan session another session started cannot start sessions, so its hand-off waited for the person to copy a printed prompt. |
+| 2026-11-26 | Proposed, §4 and §6 amended: the dispatcher is a role that acts on sessions only through a session-host port of five operations — start in a new worktree with the fixed brief, report its id, list, read state (working, waiting, idle), deliver a message — and claims with the Manager grant; a dispatcher is a skill a person starts by hand in a long-running session of the host; host skills ship in `backlog-desktop` and `backlog-herdr` beside `backlog-tools`; the fixer's brief is "watch your pull request's checks and fix them". Queue, lease, pause, order and trust unchanged. The §2 table's stray 2026-11-18 row moved here. | The record named one host, and the person moves dispatch to another; the queue never depended on which (plan `agent-factory`, item `adr-session-host-port`). |
 | 2026-11-23 | §6 added, §1 amended: after the queue, the Manager starts one fixer session per bot-opened pull request on the repository's own branch whose settled checks fail and that no session watches, at most two per pull request, with a fixed brief from repository, number and head commit. | Dependency bumps sat open for days on one red check, and no session owned them. |
+| 2026-11-18 | §3 amended: the app closes a Requested or Started request once its entry, or every entry of its plan, is Done or Archived, at start and after every task write; `link_session` matches a request under the session's desktop id as well as its transcript id, and `execute-plan` links its own session to one entry of its plan. | No request had ever reached Linked: the dispatcher reports the desktop id and a session links by its transcript id, and a plan's `execute-plan` session never linked at all. Plans the person had finished stayed in the session queue as Started. |
 | 2026-11-18 | §2 amended: the plan brief is `/backlog-tools:execute-plan +<tag> branch`, and `execute-plan` always runs unattended, with no attended mode, gate relay or per-entry landing; §1 now says the plan's `execute-plan` session dispatches a follow-up entry. Built in PR #1846. | A dispatched plan session stopped on questions nobody answers, and a dispatched plan lands its entries on the plan's integration branch. |
 | 2026-11-18 | §3 amended: the person can cancel a Started request, so a request whose session never called `link_session` leaves the queue. It stops no session, and a later `link_session` links nothing. Requests still never expire. Built in the same pull request. | Started rows whose session never linked sat in the session queue for days with nothing to clear them. |
 | 2026-11-18 | §3 and §4 amended: the person can pause and resume the queue in the app. While it is paused, every claim is refused inside its transaction and the wait route hands out no request, while answer deliveries keep flowing, held claims still report and release, and requests can still be queued and cancelled. `list_session_requests` carries `paused`, and no MCP tool pauses or resumes. The state is a machine-local single-row table in the app's database. Built in the same pull request. | A person wants to stop new sessions from starting without cancelling every request or stopping the Manager. |

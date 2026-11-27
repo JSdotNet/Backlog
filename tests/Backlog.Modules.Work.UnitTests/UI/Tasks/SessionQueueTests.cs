@@ -26,7 +26,7 @@ public sealed class SessionQueueTests
     {
         Assert.Equal(
             [
-                "/loop /backlog-tools:dispatch-sessions",
+                "/loop /backlog-desktop:dispatch-sessions",
                 "/loop /backlog-tools:tend-brain",
                 "/loop /backlog-tools:track-goals"
             ],
@@ -36,22 +36,22 @@ public sealed class SessionQueueTests
     [Fact]
     public void The_dispatcher_warning_names_the_dispatcher_agent_s_command()
     {
-        Assert.Equal("/loop /backlog-tools:dispatch-sessions", LongRunningAgents.DispatchSessions);
+        Assert.Equal("/loop /backlog-desktop:dispatch-sessions", LongRunningAgents.DispatchSessions);
         Assert.Equal(LongRunningAgents.DispatchSessions, LongRunningAgents.All[0].Command);
     }
 
     [Theory]
-    [InlineData("dispatch-sessions", LongRunningAgents.DispatchSessions)]
-    [InlineData("tend-brain", LongRunningAgents.TendBrain)]
-    [InlineData("track-goals", LongRunningAgents.TrackGoals)]
-    public void Each_command_is_the_loop_line_its_skill_names(string skill, string command)
+    [InlineData("backlog-desktop", "dispatch-sessions", LongRunningAgents.DispatchSessions)]
+    [InlineData("backlog-tools", "tend-brain", LongRunningAgents.TendBrain)]
+    [InlineData("backlog-tools", "track-goals", LongRunningAgents.TrackGoals)]
+    public void Each_command_is_the_loop_line_its_skill_names(string plugin, string skill, string command)
     {
-        var text = File.ReadAllText(RepositoryRoot.File("plugins", "backlog-tools", "skills", skill, "SKILL.md"));
+        var text = File.ReadAllText(RepositoryRoot.File("plugins", plugin, "skills", skill, "SKILL.md"));
         var name = System.Text.RegularExpressions.Regex.Match(text, @"^name:\s*(\S+)\s*$", System.Text.RegularExpressions.RegexOptions.Multiline).Groups[1].Value;
 
         Assert.Equal(skill, name);
         Assert.Contains(command + " ", text, StringComparison.Ordinal);
-        Assert.Equal($"/loop /backlog-tools:{name}", command);
+        Assert.Equal($"/loop /{plugin}:{name}", command);
     }
 
     [Fact]

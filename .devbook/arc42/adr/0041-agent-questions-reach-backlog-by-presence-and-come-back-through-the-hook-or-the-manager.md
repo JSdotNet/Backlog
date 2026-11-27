@@ -1,7 +1,7 @@
 # ADR 0041: Agent questions reach Backlog by presence and come back through the hook or the Manager
 
 ```meta
-date: 2026-11-24
+date: 2026-11-26
 related: [".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0024-claude-code-telemetry-arrives-on-the-mcp-listener.md", ".devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md", ".devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md", ".devbook/arc42/08-crosscutting-concepts.md#notifications", ".devbook/domain/sessions/domain.md#question-relay", ".devbook/domain/sessions/domain.md#waiting-question", ".devbook/domain/sessions/domain.md#presence", ".devbook/domain/sessions/domain.md#session-state", ".devbook/domain/sessions/domain.invariants.md#question-relay", ".devbook/domain/sessions/requirements.md#answer-a-sessions-question-from-elsewhere", ".devbook/domain/sessions/features.md#answer-a-sessions-question-from-elsewhere", ".devbook/domain/notifications/context.md"]
 ```
 
@@ -9,8 +9,9 @@ A question a Claude session asks is registered with Backlog through MCP `ask`, a
 **waiting question** of the Sessions context. Backlog decides from the person's
 **presence** whether it stays in the session for now or becomes a notification at
 once. An answer given in Backlog returns one of two ways: the `PreToolUse` hook hands
-it to a question dialog that is still held, or the Manager session sends it to the
-session as a message. The relay sits behind the existing `notifications` flag.
+it to a question dialog that is still held, or a dispatcher delivers it to the session
+as a message through the session-host port of ADR 0038 §4. The relay sits behind the
+existing `notifications` flag.
 
 ## Status
 
@@ -24,7 +25,9 @@ main. An unattended `execute-plan` run of the `+question-relay` plan drafted it 
 **Built:** the same merge brought presence, the waiting question, `ask`,
 `get_answer` and `close`, the Manager deliveries, the hook script and its install.
 Follow-ups landed as PR #1632 on 2026-11-02. Local ADR 0058 amends the hook's token
-and the device an answer carries ([History](#history)).
+and the device an answer carries ([History](#history)). The 2026-11-26 amendment of §3,
+delivery through the session-host port, is proposed by the `agent-factory` plan and
+not yet built.
 
 A **local** decision, numbered in the local sequence. Every bare ADR number below
 means the local one. It amends ADR 0039's MCP tools and ADR 0038's wait route and
@@ -54,9 +57,9 @@ desktop can tell whether they are at the keyboard.
 on `AskUserQuestion` may return the tool's answers in place of the dialog. Once the
 dialog is open, no hook reaches it. An idle session is woken only by a new message.
 
-**The Manager already reaches every Claude Desktop session.** ADR 0038's Manager
-waits on a long poll on the MCP listener and can send a message to any session it
-can see.
+**A dispatcher already reaches the sessions of its host.** ADR 0038's dispatcher
+waits on a long poll on the MCP listener, and its session-host port can deliver a
+message to any session the host runs.
 
 ## Decision
 
@@ -121,7 +124,8 @@ sequenceDiagram
   participant S as Claude session
   participant H as ask-backlog hook
   participant B as Backlog
-  participant M as Manager session
+  participant M as Dispatcher
+  participant P as Session-host port
   S->>H: AskUserQuestion (person away)
   H->>B: ask(session, questions)
   B-->>H: route backlog
@@ -133,7 +137,8 @@ sequenceDiagram
   Note over S,M: a prose question, or a dialog left open past the delay
   M->>B: GET /session-requests/wait
   B-->>M: delivery: session, question, answer
-  M->>S: send_message(question and answer)
+  M->>P: deliver(session, question and answer)
+  P->>S: message, starting a turn when idle
 ```
 
 - **A dialog asked while the person is away** is answered by the `PreToolUse` hook.
@@ -143,16 +148,24 @@ sequenceDiagram
   without output and the dialog opens.
 - **A dialog left open past the notify delay, and a prose question,** are answered
   through a **delivery**. Backlog records the answer as a delivery for the session.
-  The Manager claims it from the dispatch wait route and sends the answer to the
-  session with `send_message`, which wakes an idle session.
+  A dispatcher claims it from the dispatch wait route and hands the answer to the
+  port's **deliver** operation.
+
+**Amended 2026-11-26: deliver must start a turn in an idle session.** An idle session
+wakes only on a new message, so an adapter whose host can put a message in front of a
+session without starting its turn does not meet the port. A delivery the port refuses,
+or that fails, is never marked delivered: the dispatcher releases its claim, or lets its
+lease run out, so the delivery stays pending, and the wait route hands it out again on a
+later wait, to it or to any other dispatcher, until the port accepts it or the question
+closes. How an adapter delivers is the adapter's, in its plugin, and not this record's.
 
 What that message does to a dialog still open is accepted as found. The plan's
 end-to-end check records it, and this record does not promise it.
 
-The Manager never answers a question itself and never writes its message from
-anything but the stored question and the accepted answer. A session the Manager
-cannot reach, such as a CLI session, gets its answer only through the hook or in the
-session.
+The dispatcher never answers a question itself and never writes its message from
+anything but the stored question and the accepted answer. A session no dispatcher's
+port can reach, such as a CLI session started outside any host, gets its answer only
+through the hook or in the session.
 
 ### 4. The desktop app ships the hook script and installs it beside the user-scope `backlog` server
 
@@ -226,7 +239,9 @@ Positive:
 - **Nothing changes at the keyboard.** A question the person answers within the
   notify delay never leaves the session.
 - **An idle session waits for free.** A prose question costs no model turn while it
-  waits, because the Manager wakes the session only once an answer exists.
+  waits, because the dispatcher wakes the session only once an answer exists.
+- **Any host can carry the answer back.** Deliver is one operation of the port, so a
+  new host needs a new adapter, not a new decision.
 - **The hook reaches every session with the server**, the plugin installed or not,
   and updates with the app.
 
@@ -235,8 +250,10 @@ Negative, and accepted:
 - **A dialog asked while the person is away holds a hook process** for up to the
   dialog wait. Claude Code documents no maximum hook timeout, so the end-to-end
   check proves 8 hours holds.
-- **Someone has to run the Manager.** A delivery made while none runs waits in
+- **Someone has to run a dispatcher.** A delivery made while none runs waits in
   Backlog until one starts, or until the person answers in the session.
+- **A delivery the host keeps refusing is retried until the question closes.** Each
+  retry costs a wait and a claim, never a model turn in the session.
 - **The effect of a message on an open dialog is unknown.** It is accepted as found.
 - **A CLI session gets only the hook.** Its prose questions are notified, but the
   answer waits until the person answers in the session.
@@ -254,9 +271,11 @@ Neutral:
 - **A question store of the relay's own.** Notifications already holds the question,
   its answer and its replay after a restart.
 - **MCP channels to push the answer into the session.** They need a research-preview
-  flag and a stateful MCP session. The Manager's message wakes an idle session
-  without either.
-- **Holding the turn in a `Stop` hook.** The Manager answers a stopped session, so
+  flag and a stateful MCP session. The port's deliver wakes an idle session without
+  either.
+- **Dropping a delivery the host refused.** The answer would be lost while the person
+  believes it was given; a pending delivery is retried instead.
+- **Holding the turn in a `Stop` hook.** A dispatcher answers a stopped session, so
   nothing needs to hold one.
 - **Claude polling `get_answer` itself.** Each poll is a model turn. Ending the turn
   and being woken costs nothing while it waits.
@@ -275,6 +294,7 @@ Neutral:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-26 | Proposed, §3 amended: an answer goes back through the deliver operation of ADR 0038's session-host port, which must start a turn in an idle session; a refused or failed delivery stays pending and is handed out again until one is accepted or the question closes. The record names no host. | Dispatch moves between hosts, and the answer path must not depend on one (plan `agent-factory`, item `adr-session-host-port`). |
 | 2026-11-24 | The owner's notification exchange rejects an unpaired device's reply before it accepts it, so the question's notification stays answerable. The relay's own check (2026-11-18 row) stays as defence in depth, and both audit through the shared `DroppedAnswerAudit`. | Plan `zero-trust-auth` final check, PR #1971 (local ADR 0058 §2, ADR 0039 §2). |
 | 2026-11-18 | An answer records the device it came from, and reaches the hook or a delivery only from a device paired now. An answer from a revoked or unknown device is dropped and recorded in the audit log. | Plan `zero-trust-auth` entry 20, ADR 0058 Phase 2: an answer steers an agent, so a revoked pairing must not give one. |
 | 2026-11-12 | The question-hook token is retired: the hook asks the token broker for a token for the Question hook grant, which holds `notify:ask` alone. | Plan `zero-trust-auth`, ADR 0058 Phase 1: no long-lived MCP secret sits in a file. |

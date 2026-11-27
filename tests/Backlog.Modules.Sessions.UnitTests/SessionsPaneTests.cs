@@ -1683,6 +1683,28 @@ public sealed class SessionsPaneTests
         });
     }
 
+    /// <summary>A task whose link names the session by the Claude desktop app's alias,
+    /// stored before the transcript id was the key, still opens the list on that
+    /// session.</summary>
+    [Fact]
+    public void A_session_asked_for_by_its_desktop_alias_is_shown_and_marked()
+    {
+        using var context = Context([Sample[0] with { DesktopSessionId = "local_desktop-1" }, Sample[1]]);
+        context.JSInterop.SetupVoid("backlogFocus", _ => true);
+
+        var pane = context.Render<SessionsPane>(parameters => parameters
+            .Add(p => p.FocusSessionId, "local_desktop-1"));
+
+        pane.WaitForAssertion(() =>
+        {
+            var row = pane.Find("[data-testid='sessions-row'][data-focused='true']");
+
+            Assert.Equal("true", row.GetAttribute("aria-current"));
+            Assert.Empty(pane.FindAll("[data-testid='sessions-focus-missing']"));
+            Assert.Single(pane.FindAll(".sessions-row--focused"));
+        });
+    }
+
     /// <summary>A session this PC has no record of is said out loud, and no row
     /// pretends to be it.</summary>
     [Fact]

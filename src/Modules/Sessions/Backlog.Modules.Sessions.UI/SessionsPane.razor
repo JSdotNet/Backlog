@@ -2807,11 +2807,13 @@ else
         RevealFocused();
     }
 
-    /// <summary>A row is the focused session when it is that session, or when one of
-    /// its runs was driven by it.</summary>
+    /// <summary>A row is the focused session when it is that session — by its transcript
+    /// id, or by the Claude desktop app's alias a link stored before the transcript id was
+    /// the key names — or when one of its runs was driven by it.</summary>
     internal bool IsFocused(SessionRow row) =>
         !string.IsNullOrWhiteSpace(FocusSessionId)
         && (string.Equals(row.Session?.Id, FocusSessionId, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(row.Session?.DesktopSessionId, FocusSessionId, StringComparison.OrdinalIgnoreCase)
             || row.Runs.Any(run => run.SessionIds.Contains(FocusSessionId, StringComparer.OrdinalIgnoreCase)));
 
     private void RevealFocused()

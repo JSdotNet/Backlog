@@ -76,6 +76,13 @@ public sealed class WorkLinksProjection
         _sessionsById = new(StringComparer.OrdinalIgnoreCase);
         foreach (var session in sessions) _sessionsById.TryAdd(session.Id, session);
 
+        // A link names the session by its transcript id; one stored before that id was
+        // canonical names the Claude desktop app's alias, local_<guid>, and still resolves.
+        foreach (var session in sessions)
+        {
+            if (session.DesktopSessionId is { Length: > 0 } desktopId) _sessionsById.TryAdd(desktopId, session);
+        }
+
         _pullsByKey = new(StringComparer.OrdinalIgnoreCase);
         foreach (var pull in pulls) _pullsByKey.TryAdd(Key(pull.RepositoryFullName, pull.Number), pull);
 
@@ -86,13 +93,18 @@ public sealed class WorkLinksProjection
         _linkedPulls = rows.SelectMany(row => row.PullRequestLinks).Select(link => Key(link.Repository, link.Number)).ToHashSet(StringComparer.OrdinalIgnoreCase);
     }
 
+    private bool IsLinked(AgentSession session) =>
+        _linkedSessions.Contains(session.Id)
+        || (session.DesktopSessionId is { Length: > 0 } desktopId && _linkedSessions.Contains(desktopId));
+
     /// <summary>A pull request's key here and on the pull requests list: <c>owner/name#number</c>.</summary>
     public static string Key(string repositoryFullName, int number) =>
         $"{repositoryFullName}#{number.ToString(CultureInfo.InvariantCulture)}";
 
     /// <summary>The sessions an entry links, in the order they were linked. A session
     /// the record no longer lists is still drawn, with what the task list last read
-    /// about it, so a link never silently disappears.</summary>
+    /// about it, so a link never silently disappears. A session linked under both its
+    /// transcript id and its desktop app alias is drawn once.</summary>
     public IReadOnlyList<WorkSession> SessionsOf(EntryRow row) =>
         [.. row.SessionLinks.Select(link => _sessionsById.TryGetValue(link.SessionId, out var session)
             ? Session(session, withRepository: false)
@@ -107,7 +119,8 @@ public sealed class WorkLinksProjection
                     link.SessionId,
                     $"Session {link.ShortId}",
                     IntegrationSessionState.Unknown,
-                    _sessionsRead ? "Not in the session record on this machine" : null))];
+                    _sessionsRead ? "Not in the session record on this machine" : null))
+            .DistinctBy(session => session.Id, StringComparer.OrdinalIgnoreCase)];
 
     /// <summary>
     /// The pull requests an entry links. One no longer open is drawn from what the task
@@ -149,7 +162,7 @@ public sealed class WorkLinksProjection
 
         foreach (var session in _sessions)
         {
-            if (session.State is AgentSessionState.Finished || _linkedSessions.Contains(session.Id)) continue;
+            if (session.State is AgentSessionState.Finished || IsLinked(session)) continue;
 
             var repository = RepositoryOf(session);
             if (!InScope(repository, scope)) continue;

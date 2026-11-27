@@ -60,6 +60,13 @@ public sealed class LinkedSessionStates(IAgentSessionSource sessions) : ILinkedS
             held.TryAdd(session.Id, session);
         }
 
+        // A link names a Claude session by its transcript id; one stored before that id was
+        // the key names the Claude desktop app's alias, local_<guid>, and reads the same session.
+        foreach (var session in catalog.Sessions)
+        {
+            if (session.DesktopSessionId is { Length: > 0 } desktopId) held.TryAdd(desktopId, session);
+        }
+
         // Archived passes through as the record has it, null included: no desktop
         // record is not "open", and guessing it would draw a CLI or Copilot session as
         // one the desktop app holds.

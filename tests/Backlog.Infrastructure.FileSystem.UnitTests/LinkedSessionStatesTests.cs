@@ -61,6 +61,19 @@ public class LinkedSessionStatesTests
         Assert.Equal(LinkedSessionState.Stalled, session.State);
     }
 
+    /// <summary>A link stored under the Claude desktop app's id, before the transcript id
+    /// was the key, reads its session's state, answered under the id as asked.</summary>
+    [Fact]
+    public async Task A_link_under_the_desktop_alias_reads_its_sessions_state()
+    {
+        var adapter = new LinkedSessionStates(new StubSessions(
+            Session("e711d47d-3e09", AgentSessionState.Running) with { DesktopSessionId = "local_1", Archived = false }));
+
+        var states = await adapter.StatesOfAsync(["local_1"], TestContext.Current.CancellationToken);
+
+        Assert.Equal(new LinkedSession(LinkedSessionState.Running, false), states["local_1"]);
+    }
+
     [Fact]
     public async Task A_session_the_record_does_not_hold_is_absent()
     {

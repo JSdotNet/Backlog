@@ -54,10 +54,18 @@ That list holds only the agent skills org ADR 0013 installs for every session: t
 `dotnet/skills` plugins. `.github/copilot/settings.json` carries the same list for Copilot.
 `.devbook/config.json` holds the bindings, phase maps, and policy the flows read.
 
-`plugins/backlog-tools` is this repository's own plugin, installed on demand rather than
-auto-enabled — see `plugins/backlog-tools/README.md`. None of its fourteen skills, nor its hooks,
-changes the paragraph above; the plan-progress band and pane (`hooks/register.tsx`) only read the
-calls an `execute-plan` run makes. `import-plan` and `import-inbox` are user-invoked
+This repository ships three plugins of its own, installed on demand rather than auto-enabled, from
+the `jsdotnet-backlog` marketplace `.claude-plugin/marketplace.json` lists:
+
+| Plugin | Holds | Install in |
+| --- | --- | --- |
+| `plugins/backlog-tools` | the twelve skills and the telemetry hook every host runs | Claude Desktop and herdr |
+| `plugins/backlog-desktop` | `execute-plan`, `dispatch-sessions`, the scheduled-run report hooks and the plan-progress band and pane | Claude Desktop, beside `backlog-tools` |
+| `plugins/backlog-herdr` | nothing yet — the home of the herdr session host's own parts | herdr, beside `backlog-tools` |
+
+Each README says what it holds. None of their fourteen skills, nor their hooks, changes the
+paragraph above; the plan-progress band and pane (`plugins/backlog-desktop/hooks/register.tsx`)
+only read the calls an `execute-plan` run makes. `import-plan` and `import-inbox` are user-invoked
 (`disable-model-invocation: true`) and one-shot: each writes an import file for the Backlog
 app, so neither is a flow and neither goes through the gate. `run-plan-item` is
 model-invoked when a plan item is pasted in, but it runs the item's instructions *through*
@@ -85,7 +93,7 @@ writes no `annotation` fence and commits nothing: a chapter fix an answer needs 
 gate.
 `dispatch-sessions` is started by the person alone (model-invocable only so `/loop` can run it)
 and changes no file: started once as
-`/loop /backlog-tools:dispatch-sessions` in a pinned Claude Desktop session, it turns each
+`/loop /backlog-desktop:dispatch-sessions` in a pinned Claude Desktop session, it turns each
 session request the app queues into a new session whose whole prompt is the app's fixed
 `run-plan-item` or `execute-plan` brief, so that session meets the gate like a pasted entry (local
 ADR 0038). It also hands each answer the app accepted for a waiting session back to that session
@@ -209,7 +217,7 @@ Path-scoped rules are authored once under `.agents/rules/` and wrapped in
   plan (ADR 0007) from an agreed specification; user-invoked only.
 - `plugins/backlog-tools/skills/run-plan-item/SKILL.md` — runs one item of such a
   plan pasted back out of the Backlog app, after checking it is still outstanding.
-- `plugins/backlog-tools/skills/execute-plan/SKILL.md` — runs a whole plan by
+- `plugins/backlog-desktop/skills/execute-plan/SKILL.md` — runs a whole plan by
   running its prompt entries in nested sessions, one worktree and pull request each; user-invoked only.
 - `plugins/backlog-tools/skills/final-check/SKILL.md` — closes a finished plan once, in the
   session that wrote it: what each entry implemented, that it all builds, and the accepted gaps
@@ -223,7 +231,7 @@ Path-scoped rules are authored once under `.agents/rules/` and wrapped in
   on Devbook chapters in the Backlog app, answering and resolving each in the app's store.
 - `plugins/backlog-tools/skills/close-merged/SKILL.md` — moves the Backlog entries whose
   pull request merged into the default branch or a `plan/` branch to Done.
-- `plugins/backlog-tools/skills/dispatch-sessions/SKILL.md` — the Manager session that
+- `plugins/backlog-desktop/skills/dispatch-sessions/SKILL.md` — the Manager session that
   dispatches the app's session requests (local ADR 0038) and delivers the answers the app
   accepted to the sessions waiting on them (local ADR 0041); started by the person under `/loop`, no flow.
 - `plugins/backlog-tools/skills/tend-brain/SKILL.md` — tends a person's Brain folder (local
