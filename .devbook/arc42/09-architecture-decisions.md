@@ -153,3 +153,4 @@ related: [".devbook/arc42/adr/README.md", ".devbook/arc42/04-solution-strategy.m
 - [ADR 0072 — The Tasks pane groups by plan, and a plan is queued only as a whole](adr/0072-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md) (proposed; built on `plan/plan-first-tasks`)
 - [ADR 0073 — The bounded contexts are redrawn](adr/0073-the-bounded-contexts-are-redrawn.md) (proposed; built on `plan/boundary-redesign`)
 - [ADR 0074 — Infrastructure is organised by technology, never by bounded context](adr/0074-infrastructure-is-organised-by-technology-never-by-context.md) (proposed; amends ADR 0064 §1)
+- [ADR 0075 — Goals merge into Work, and the Roadmap draws them](adr/0075-goals-merge-into-work-and-the-roadmap-draws-them.md) (proposed; not yet built)
