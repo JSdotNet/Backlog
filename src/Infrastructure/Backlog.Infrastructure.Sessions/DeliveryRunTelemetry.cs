@@ -100,7 +100,11 @@ internal sealed partial class DeliveryRunTelemetry : IDeliveryRunTelemetry
     private async Task RecordAsync(string name, string sessionId, JsonElement hookEvent, CancellationToken cancellationToken)
     {
         var track = TrackFor(sessionId);
-        var now = _clock.GetUtcNow();
+
+        // The forwarder posts from a detached sender, so an event can arrive late and out of
+        // order; it stamps the moment the hook fired, and that moment is the event's. An older
+        // forwarder posts inline and stamps nothing, so arrival stands in for it.
+        var now = Moment(hookEvent, "backlog_at") ?? _clock.GetUtcNow();
         var transcript = Text(hookEvent, "transcript_path");
 
         // A start time and nothing else: it touches no run, so it stays cheap for the
@@ -158,7 +162,9 @@ internal sealed partial class DeliveryRunTelemetry : IDeliveryRunTelemetry
             case "PostToolUse":
             {
                 var tool = Text(hookEvent, "tool_name") ?? "unknown";
-                var durationMs = track.Finished(tool) is { } startedAt
+                // A stamped call carries its own start — its PreToolUse is never posted — so it
+                // takes nothing from the queue an unstamped PreToolUse fills.
+                var durationMs = (Moment(hookEvent, "backlog_started_at") ?? track.Finished(tool)) is { } startedAt
                     ? Math.Max(0L, (long)(now - startedAt).TotalMilliseconds)
                     : 0L;
 
@@ -718,6 +724,12 @@ internal sealed partial class DeliveryRunTelemetry : IDeliveryRunTelemetry
 
     private static string? Text(JsonObject owner, string name) =>
         owner[name] is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
+
+    private static DateTimeOffset? Moment(JsonElement owner, string name) =>
+        Text(owner, name) is { } text
+        && DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var moment)
+            ? moment
+            : null;
 
     private static string? Text(JsonElement owner, string name) =>
         owner.ValueKind is JsonValueKind.Object && owner.TryGetProperty(name, out var value) && value.ValueKind is JsonValueKind.String

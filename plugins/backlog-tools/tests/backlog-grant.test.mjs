@@ -5,9 +5,10 @@
 
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm, utimes, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import net from "node:net";
+import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -74,32 +75,125 @@ test("no installed headers helper is said, not run", async () => {
     }
 });
 
-// Runs the forwarder on one event against a stand-in /telemetry answering `status`, and answers
-// what reached it and the forwarder's exit code.
-async function forward(settingsFor, { env = {}, status = 202, helper } = {}) {
+// Answers once `check` holds, or false after `ms`.
+async function waitFor(check, ms = 15000) {
+    for (const until = Date.now() + ms; Date.now() < until; ) {
+        if (await check()) return true;
+        await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    return false;
+}
+
+// Runs the forwarder hook on one event against a stand-in /telemetry answering `status` after
+// `delayMs`, and answers what reached it, the hook's exit code and how long the hook took. The
+// hook hands the post to a detached sender, so this waits for the sender to remove its spooled
+// file before reading what arrived.
+async function forward(
+    settingsFor,
+    {
+        env = {},
+        status = 202,
+        delayMs = 0,
+        helper,
+        events = [{ hook_event_name: "PostToolUse", session_id: "s1", tool_name: "Bash", tool_response: "bulk" }],
+    } = {},
+) {
     const received = [];
     const server = createServer((req, res) => {
         let body = "";
         req.on("data", (chunk) => (body += chunk));
         req.on("end", () => {
-            received.push({ url: req.url, authorization: req.headers.authorization, body: JSON.parse(body) });
-            res.statusCode = status;
-            res.end();
+            const entry = { url: req.url, authorization: req.headers.authorization, body: JSON.parse(body), answered: null };
+            received.push(entry);
+            // Whether the answer reached a caller still waiting for it, or one that had given up.
+            res.on("close", () => (entry.answered = res.writableFinished));
+            setTimeout(() => {
+                res.statusCode = status;
+                res.end();
+            }, delayMs);
         });
     });
     await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
     const { port } = server.address();
     const app = await fakeBacklogApp({ settings: settingsFor(port), helper });
+    const spool = await mkdtemp(path.join(os.tmpdir(), "backlog-telemetry-spool-"));
     try {
-        const child = spawn(process.execPath, [FORWARDER], { env: { ...app.env, ...env } });
-        child.stdin.end(JSON.stringify({ hook_event_name: "PostToolUse", session_id: "s1", tool_name: "Bash", tool_response: "bulk" }));
-        const code = await new Promise((resolve) => child.on("exit", resolve));
-        return { received, code };
+        let code = 0;
+        let hookMs = 0;
+        for (const event of events) {
+            const started = Date.now();
+            const child = spawn(process.execPath, [FORWARDER], { env: { ...app.env, ...env, BACKLOG_TELEMETRY_SPOOL: spool } });
+            child.stdin.end(JSON.stringify(event));
+            code ||= await new Promise((resolve) => child.on("exit", resolve));
+            hookMs = Math.max(hookMs, Date.now() - started);
+        }
+        const drained = await waitFor(
+            async () => (await readdir(spool)).length === 0 && received.every((entry) => entry.answered !== null),
+        );
+        return { received, code, hookMs, drained };
     } finally {
+        server.closeAllConnections();
         server.close();
         await app.cleanup();
+        await rm(spool, { recursive: true, force: true });
     }
 }
+
+test("the hook returns before the post is answered, and the detached sender still delivers it", async () => {
+    // The app answers after three seconds: the hook must be gone by then, and the post still answered.
+    const { received, code, hookMs, drained } = await forward((port) => ({ mcpServer: { port, grants } }), { delayMs: 3000 });
+    assert.equal(code, 0);
+    assert.ok(hookMs < 3000, `the hook took ${hookMs} ms, waiting on a post it should hand off`);
+    assert.ok(drained, "the sender left its spooled event behind");
+    assert.equal(received.length, 1);
+    assert.equal(received[0].answered, true, "the post was abandoned before the app answered it");
+});
+
+test("a PreToolUse posts nothing; its PostToolUse carries the start and the hook's own moment", async () => {
+    const call = { session_id: "s1", tool_name: "Edit", tool_use_id: "toolu_01AbC" };
+    const { received, code, drained } = await forward((port) => ({ mcpServer: { port, grants } }), {
+        events: [
+            { ...call, hook_event_name: "PreToolUse" },
+            { ...call, hook_event_name: "PostToolUse" },
+        ],
+    });
+    assert.equal(code, 0);
+    assert.ok(drained, "the start file or a spooled event was left behind");
+    assert.equal(received.length, 1);
+    const { backlog_started_at: startedAt, backlog_at: at } = received[0].body;
+    assert.ok(Date.parse(startedAt) <= Date.parse(at), `${startedAt} should not be after ${at}`);
+});
+
+test("SessionEnd sweeps this forwarder's files a day old, and nothing else", async () => {
+    const spool = await mkdtemp(path.join(os.tmpdir(), "backlog-telemetry-spool-"));
+    try {
+        const old = new Date(Date.now() - 25 * 60 * 60 * 1000);
+        for (const name of ["backlog-telemetry-start-toolu_stale", "backlog-telemetry-lost.json", "someone-elses.json"]) {
+            await writeFile(path.join(spool, name), "x");
+            await utimes(path.join(spool, name), old, old);
+        }
+        await writeFile(path.join(spool, "backlog-telemetry-start-toolu_fresh"), "x");
+        const child = spawn(process.execPath, [FORWARDER], { env: { ...process.env, BACKLOG_TELEMETRY_SPOOL: spool, LOCALAPPDATA: spool, BACKLOG_MCP_TOKEN: "", BACKLOG_MCP_PORT: "9" } });
+        child.stdin.end(JSON.stringify({ hook_event_name: "SessionEnd", session_id: "s1" }));
+        assert.equal(await new Promise((resolve) => child.on("exit", resolve)), 0);
+        assert.ok(await waitFor(async () => !(await readdir(spool)).some((name) => name.endsWith(".json") && name.startsWith("backlog-"))));
+        assert.deepEqual((await readdir(spool)).sort(), ["backlog-telemetry-start-toolu_fresh", "someone-elses.json"]);
+    } finally {
+        await rm(spool, { recursive: true, force: true });
+    }
+});
+
+test("a hook with no event spools nothing and exits 0", async () => {
+    const spool = await mkdtemp(path.join(os.tmpdir(), "backlog-telemetry-spool-"));
+    try {
+        const child = spawn(process.execPath, [FORWARDER], { env: { ...process.env, BACKLOG_TELEMETRY_SPOOL: spool } });
+        child.stdin.end("not json");
+        assert.equal(await new Promise((resolve) => child.on("exit", resolve)), 0);
+        assert.deepEqual(await readdir(spool), []);
+    } finally {
+        await rm(spool, { recursive: true, force: true });
+    }
+});
 
 test("the forwarder posts each event under the Telemetry grant's token, without the tool's output", async () => {
     const { received, code } = await forward((port) => ({ mcpServer: { port, grants } }), { env: { BACKLOG_MCP_TOKEN: "not-sent" } });

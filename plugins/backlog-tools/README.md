@@ -419,8 +419,15 @@ kept in a file. `BACKLOG_MCP_TOKEN`, the dev and CI escape hatch, is sent only w
 Telemetry grant is recorded, and `BACKLOG_MCP_PORT` overrides the port. The tool-call events
 are matched to shell, edits, sub-agents, skills and MCP tools, the calls a run's figures are
 read for, so a session is not paying a process spawn on every `Read` and `Grep`. The script
-needs Node, drops the tool's output before posting, gives up after two seconds and exits 0 on
-any error, so a closed app costs a session nothing but a refused connection.
+needs Node and drops the tool's output. The hook itself only spools the event to a temp file and
+hands it to a detached copy of the script, which asks for the token, posts, and removes the file;
+so the hook returns once the event is read, however slow the helper, the app or the machine, and
+never runs into its timeout. Senders finish in any order, so each event carries the moment its
+hook fired (`backlog_at`) and the app times a call from that; `PreToolUse` posts nothing and
+leaves its moment in a start file its `PostToolUse` sends on as `backlog_started_at`.
+`SessionEnd` sweeps the start files and spooled events a day old. The app reads the stamps from
+the same release on: an older app times every call from this forwarder at 0 ms. Every error is dropped and
+the hook exits 0, so a closed app costs a session nothing.
 
 ### Scheduled run reports
 

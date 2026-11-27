@@ -71,6 +71,39 @@ public sealed class DeliveryRunTelemetryTests : IDisposable
         Assert.Equal("Implementation", recorded["stageName"]!.GetValue<string>());
     }
 
+    /// <summary>The forwarder posts from a detached sender, so events can arrive late and out of
+    /// order: a call that carries the hook's own clock is timed from it, never from arrival, and
+    /// leaves nothing queued for the next call of the same tool.</summary>
+    [Fact]
+    public async Task A_tool_call_stamped_by_the_hook_is_timed_from_its_stamps_not_its_arrival()
+    {
+        var runId = await StartRunAsync(stageInProgress: 1);
+        var telemetry = Telemetry();
+        var stamped = new JsonObject
+        {
+            ["backlog_started_at"] = "2026-09-23T10:00:00.000Z",
+            ["backlog_at"] = "2026-09-23T10:00:00.250Z"
+        };
+
+        // It lands half a minute after it ended, with no PreToolUse before it.
+        _clock.Advance(TimeSpan.FromSeconds(30));
+        await telemetry.RecordAsync(Event("PostToolUse", tool: "Edit", extra: stamped), Ct);
+
+        // An unstamped pair afterwards is still paired with its own start.
+        await telemetry.RecordAsync(Event("PreToolUse", tool: "Edit"), Ct);
+        _clock.Advance(TimeSpan.FromMilliseconds(100));
+        await telemetry.RecordAsync(Event("PostToolUse", tool: "Edit"), Ct);
+
+        var calls = ((JsonArray)Document(runId)["insights"]!).OfType<JsonObject>()
+            .Where(entry => entry["kind"]!.GetValue<string>() == "tool")
+            .ToList();
+
+        Assert.Equal(2, calls.Count);
+        Assert.Equal(250, calls[0]["durationMs"]!.GetValue<long>());
+        Assert.Equal("2026-09-23T10:00:00.250Z", calls[0]["endedAt"]!.GetValue<string>());
+        Assert.Equal(100, calls[1]["durationMs"]!.GetValue<long>());
+    }
+
     [Fact]
     public async Task A_delegated_agent_is_recorded_beside_the_call_that_ran_it()
     {
