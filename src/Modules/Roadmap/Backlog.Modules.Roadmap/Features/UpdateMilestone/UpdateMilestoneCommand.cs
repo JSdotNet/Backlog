@@ -38,9 +38,16 @@ public sealed class UpdateMilestoneCommandHandler(IRoadmapPlanRepository plans, 
             PlanningLane.Of(command.Lane),
             command.IsPlanWide);
 
-        if (updated is not Ok<Milestone>(var milestone)) return (Error)updated.Value!;
+        return updated switch
+        {
+            Ok<Milestone>(var milestone) => await SavedAsync(milestone),
+            Error error => error,
+        };
 
-        await plans.SaveAsync(plan, cancellationToken);
-        return Result.Success(milestone.ToDto());
+        async Task<Result<RoadmapMilestoneDto>> SavedAsync(Milestone milestone)
+        {
+            await plans.SaveAsync(plan, cancellationToken);
+            return Result.Success(milestone.ToDto());
+        }
     }
 }

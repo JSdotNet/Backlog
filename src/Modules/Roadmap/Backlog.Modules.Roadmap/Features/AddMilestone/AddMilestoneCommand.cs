@@ -36,9 +36,16 @@ public sealed class AddMilestoneCommandHandler(IRoadmapPlanRepository plans, Roa
             PlanningLane.Of(command.Lane),
             command.IsPlanWide);
 
-        if (added is not Ok<Milestone>(var milestone)) return (Error)added.Value!;
+        return added switch
+        {
+            Ok<Milestone>(var milestone) => await SavedAsync(milestone),
+            Error error => error,
+        };
 
-        await plans.SaveAsync(plan, cancellationToken);
-        return Result.Success(milestone.ToDto());
+        async Task<Result<RoadmapMilestoneDto>> SavedAsync(Milestone milestone)
+        {
+            await plans.SaveAsync(plan, cancellationToken);
+            return Result.Success(milestone.ToDto());
+        }
     }
 }

@@ -288,17 +288,11 @@ public sealed partial class LinkedTaskSyncWorker : ILinkedTaskSync, IDisposable
                     .Handle(new SyncLinkedTasksCommand(connectorId, target), _stopping)
                     .ConfigureAwait(false);
 
-                if (result is not Ok<LinkedTaskSyncSummary>(var summary))
+                return result switch
                 {
-                    var error = (Error)result.Value!;
-                    LogSyncDidNotComplete(_log, connectorId, target, error.Code, error.Message);
-                    return Failed(error, target);
-                }
-
-                // Information, not Debug: the Aspire dashboard shows nothing below
-                // it, and a sync that worked must leave a trace there too.
-                LogSynced(_log, connectorId, target, summary.Fetched, summary.Created, summary.Restored, summary.Updated, summary.Vanished);
-                return new LinkedTaskSyncOutcome(true, $"Synced {target}: {Describe(summary)}.");
+                    Ok<LinkedTaskSyncSummary>(var summary) => Synced(summary),
+                    Error error => NotSynced(error),
+                };
             }
         }
         catch (OperationCanceledException) when (_stopping.IsCancellationRequested)
@@ -310,6 +304,20 @@ public sealed partial class LinkedTaskSyncWorker : ILinkedTaskSync, IDisposable
         {
             LogSyncThrew(_log, ex, connectorId, target);
             return new LinkedTaskSyncOutcome(false, $"The sync of {target} did not finish. Try again.", "linked_tasks.sync_threw");
+        }
+
+        LinkedTaskSyncOutcome Synced(LinkedTaskSyncSummary summary)
+        {
+            // Information, not Debug: the Aspire dashboard shows nothing below
+            // it, and a sync that worked must leave a trace there too.
+            LogSynced(_log, connectorId, target, summary.Fetched, summary.Created, summary.Restored, summary.Updated, summary.Vanished);
+            return new LinkedTaskSyncOutcome(true, $"Synced {target}: {Describe(summary)}.");
+        }
+
+        LinkedTaskSyncOutcome NotSynced(Error error)
+        {
+            LogSyncDidNotComplete(_log, connectorId, target, error.Code, error.Message);
+            return Failed(error, target);
         }
     }
 

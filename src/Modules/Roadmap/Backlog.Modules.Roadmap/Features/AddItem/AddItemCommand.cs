@@ -38,25 +38,39 @@ public sealed class AddItemCommandHandler(IRoadmapPlanRepository plans, RoadmapP
         ArgumentNullException.ThrowIfNull(command);
 
         var window = PlannedWindow.Create(command.Start, command.End);
-        if (window is not Ok<PlannedWindow>(var planned)) return (Error)window.Value!;
+        return window switch
+        {
+            Ok<PlannedWindow>(var planned) => await AddAsync(planned),
+            Error error => error,
+        };
 
-        using var held = await gate.EnterAsync(cancellationToken);
-        var plan = await plans.LoadAsync(cancellationToken);
-        var added = plan.AddItem(
-            command.Title,
-            planned,
-            command.Priority,
-            RepositoryScope.Of(command.RepositoryAliases),
-            PlanningLane.Of(command.Lane),
-            command.TaskId,
-            command.Notes,
-            // No tag means "derive one from the title"; the plan does that for itself.
-            string.IsNullOrWhiteSpace(command.Tag) ? null : PlanningTag.Of(command.Tag),
-            KnowledgeReferences.Of(command.KnowledgeRefs));
+        async Task<Result<RoadmapItemDto>> AddAsync(PlannedWindow planned)
+        {
+            using var held = await gate.EnterAsync(cancellationToken);
+            var plan = await plans.LoadAsync(cancellationToken);
+            var added = plan.AddItem(
+                command.Title,
+                planned,
+                command.Priority,
+                RepositoryScope.Of(command.RepositoryAliases),
+                PlanningLane.Of(command.Lane),
+                command.TaskId,
+                command.Notes,
+                // No tag means "derive one from the title"; the plan does that for itself.
+                string.IsNullOrWhiteSpace(command.Tag) ? null : PlanningTag.Of(command.Tag),
+                KnowledgeReferences.Of(command.KnowledgeRefs));
 
-        if (added is not Ok<RoadmapItem>(var item)) return (Error)added.Value!;
+            return added switch
+            {
+                Ok<RoadmapItem>(var item) => await SavedAsync(plan, item),
+                Error error => error,
+            };
+        }
 
-        await plans.SaveAsync(plan, cancellationToken);
-        return Result.Success(item.ToDto());
+        async Task<Result<RoadmapItemDto>> SavedAsync(RoadmapPlan plan, RoadmapItem item)
+        {
+            await plans.SaveAsync(plan, cancellationToken);
+            return Result.Success(item.ToDto());
+        }
     }
 }

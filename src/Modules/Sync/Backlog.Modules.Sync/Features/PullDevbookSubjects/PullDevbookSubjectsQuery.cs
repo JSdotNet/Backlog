@@ -34,33 +34,35 @@ public sealed class PullDevbookSubjectsQueryHandler(IDevbookSubjectReplica repli
         activity?.SetTag(SyncTelemetry.OwnerIdTag, query.Scope.OwnerId.ToString());
         activity?.SetTag(SyncTelemetry.DeviceIdTag, query.Scope.DeviceId.ToString());
 
-        DevbookSubjectReplicaCursor? cursor = null;
+        if (string.IsNullOrWhiteSpace(query.Since)) return await PageAsync(null);
 
-        if (!string.IsNullOrWhiteSpace(query.Since))
+        var verified = cursors.Verify(query.Since, query.Scope.OwnerId);
+        return verified switch
         {
-            var verified = cursors.Verify(query.Since, query.Scope.OwnerId);
-            if (verified is not Ok<SyncCursor>(var since))
-            {
-                var error = (Error)verified.Value!;
+            Ok<SyncCursor>(var since) => await PageAsync(new DevbookSubjectReplicaCursor(since)),
+            Error error => Rejected(error),
+        };
 
-                SyncTelemetry.CursorRejected.Add(1, new KeyValuePair<string, object?>(
-                    SyncTelemetry.ReasonTag, error.Code));
+        async Task<Result<PullDevbookSubjectsResponse>> PageAsync(DevbookSubjectReplicaCursor? cursor)
+        {
+            var page = await replica.ReadChanges(query.Scope.OwnerId, cursor, query.MaxItems, cancellationToken);
 
-                activity?.SetStatus(ActivityStatusCode.Error, error.Code);
+            activity?.SetTag(SyncTelemetry.BatchSizeTag, page.Changes.Count);
 
-                return error;
-            }
-
-            cursor = new DevbookSubjectReplicaCursor(since);
+            return new PullDevbookSubjectsResponse(
+                page.Changes,
+                cursors.Mint(query.Scope.OwnerId, page.Cursor.Continuation),
+                page.HasMore);
         }
 
-        var page = await replica.ReadChanges(query.Scope.OwnerId, cursor, query.MaxItems, cancellationToken);
+        Error Rejected(Error error)
+        {
+            SyncTelemetry.CursorRejected.Add(1, new KeyValuePair<string, object?>(
+                SyncTelemetry.ReasonTag, error.Code));
 
-        activity?.SetTag(SyncTelemetry.BatchSizeTag, page.Changes.Count);
+            activity?.SetStatus(ActivityStatusCode.Error, error.Code);
 
-        return new PullDevbookSubjectsResponse(
-            page.Changes,
-            cursors.Mint(query.Scope.OwnerId, page.Cursor.Continuation),
-            page.HasMore);
+            return error;
+        }
     }
 }

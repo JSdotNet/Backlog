@@ -225,10 +225,9 @@ internal static class EventsSeed
     private static Place WithAddress(string venue, string street, string? postcode, string town, string? country, AddressLookup lookup) =>
         Value(Place.Create(venue, online: false, Value(Address.Create(street, postcode, town, country)), lookup, point: null));
 
-    private static T Value<T>(Result<T> result) => result.Value switch
+    private static T Value<T>(Result<T> result) => result switch
     {
-        Ok<T> ok => ok.Value,
+        Ok<T>(var value) => value,
         Error error => throw new InvalidOperationException($"The events seed is not valid: {error}"),
-        _ => throw new InvalidOperationException("The events seed is not valid."),
     };
 }

@@ -68,24 +68,29 @@ internal static class EnrolmentEndpoints
     {
         var connectorResult = await connector.Handle(new CompleteConnectorSignInCommand(state, code), cancellationToken);
 
-        if (connectorResult is Ok<ConnectorSignInOutcome>(var outcome))
+        return connectorResult switch
         {
-            return outcome switch
+            Ok<ConnectorSignInOutcome>(var outcome) => Signed(outcome),
+            Error connectorError => await NotTheConnectorsAsync(connectorError),
+        };
+
+        static IResult Signed(ConnectorSignInOutcome outcome) => outcome switch
+        {
+            { ConsentTicket: { } ticket } => Results.Redirect($"{SyncRoutes.ConnectorConsent}?ticket={Uri.EscapeDataString(ticket)}"),
+            { Redirect: { } back } => Results.Redirect(back.AbsoluteUri),
+            _ => throw new InvalidOperationException("A connector sign-in answered neither a consent ticket nor a redirect."),
+        };
+
+        async Task<IResult> NotTheConnectorsAsync(Error connectorError)
+        {
+            if (connectorError.Code != SyncErrorCodes.ConnectorSignInUnknown)
             {
-                { ConsentTicket: { } ticket } => Results.Redirect($"{SyncRoutes.ConnectorConsent}?ticket={Uri.EscapeDataString(ticket)}"),
-                { Redirect: { } back } => Results.Redirect(back.AbsoluteUri),
-                _ => throw new InvalidOperationException("A connector sign-in answered neither a consent ticket nor a redirect."),
-            };
+                return ConnectorPages.Refusal(context, connectorSettings, connectorError.Message);
+            }
+
+            var result = await handler.Handle(new CompleteOwnerSignInCommand(state, code), cancellationToken);
+
+            return SyncResults.From(context, result, loopback => Results.Redirect(loopback.AbsoluteUri));
         }
-
-        var connectorError = (Error)connectorResult.Value!;
-        if (connectorError.Code != SyncErrorCodes.ConnectorSignInUnknown)
-        {
-            return ConnectorPages.Refusal(context, connectorSettings, connectorError.Message);
-        }
-
-        var result = await handler.Handle(new CompleteOwnerSignInCommand(state, code), cancellationToken);
-
-        return SyncResults.From(context, result, loopback => Results.Redirect(loopback.AbsoluteUri));
     }
 }

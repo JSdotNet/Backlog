@@ -183,10 +183,17 @@ public sealed class RoadmapPlan
         if (item is null) return Result.Failure<RoadmapItem>(RoadmapErrors.ItemNotFound(itemId));
 
         var window = PlannedWindow.Create(end < item.Window.Start ? end : item.Window.Start, end);
-        if (window is not Ok<PlannedWindow>(var pinned)) return (Error)window.Value!;
+        return window switch
+        {
+            Ok<PlannedWindow>(var pinned) => Pinned(item, pinned),
+            Error error => error,
+        };
 
-        item.PinEnd(pinned);
-        return Result.Success(item);
+        static Result<RoadmapItem> Pinned(RoadmapItem item, PlannedWindow pinned)
+        {
+            item.PinEnd(pinned);
+            return Result.Success(item);
+        }
     }
 
     /// <summary>Lets the forecast decide the end of started work again.</summary>
@@ -229,19 +236,22 @@ public sealed class RoadmapPlan
         ArgumentNullException.ThrowIfNull(tag);
 
         var tagged = ItemsTagged(tag);
-        if (tagged.Count == 0)
+        if (tagged.Count > 0) return PutOn(tagged);
+        if (on is not { } day) return Result.Success<IReadOnlyList<RoadmapItem>>([]);
+
+        var added = AddItem(tag.Value, PlannedWindow.Of(day, day), tag: tag);
+        return added switch
         {
-            if (on is not { } day) return Result.Success<IReadOnlyList<RoadmapItem>>([]);
+            Ok<RoadmapItem>(var created) => PutOn([created]),
+            Error error => error,
+        };
 
-            var added = AddItem(tag.Value, PlannedWindow.Of(day, day), tag: tag);
-            if (added is not Ok<RoadmapItem>(var created)) return (Error)added.Value!;
+        Result<IReadOnlyList<RoadmapItem>> PutOn(IReadOnlyList<RoadmapItem> items)
+        {
+            foreach (var item in items) item.PutOnMyDay(on);
 
-            tagged = [created];
+            return Result.Success(items);
         }
-
-        foreach (var item in tagged) item.PutOnMyDay(on);
-
-        return Result.Success(tagged);
     }
 
     /// <summary>Opens a completed item again. An open item stays open.</summary>

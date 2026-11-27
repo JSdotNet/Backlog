@@ -30,9 +30,16 @@ public sealed class PrioritiseItemCommandHandler(IRoadmapPlanRepository plans, R
         var plan = await plans.LoadAsync(cancellationToken);
         var prioritised = plan.Prioritise(command.ItemId, command.Priority);
 
-        if (prioritised is not Ok<RoadmapItem>(var item)) return (Error)prioritised.Value!;
+        return prioritised switch
+        {
+            Ok<RoadmapItem>(var item) => await SavedAsync(item),
+            Error error => error,
+        };
 
-        await plans.SaveAsync(plan, cancellationToken);
-        return Result.Success(item.ToDto());
+        async Task<Result<RoadmapItemDto>> SavedAsync(RoadmapItem item)
+        {
+            await plans.SaveAsync(plan, cancellationToken);
+            return Result.Success(item.ToDto());
+        }
     }
 }

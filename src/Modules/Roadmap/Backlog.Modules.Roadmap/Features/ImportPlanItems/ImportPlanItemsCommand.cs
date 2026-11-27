@@ -93,20 +93,12 @@ public sealed class ImportPlanItemsCommandHandler(
 
             var tag = PlanningTag.Of(entry.Tag);
             var matched = Match(plan, entry, tag, ambiguous);
-            if (matched is not Ok<Touched>(var current)) return (Error)matched.Value!;
-
-            // Two entries of one document sharing a tag speak for one item, and the
-            // later one wins — but an item this import created stays created.
-            var earlier = touched.Find(other => other.Item.Id == current.Item.Id);
-            if (earlier is not null)
+            Error? failure = matched switch
             {
-                touched.Remove(earlier);
-                current = current with { Previous = earlier.Previous };
-            }
-
-            touched.Add(current);
-
-            byLocalId.TryAdd(LocalIdOf(entry, tag), current.Item.Id);
+                Ok<Touched>(var current) => Matched(current, LocalIdOf(entry, tag)),
+                Error error => error,
+            };
+            if (failure is { } failed) return failed;
         }
 
         // Pass two: the document's dependencies replace each item's set. Cleared
@@ -179,6 +171,24 @@ public sealed class ImportPlanItemsCommandHandler(
             unresolved,
             scheduled,
             relengthened));
+
+        // The rest of pass one for an entry that matched; null lets the loop go on.
+        Error? Matched(Touched current, string localId)
+        {
+            // Two entries of one document sharing a tag speak for one item, and the
+            // later one wins — but an item this import created stays created.
+            var earlier = touched.Find(other => other.Item.Id == current.Item.Id);
+            if (earlier is not null)
+            {
+                touched.Remove(earlier);
+                current = current with { Previous = earlier.Previous };
+            }
+
+            touched.Add(current);
+
+            byLocalId.TryAdd(localId, current.Item.Id);
+            return null;
+        }
     }
 
     /// <summary>

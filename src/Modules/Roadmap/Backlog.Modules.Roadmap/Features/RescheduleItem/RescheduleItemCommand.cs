@@ -29,16 +29,30 @@ public sealed class RescheduleItemCommandHandler(IRoadmapPlanRepository plans, R
         ArgumentNullException.ThrowIfNull(command);
 
         var window = PlannedWindow.Create(command.Start, command.End);
-        if (window is not Ok<PlannedWindow>(var planned)) return (Error)window.Value!;
+        return window switch
+        {
+            Ok<PlannedWindow>(var planned) => await RescheduleAsync(planned),
+            Error error => error,
+        };
 
-        using var held = await gate.EnterAsync(cancellationToken);
-        var plan = await plans.LoadAsync(cancellationToken);
-        var lane = command.Lane is null ? null : PlanningLane.Of(command.Lane);
-        var rescheduled = plan.Reschedule(command.ItemId, planned, lane);
+        async Task<Result<RoadmapItemDto>> RescheduleAsync(PlannedWindow planned)
+        {
+            using var held = await gate.EnterAsync(cancellationToken);
+            var plan = await plans.LoadAsync(cancellationToken);
+            var lane = command.Lane is null ? null : PlanningLane.Of(command.Lane);
+            var rescheduled = plan.Reschedule(command.ItemId, planned, lane);
 
-        if (rescheduled is not Ok<RoadmapItem>(var item)) return (Error)rescheduled.Value!;
+            return rescheduled switch
+            {
+                Ok<RoadmapItem>(var item) => await SavedAsync(plan, item),
+                Error error => error,
+            };
+        }
 
-        await plans.SaveAsync(plan, cancellationToken);
-        return Result.Success(item.ToDto());
+        async Task<Result<RoadmapItemDto>> SavedAsync(RoadmapPlan plan, RoadmapItem item)
+        {
+            await plans.SaveAsync(plan, cancellationToken);
+            return Result.Success(item.ToDto());
+        }
     }
 }

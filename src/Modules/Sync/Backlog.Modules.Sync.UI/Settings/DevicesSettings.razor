@@ -952,15 +952,11 @@
         {
             var result = await _devicePairing.RegisterAsync(_draftDeviceName);
 
-            if (result is not Ok<DeviceCredential>(var registered))
+            await (result switch
             {
-                ReportDeviceOutcome(((Error)result.Value!).Message, failed: true);
-                return;
-            }
-
-            ReportDeviceOutcome($"Registered as {registered.DeviceName}.", failed: false);
-            await ResolveKeyProtectionAsync();
-            await RefreshDeviceStatusAsync();
+                Ok<DeviceCredential>(var registered) => RegisteredAsync(registered),
+                Error error => DeviceRefused(error),
+            });
         }
         catch (Exception ex)
         {
@@ -975,6 +971,13 @@
         finally
         {
             _devicesBusy = false;
+        }
+
+        async Task RegisteredAsync(DeviceCredential registered)
+        {
+            ReportDeviceOutcome($"Registered as {registered.DeviceName}.", failed: false);
+            await ResolveKeyProtectionAsync();
+            await RefreshDeviceStatusAsync();
         }
     }
 
@@ -993,16 +996,11 @@
         {
             var result = await _devicePairing.PairAsync(_draftPairingCode, _draftDeviceName);
 
-            if (result is not Ok<DeviceCredential>(var paired))
+            await (result switch
             {
-                ReportDeviceOutcome(((Error)result.Value!).Message, failed: true);
-                return;
-            }
-
-            _draftPairingCode = string.Empty;
-            ReportDeviceOutcome($"Paired as {paired.DeviceName}.", failed: false);
-            await ResolveKeyProtectionAsync();
-            await RefreshDeviceStatusAsync();
+                Ok<DeviceCredential>(var paired) => PairedAsync(paired),
+                Error error => DeviceRefused(error),
+            });
         }
         catch (Exception ex)
         {
@@ -1012,6 +1010,14 @@
         finally
         {
             _devicesBusy = false;
+        }
+
+        async Task PairedAsync(DeviceCredential paired)
+        {
+            _draftPairingCode = string.Empty;
+            ReportDeviceOutcome($"Paired as {paired.DeviceName}.", failed: false);
+            await ResolveKeyProtectionAsync();
+            await RefreshDeviceStatusAsync();
         }
     }
 
@@ -1030,16 +1036,11 @@
         {
             var result = await _devicePairing.IssuePairingCodeAsync();
 
-            if (result is not Ok<PairingCodeResponse>(var issued))
+            await (result switch
             {
-                _issuedCode = null;
-                ReportDeviceOutcome(((Error)result.Value!).Message, failed: true);
-                return;
-            }
-
-            _issuedCode = issued;
-            StartPairingCodeCountdown();
-            ReportDeviceOutcome("Read this code out on the other device.", failed: false);
+                Ok<PairingCodeResponse>(var issued) => IssuedAsync(issued),
+                Error error => NotIssued(error),
+            });
         }
         catch (Exception ex)
         {
@@ -1051,6 +1052,27 @@
         {
             _devicesBusy = false;
         }
+
+        Task IssuedAsync(PairingCodeResponse issued)
+        {
+            _issuedCode = issued;
+            StartPairingCodeCountdown();
+            ReportDeviceOutcome("Read this code out on the other device.", failed: false);
+            return Task.CompletedTask;
+        }
+
+        Task NotIssued(Error error)
+        {
+            _issuedCode = null;
+            return DeviceRefused(error);
+        }
+    }
+
+    /// <summary>The service refused the device request: its sentence goes on the card.</summary>
+    private Task DeviceRefused(Error error)
+    {
+        ReportDeviceOutcome(error.Message, failed: true);
+        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -1340,11 +1362,24 @@
     /// <c>false</c> when it said nothing that settles the question.</summary>
     private bool RecordDeviceStatus(Result<DeviceStatusResponse> result)
     {
-        if (result is not Ok<DeviceStatusResponse>(var status))
+        return result switch
+        {
+            Ok<DeviceStatusResponse>(var status) => Recorded(status),
+            Error error => NotRecorded(error),
+        };
+
+        bool Recorded(DeviceStatusResponse status)
+        {
+            _deviceStatus = status;
+            _deviceStatusRejected = false;
+            return true;
+        }
+
+        bool NotRecorded(Error error)
         {
             _deviceStatus = null;
 
-            if (string.Equals(((Error)result.Value!).Code, SyncErrorCodes.DeviceCredentialInvalid, StringComparison.Ordinal))
+            if (string.Equals(error.Code, SyncErrorCodes.DeviceCredentialInvalid, StringComparison.Ordinal))
             {
                 _deviceStatusRejected = true;
                 return true;
@@ -1352,10 +1387,6 @@
 
             return false;
         }
-
-        _deviceStatus = status;
-        _deviceStatusRejected = false;
-        return true;
     }
 
     /// <summary>

@@ -32,13 +32,20 @@ public sealed class PutPlanOnMyDayCommandHandler(IRoadmapPlanRepository plans, R
         var plan = await plans.LoadAsync(cancellationToken);
         var before = plan.ItemsTagged(tag).Select(item => item.MyDayOn).ToList();
         var put = plan.PutPlanOnMyDay(tag, command.On);
-        if (put is not Ok<IReadOnlyList<RoadmapItem>>(var items)) return (Error)put.Value!;
+        return put switch
+        {
+            Ok<IReadOnlyList<RoadmapItem>>(var items) => await PutAsync(items),
+            Error error => error,
+        };
 
-        // Nothing moved — the plan was already on that day, or taken off one it was on
-        // none of — so nothing is written: the whole document syncs on every save.
-        var changed = items.Count != before.Count || items.Where((item, index) => item.MyDayOn != before[index]).Any();
-        if (changed) await plans.SaveAsync(plan, cancellationToken);
+        async Task<Result<IReadOnlyList<RoadmapItemDto>>> PutAsync(IReadOnlyList<RoadmapItem> items)
+        {
+            // Nothing moved — the plan was already on that day, or taken off one it was on
+            // none of — so nothing is written: the whole document syncs on every save.
+            var changed = items.Count != before.Count || items.Where((item, index) => item.MyDayOn != before[index]).Any();
+            if (changed) await plans.SaveAsync(plan, cancellationToken);
 
-        return Result.Success<IReadOnlyList<RoadmapItemDto>>([.. items.Select(item => item.ToDto())]);
+            return Result.Success<IReadOnlyList<RoadmapItemDto>>([.. items.Select(item => item.ToDto())]);
+        }
     }
 }

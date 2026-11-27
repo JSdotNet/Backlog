@@ -21,9 +21,16 @@ public sealed class UnpinItemEndCommandHandler(IRoadmapPlanRepository plans, Roa
         using var held = await gate.EnterAsync(cancellationToken);
         var plan = await plans.LoadAsync(cancellationToken);
         var unpinned = plan.UnpinEnd(command.ItemId);
-        if (unpinned is not Ok<RoadmapItem>(var item)) return (Error)unpinned.Value!;
+        return unpinned switch
+        {
+            Ok<RoadmapItem>(var item) => await SavedAsync(item),
+            Error error => error,
+        };
 
-        await plans.SaveAsync(plan, cancellationToken);
-        return Result.Success(item.ToDto());
+        async Task<Result<RoadmapItemDto>> SavedAsync(RoadmapItem item)
+        {
+            await plans.SaveAsync(plan, cancellationToken);
+            return Result.Success(item.ToDto());
+        }
     }
 }

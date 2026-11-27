@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using Backlog.Modules.Events;
 using Backlog.Modules.Events.DomainModels;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Desktop.WebHarness;
 
@@ -52,10 +53,10 @@ public sealed class HarnessAddressGeocoder : IAddressGeocoder
         if (town == Normalise(OfflineTown)) return Task.FromResult(GeocodeAnswer.Failed);
         if (town is null || !Towns.TryGetValue(town, out var centre)) return Task.FromResult(GeocodeAnswer.NotFound);
 
-        return MapPoint.Create(centre.Latitude, centre.Longitude).Value switch
+        return MapPoint.Create(centre.Latitude, centre.Longitude) switch
         {
-            Backlog.SharedKernel.Results.Ok<MapPoint> placed => Task.FromResult(GeocodeAnswer.Placed(placed.Value)),
-            _ => Task.FromResult(GeocodeAnswer.NotFound),
+            Ok<MapPoint>(var placed) => Task.FromResult(GeocodeAnswer.Placed(placed)),
+            Error => Task.FromResult(GeocodeAnswer.NotFound),
         };
     }
 

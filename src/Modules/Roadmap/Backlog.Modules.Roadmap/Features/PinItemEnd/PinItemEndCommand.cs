@@ -28,9 +28,16 @@ public sealed class PinItemEndCommandHandler(IRoadmapPlanRepository plans, Roadm
         using var held = await gate.EnterAsync(cancellationToken);
         var plan = await plans.LoadAsync(cancellationToken);
         var pinned = plan.PinEnd(command.ItemId, command.End);
-        if (pinned is not Ok<RoadmapItem>(var item)) return (Error)pinned.Value!;
+        return pinned switch
+        {
+            Ok<RoadmapItem>(var item) => await SavedAsync(item),
+            Error error => error,
+        };
 
-        await plans.SaveAsync(plan, cancellationToken);
-        return Result.Success(item.ToDto());
+        async Task<Result<RoadmapItemDto>> SavedAsync(RoadmapItem item)
+        {
+            await plans.SaveAsync(plan, cancellationToken);
+            return Result.Success(item.ToDto());
+        }
     }
 }

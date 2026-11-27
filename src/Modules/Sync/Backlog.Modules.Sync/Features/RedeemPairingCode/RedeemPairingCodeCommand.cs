@@ -51,79 +51,83 @@ public sealed class RedeemPairingCodeCommandHandler(
         ArgumentNullException.ThrowIfNull(command);
 
         var validName = DeviceName.Validate(command.DeviceName);
-        if (validName is not Ok<string>(var name))
+        return validName switch
         {
-            return (Error)validName.Value!;
+            Ok<string>(var name) => await NamedAsync(name),
+            Error error => error,
+        };
+
+        async Task<Result<DeviceRegistrationResponse>> NamedAsync(string name)
+        {
+            // Before the code is looked up, so a malformed key never burns a code.
+            if (command.PublicKey is null) return await RegisterAsync(name, publicKey: null);
+
+            var validated = DevicePublicKey.Validate(command.PublicKey);
+            return validated switch
+            {
+                Ok<string>(var validKey) => await RegisterAsync(name, validKey),
+                Error error => error,
+            };
         }
 
-        // Before the code is looked up, so a malformed key never burns a code.
-        string? publicKey = null;
-        if (command.PublicKey is not null)
+        async Task<Result<DeviceRegistrationResponse>> RegisterAsync(string name, string? publicKey)
         {
-            var validated = DevicePublicKey.Validate(command.PublicKey);
-            if (validated is not Ok<string>(var validKey))
+            var normalized = PairingCodeFormat.Normalize(command.Code ?? string.Empty);
+            if (!PairingCodeFormat.IsWellFormed(normalized))
             {
-                return (Error)validated.Value!;
+                return Error.Validation(
+                    SyncErrorCodes.PairingCodeMalformed,
+                    $"A pairing code is {PairingCodeFormat.Length} characters from the pairing alphabet.");
             }
 
-            publicKey = validKey;
+            var codeHash = hasher.Hash(normalized);
+            var code = await codes.FindByHash(codeHash, cancellationToken);
+
+            if (code is null)
+            {
+                return Error.NotFound(
+                    SyncErrorCodes.PairingCodeNotFound,
+                    "That pairing code is not one this service issued. Ask the paired device for a new one.");
+            }
+
+            if (code.Redeemed)
+            {
+                return Error.Conflict(
+                    SyncErrorCodes.PairingCodeUsed,
+                    "That pairing code has already paired a device. Codes work once.");
+            }
+
+            if (code.HasExpired(clock.GetUtcNow()))
+            {
+                return Error.Conflict(
+                    SyncErrorCodes.PairingCodeExpired,
+                    "That pairing code has expired. Ask the paired device for a new one.");
+            }
+
+            // Burn before registering: two devices racing on one code both pass the
+            // checks above, and only the one that wins the burn may have a device.
+            if (!await codes.TryBurn(codeHash, cancellationToken))
+            {
+                return Error.Conflict(
+                    SyncErrorCodes.PairingCodeUsed,
+                    "That pairing code has already paired a device. Codes work once.");
+            }
+
+            var deviceId = DeviceId.New();
+            var credential = publicKey is null ? credentials.Next() : null;
+
+            await devices.Add(
+                new Device(
+                    deviceId,
+                    code.OwnerId,
+                    name,
+                    credential is null ? null : hasher.Hash(credential),
+                    clock.GetUtcNow(),
+                    PairedBy: code.IssuedBy,
+                    PublicKey: publicKey),
+                cancellationToken);
+
+            return new DeviceRegistrationResponse(code.OwnerId.Value, deviceId.Value, credential);
         }
-
-        var normalized = PairingCodeFormat.Normalize(command.Code ?? string.Empty);
-        if (!PairingCodeFormat.IsWellFormed(normalized))
-        {
-            return Error.Validation(
-                SyncErrorCodes.PairingCodeMalformed,
-                $"A pairing code is {PairingCodeFormat.Length} characters from the pairing alphabet.");
-        }
-
-        var codeHash = hasher.Hash(normalized);
-        var code = await codes.FindByHash(codeHash, cancellationToken);
-
-        if (code is null)
-        {
-            return Error.NotFound(
-                SyncErrorCodes.PairingCodeNotFound,
-                "That pairing code is not one this service issued. Ask the paired device for a new one.");
-        }
-
-        if (code.Redeemed)
-        {
-            return Error.Conflict(
-                SyncErrorCodes.PairingCodeUsed,
-                "That pairing code has already paired a device. Codes work once.");
-        }
-
-        if (code.HasExpired(clock.GetUtcNow()))
-        {
-            return Error.Conflict(
-                SyncErrorCodes.PairingCodeExpired,
-                "That pairing code has expired. Ask the paired device for a new one.");
-        }
-
-        // Burn before registering: two devices racing on one code both pass the
-        // checks above, and only the one that wins the burn may have a device.
-        if (!await codes.TryBurn(codeHash, cancellationToken))
-        {
-            return Error.Conflict(
-                SyncErrorCodes.PairingCodeUsed,
-                "That pairing code has already paired a device. Codes work once.");
-        }
-
-        var deviceId = DeviceId.New();
-        var credential = publicKey is null ? credentials.Next() : null;
-
-        await devices.Add(
-            new Device(
-                deviceId,
-                code.OwnerId,
-                name,
-                credential is null ? null : hasher.Hash(credential),
-                clock.GetUtcNow(),
-                PairedBy: code.IssuedBy,
-                PublicKey: publicKey),
-            cancellationToken);
-
-        return new DeviceRegistrationResponse(code.OwnerId.Value, deviceId.Value, credential);
     }
 }

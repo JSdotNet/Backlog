@@ -21,9 +21,16 @@ public sealed class ReopenItemCommandHandler(IRoadmapPlanRepository plans, Roadm
         using var held = await gate.EnterAsync(cancellationToken);
         var plan = await plans.LoadAsync(cancellationToken);
         var reopened = plan.ReopenItem(command.ItemId);
-        if (reopened is not Ok<RoadmapItem>(var item)) return (Error)reopened.Value!;
+        return reopened switch
+        {
+            Ok<RoadmapItem>(var item) => await SavedAsync(item),
+            Error error => error,
+        };
 
-        await plans.SaveAsync(plan, cancellationToken);
-        return Result.Success(item.ToDto());
+        async Task<Result<RoadmapItemDto>> SavedAsync(RoadmapItem item)
+        {
+            await plans.SaveAsync(plan, cancellationToken);
+            return Result.Success(item.ToDto());
+        }
     }
 }

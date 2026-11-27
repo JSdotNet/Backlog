@@ -164,12 +164,12 @@ public sealed class ImportPlanCommandHandler(
         foreach (var parsed in parsedEntries)
         {
             var resolved = ResolveRepos(parsed, resolver, command.RepoMatches);
-            if (resolved is not Ok<EntryTextParser.ParsedEntry>(var entry))
+            Error? failure = resolved switch
             {
-                return (Error)resolved.Value!;
-            }
-
-            resolvedEntries.Add(entry);
+                Ok<EntryTextParser.ParsedEntry>(var entry) => Resolved(entry),
+                Error error => error,
+            };
+            if (failure is { } failed) return failed;
         }
 
         parsedEntries = resolvedEntries;
@@ -200,6 +200,13 @@ public sealed class ImportPlanCommandHandler(
             roadmap,
             unresolvedTaskDependencies.Count == 0 ? null : unresolvedTaskDependencies,
             archived.Count == 0 ? null : archived);
+
+        // Null once the entry is kept, so the next one is resolved.
+        Error? Resolved(EntryTextParser.ParsedEntry entry)
+        {
+            resolvedEntries.Add(entry);
+            return null;
+        }
     }
 
     /// <summary>

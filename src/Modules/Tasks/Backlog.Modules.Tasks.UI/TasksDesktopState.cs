@@ -2491,15 +2491,19 @@ public sealed partial class TasksDesktopState : IDisposable, IAsyncDisposable, I
 
         SetSaveState(AppSaveState.Saved);
 
-        if (result is not Ok<ImportPlanResultDto>(var imported))
+        return result switch
         {
-            return ((Error)result.Value!).Message;
+            Ok<ImportPlanResultDto>(var imported) => await ImportedAsync(imported),
+            Error error => error.Message,
+        };
+
+        async Task<string> ImportedAsync(ImportPlanResultDto imported)
+        {
+            await ReloadRowsAsync();
+            Changed?.Invoke();
+
+            return ImportPlanResultSentence.Describe(imported);
         }
-
-        await ReloadRowsAsync();
-        Changed?.Invoke();
-
-        return ImportPlanResultSentence.Describe(imported);
     }
 
     // --- Editing ---------------------------------------------------------
@@ -4475,25 +4479,35 @@ public sealed partial class TasksDesktopState : IDisposable, IAsyncDisposable, I
             return;
         }
 
-        if (saved is not Ok<TaskItemDto>(var entry))
+        await (saved switch
         {
-            RefuseDevbookReferences(row, ((Error)saved.Value!).Message);
-            return;
+            Ok<TaskItemDto>(var entry) => Saved(entry),
+            Error error => Refused(error),
+        });
+
+        Task Saved(TaskItemDto entry)
+        {
+            _entries[entry.Id] = entry;
+
+            // The row the write was made on, and the one a reload since may have put
+            // in its place.
+            foreach (var shown in Rows.Where(candidate => candidate.Id == id).Append(row).Distinct())
+            {
+                shown.DevbookReferences = entry.DevbookReferences;
+                shown.DevbookReferenceError = null;
+            }
+
+            SetSaveState(AppSaveState.Saved);
+            FlashSaved(row);
+            Changed?.Invoke();
+            return Task.CompletedTask;
         }
 
-        _entries[entry.Id] = entry;
-
-        // The row the write was made on, and the one a reload since may have put
-        // in its place.
-        foreach (var shown in Rows.Where(candidate => candidate.Id == id).Append(row).Distinct())
+        Task Refused(Error error)
         {
-            shown.DevbookReferences = entry.DevbookReferences;
-            shown.DevbookReferenceError = null;
+            RefuseDevbookReferences(row, error.Message);
+            return Task.CompletedTask;
         }
-
-        SetSaveState(AppSaveState.Saved);
-        FlashSaved(row);
-        Changed?.Invoke();
     }
 
     /// <summary>
@@ -4612,23 +4626,33 @@ public sealed partial class TasksDesktopState : IDisposable, IAsyncDisposable, I
             return;
         }
 
-        if (saved is not Ok<TaskItemDto>(var entry))
+        await (saved switch
         {
-            RefusePlannedHours(row, ((Error)saved.Value!).Message);
-            return;
+            Ok<TaskItemDto>(var entry) => Saved(entry),
+            Error error => Refused(error),
+        });
+
+        Task Saved(TaskItemDto entry)
+        {
+            _entries[entry.Id] = entry;
+
+            foreach (var shown in Rows.Where(candidate => candidate.Id == id).Append(row).Distinct())
+            {
+                shown.PlannedHours = entry.PlannedHours;
+                shown.PlannedHoursError = null;
+            }
+
+            SetSaveState(AppSaveState.Saved);
+            FlashSaved(row);
+            Changed?.Invoke();
+            return Task.CompletedTask;
         }
 
-        _entries[entry.Id] = entry;
-
-        foreach (var shown in Rows.Where(candidate => candidate.Id == id).Append(row).Distinct())
+        Task Refused(Error error)
         {
-            shown.PlannedHours = entry.PlannedHours;
-            shown.PlannedHoursError = null;
+            RefusePlannedHours(row, error.Message);
+            return Task.CompletedTask;
         }
-
-        SetSaveState(AppSaveState.Saved);
-        FlashSaved(row);
-        Changed?.Invoke();
     }
 
     private void RefusePlannedHours(EntryRow row, string message)
@@ -4699,30 +4723,38 @@ public sealed partial class TasksDesktopState : IDisposable, IAsyncDisposable, I
             return failed;
         }
 
-        if (linked is not Ok<TaskItemDto>(var updated))
+        return linked switch
         {
-            var error = (Error)linked.Value!;
+            Ok<TaskItemDto>(var updated) => Linked(updated),
+            Error error => NotLinked(error),
+        };
+
+        string? Linked(TaskItemDto updated)
+        {
+            _entries[id] = updated;
+
+            // LinkToIssueAsync may have added the repository to the entry's `repo:`
+            // tokens, off to the side of the parse-and-save path — the same catch-up
+            // PushToGitHubAsync makes, for the same reason.
+            RefreshRowFromEntry(row, updated, rewriteText: true);
+            SetSaveState(AppSaveState.Saved);
+            ApplyFilter();
+            Changed?.Invoke();
+
+            if (string.Equals(targetType, EntryProjectionDto.SessionTargetType, StringComparison.OrdinalIgnoreCase))
+            {
+                _ = ReadSessionStatesAsync();
+            }
+
+            return null;
+        }
+
+        string NotLinked(Error error)
+        {
             var message = string.IsNullOrWhiteSpace(error.Message) ? "Couldn't link it to the entry." : error.Message;
             AnnounceRowFailure(row, message, WorkLinkFailureTestId);
             return message;
         }
-
-        _entries[id] = updated;
-
-        // LinkToIssueAsync may have added the repository to the entry's `repo:`
-        // tokens, off to the side of the parse-and-save path — the same catch-up
-        // PushToGitHubAsync makes, for the same reason.
-        RefreshRowFromEntry(row, updated, rewriteText: true);
-        SetSaveState(AppSaveState.Saved);
-        ApplyFilter();
-        Changed?.Invoke();
-
-        if (string.Equals(targetType, EntryProjectionDto.SessionTargetType, StringComparison.OrdinalIgnoreCase))
-        {
-            _ = ReadSessionStatesAsync();
-        }
-
-        return null;
     }
 
     /// <summary>
@@ -4765,21 +4797,29 @@ public sealed partial class TasksDesktopState : IDisposable, IAsyncDisposable, I
             return failed;
         }
 
-        if (unlinked is not Ok<TaskItemDto>(var updated))
+        return unlinked switch
         {
-            var error = (Error)unlinked.Value!;
+            Ok<TaskItemDto>(var updated) => Unlinked(updated),
+            Error error => NotUnlinked(error),
+        };
+
+        string? Unlinked(TaskItemDto updated)
+        {
+            _entries[id] = updated;
+            RefreshRowFromEntry(row, updated, rewriteText: true);
+            SetSaveState(AppSaveState.Saved);
+            ApplyFilter();
+            Changed?.Invoke();
+
+            return null;
+        }
+
+        string NotUnlinked(Error error)
+        {
             var message = string.IsNullOrWhiteSpace(error.Message) ? "Couldn't unlink it from the entry." : error.Message;
             AnnounceRowFailure(row, message, WorkLinkFailureTestId);
             return message;
         }
-
-        _entries[id] = updated;
-        RefreshRowFromEntry(row, updated, rewriteText: true);
-        SetSaveState(AppSaveState.Saved);
-        ApplyFilter();
-        Changed?.Invoke();
-
-        return null;
     }
 
     /// <summary>Whatever is typed into the entry and not yet saved goes first: a link
@@ -6182,10 +6222,14 @@ public sealed partial class TasksDesktopState : IDisposable, IAsyncDisposable, I
             return Result.Failure(Error.Unexpected("entry.save_failed", exception.Message));
         }
 
-        if (saved is not Ok<SavedTaskDto>(var savedTask))
+        return saved switch
         {
-            var error = (Error)saved.Value!;
+            Ok<SavedTaskDto>(var savedTask) => Applied(savedTask),
+            Error error => await RefusedAsync(error),
+        };
 
+        async Task<Result> RefusedAsync(Error error)
+        {
             // A plan entry is the one refusal here that a person has to be told
             // about. The two below are states somebody is passing through; this
             // is the module saying no to text that is finished and on screen
@@ -6232,26 +6276,29 @@ public sealed partial class TasksDesktopState : IDisposable, IAsyncDisposable, I
             return error;
         }
 
-        // Out of the refusal, so the next one is announced again.
-        row.PlanRefused = false;
-        row.StaleWriteNotice = null;
+        Result Applied(SavedTaskDto savedTask)
+        {
+            // Out of the refusal, so the next one is announced again.
+            row.PlanRefused = false;
+            row.StaleWriteNotice = null;
 
-        var entry = savedTask.Entry;
-        _entries[entry.Id] = entry;
-        row.Id = entry.Id;
-        RefreshRowFromEntry(row, entry, rewriteText);
-        if (created) _persistedOrder.Insert(PersistedRowsBefore(row), entry.Id);
-        RecordSave(entry, created, before, open: !rewriteText);
-        SetSaveState(AppSaveState.Saved);
-        FlashSaved(row);
+            var entry = savedTask.Entry;
+            _entries[entry.Id] = entry;
+            row.Id = entry.Id;
+            RefreshRowFromEntry(row, entry, rewriteText);
+            if (created) _persistedOrder.Insert(PersistedRowsBefore(row), entry.Id);
+            RecordSave(entry, created, before, open: !rewriteText);
+            SetSaveState(AppSaveState.Saved);
+            FlashSaved(row);
 
-        // Completing a repeating entry left a second entry in the store that this
-        // list has never seen. Refreshing the saved row cannot show it, because the
-        // successor is not that row — so the save has to say a spawn happened, and
-        // it does.
-        if (savedTask.SpawnedOccurrenceId is not null) _spawnedOccurrencePending = true;
+            // Completing a repeating entry left a second entry in the store that this
+            // list has never seen. Refreshing the saved row cannot show it, because the
+            // successor is not that row — so the save has to say a spawn happened, and
+            // it does.
+            if (savedTask.SpawnedOccurrenceId is not null) _spawnedOccurrencePending = true;
 
-        return Result.Success();
+            return Result.Success();
+        }
     }
 
     /// <summary>What the row says beside the editor after a save was refused as

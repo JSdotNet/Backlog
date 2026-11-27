@@ -792,10 +792,13 @@ return await handler.Handle(command, ct) switch
 - **Reading:** an exhaustive `switch` expression over the cases, with no `_` arm.
   **Why:** CS8509 is a build error here, so a new case breaks every switch that does
   not handle it.
-- **Guarding:** a multi-step method returns early with
-  `if (step is not Ok<T>(var value)) return (Error)step.Value!;`. A union's own
-  `Value` is the case it holds, typed `object?`, so it is never read as the success
-  value.
+- **Guarding:** a multi-step method switches on each step and goes on from the `Ok` arm
+  in a local function:
+  `return step switch { Ok<T>(var value) => await RestAsync(value), Error error => error };`.
+  Inside a loop, the `Ok` arm's local function answers `null` and the loop returns the
+  `Error?` the switch gave, when there is one. A union's own `Value` is the case it holds,
+  typed `object?`, so it is never cast to a case. `ResultPayloadCastTests` fails on a cast
+  such as `(Error)step.Value!` anywhere in `src/`.
 - **Mapping to HTTP:** `ErrorType` picks the status of the Problem Details answer that
   guideline ADR 0017 defines. See **Errors at the sync edge** below.
 

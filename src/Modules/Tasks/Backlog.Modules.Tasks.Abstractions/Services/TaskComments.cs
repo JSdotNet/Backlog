@@ -154,14 +154,18 @@ public static class TaskComments
                 : entries.SaveFromTextAsync(entry.Id, commented, entry.Order, cancellationToken: cancellationToken))
             .ConfigureAwait(false);
 
-        if (saved is not Ok<SavedTaskDto>(var savedTask))
+        return saved switch
         {
-            return (Error)saved.Value!;
+            Ok<SavedTaskDto>(var savedTask) => await RecordedAsync(savedTask).ConfigureAwait(false),
+            Error error => error,
+        };
+
+        async Task<Result<TaskItemDto>> RecordedAsync(SavedTaskDto savedTask)
+        {
+            await entries.RecordUsageAsync(entry.Id, usageAction, cancellationToken).ConfigureAwait(false);
+
+            return savedTask.Entry;
         }
-
-        await entries.RecordUsageAsync(entry.Id, usageAction, cancellationToken).ConfigureAwait(false);
-
-        return savedTask.Entry;
     }
 
     private static string Normalize(string? text) =>

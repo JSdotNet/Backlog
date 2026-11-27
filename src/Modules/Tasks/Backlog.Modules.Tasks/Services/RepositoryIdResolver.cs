@@ -96,15 +96,22 @@ internal sealed class RepositoryIdResolver(IRepositoryDirectory repositories)
         foreach (var name in names)
         {
             var one = One(name, matches, register);
-            if (one is not Ok<string>(var id))
+            Error? failure = one switch
             {
-                return (Error)one.Value!;
-            }
-
-            ids.Add(id);
+                Ok<string>(var id) => Kept(id),
+                Error error => error,
+            };
+            if (failure is { } failed) return failed;
         }
 
         return Result.Success<IReadOnlyList<string>>([.. ids.Distinct(StringComparer.Ordinal)]);
+
+        // Null once the id is kept, so the next name is resolved.
+        Error? Kept(string id)
+        {
+            ids.Add(id);
+            return null;
+        }
     }
 
     private Result<string> One(string name, IReadOnlyDictionary<string, string>? matches, bool register)

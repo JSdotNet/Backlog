@@ -195,14 +195,17 @@ public sealed partial class LinkedTaskWriteBack : ILinkedTaskWriteBack, IDisposa
                 .GetRequiredService<ICommandHandler<CompleteLinkedTaskCommand, Result<LinkedTaskWriteBackOutcome>>>();
 
             var result = await handler.Handle(new CompleteLinkedTaskCommand(taskId), _stopping).ConfigureAwait(false);
-            if (result is not Ok<LinkedTaskWriteBackOutcome>(var outcome))
+            return result switch
             {
-                var error = (Error)result.Value!;
-                LogCompletionDidNotRun(_log, taskId, error.Code, error.Message);
-                return LinkedTaskWriteBackOutcome.NotAsked;
-            }
+                Ok<LinkedTaskWriteBackOutcome>(var outcome) => outcome,
+                Error error => NotRun(error),
+            };
+        }
 
-            return outcome;
+        LinkedTaskWriteBackOutcome NotRun(Error error)
+        {
+            LogCompletionDidNotRun(_log, taskId, error.Code, error.Message);
+            return LinkedTaskWriteBackOutcome.NotAsked;
         }
     }
 

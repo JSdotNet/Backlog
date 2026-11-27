@@ -130,26 +130,30 @@ public sealed partial class IssueDeviceTokenCommandHandler(
         }
 
         var validated = DevicePublicKey.Validate(command.PublicKey!);
-        if (validated is not Ok<string>(var key))
+        return validated switch
         {
-            return Result.Failure((Error)validated.Value!);
-        }
+            Ok<string>(var key) => await BindAsync(key),
+            Error error => Result.Failure(error),
+        };
 
-        var possession = await ByAssertion(command, device.Id, key, cancellationToken);
-        if (possession is Error)
+        async Task<Result> BindAsync(string key)
         {
-            return possession;
-        }
+            var possession = await ByAssertion(command, device.Id, key, cancellationToken);
+            if (possession is Error)
+            {
+                return possession;
+            }
 
-        // False only when another fetch bound a key first: that one migrated, and
-        // this credential is no longer good.
-        if (!await devices.BindKey(device.Id, key, cancellationToken))
-        {
-            return Result.Failure(CredentialInvalid);
-        }
+            // False only when another fetch bound a key first: that one migrated, and
+            // this credential is no longer good.
+            if (!await devices.BindKey(device.Id, key, cancellationToken))
+            {
+                return Result.Failure(CredentialInvalid);
+            }
 
-        LogKeyBound(log, device.Id.Value);
-        return Result.Success();
+            LogKeyBound(log, device.Id.Value);
+            return Result.Success();
+        }
     }
 
     private bool CredentialMatches(IssueDeviceTokenCommand command, Device device) =>

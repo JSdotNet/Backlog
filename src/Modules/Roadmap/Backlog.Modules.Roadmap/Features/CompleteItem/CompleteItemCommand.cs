@@ -34,9 +34,16 @@ public sealed class CompleteItemCommandHandler(IRoadmapPlanRepository plans, Roa
         using var held = await gate.EnterAsync(cancellationToken);
         var plan = await plans.LoadAsync(cancellationToken);
         var completed = plan.CompleteItem(command.ItemId, command.On);
-        if (completed is not Ok<RoadmapItem>(var item)) return (Error)completed.Value!;
+        return completed switch
+        {
+            Ok<RoadmapItem>(var item) => await SavedAsync(item),
+            Error error => error,
+        };
 
-        await plans.SaveAsync(plan, cancellationToken);
-        return Result.Success(item.ToDto());
+        async Task<Result<RoadmapItemDto>> SavedAsync(RoadmapItem item)
+        {
+            await plans.SaveAsync(plan, cancellationToken);
+            return Result.Success(item.ToDto());
+        }
     }
 }

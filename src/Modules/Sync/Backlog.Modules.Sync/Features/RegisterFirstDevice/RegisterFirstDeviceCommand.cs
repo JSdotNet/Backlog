@@ -62,91 +62,95 @@ public sealed partial class RegisterFirstDeviceCommandHandler(
         ArgumentNullException.ThrowIfNull(command);
 
         var validName = DeviceName.Validate(command.DeviceName);
-        if (validName is not Ok<string>(var name))
+        return validName switch
         {
-            return (Error)validName.Value!;
+            Ok<string>(var name) => await NamedAsync(name),
+            Error error => error,
+        };
+
+        async Task<Result<DeviceRegistrationResponse>> NamedAsync(string name)
+        {
+            if (command.PublicKey is null) return await RegisterAsync(name, publicKey: null);
+
+            var validated = DevicePublicKey.Validate(command.PublicKey);
+            return validated switch
+            {
+                Ok<string>(var validKey) => await RegisterAsync(name, validKey),
+                Error error => error,
+            };
         }
 
-        string? publicKey = null;
-        if (command.PublicKey is not null)
+        async Task<Result<DeviceRegistrationResponse>> RegisterAsync(string name, string? publicKey)
         {
-            var validated = DevicePublicKey.Validate(command.PublicKey);
-            if (validated is not Ok<string>(var validKey))
+            if (string.IsNullOrEmpty(command.EnrolmentCode) || !EnrolmentPkce.IsWellFormedVerifier(command.CodeVerifier))
             {
-                return (Error)validated.Value!;
+                return Error.Validation(
+                    SyncErrorCodes.EnrolmentCodeRequired,
+                    "Registering a device needs the owner's sign-in. Start it from Backlog.");
             }
 
-            publicKey = validKey;
+            var key = hasher.Hash(command.EnrolmentCode);
+            var ticket = await tickets.FindByHash(key, cancellationToken);
+
+            if (ticket is not { Kind: EnrolmentTicketKind.Code })
+            {
+                return Error.NotFound(SyncErrorCodes.EnrolmentCodeNotFound, "That enrolment code is not one this service issued.");
+            }
+
+            if (ticket.Redeemed)
+            {
+                return Error.Conflict(SyncErrorCodes.EnrolmentCodeUsed, "That enrolment code has already registered a device. Sign in again.");
+            }
+
+            if (ticket.HasExpired(clock.GetUtcNow()))
+            {
+                return Error.Conflict(SyncErrorCodes.EnrolmentCodeExpired, "That enrolment code has expired. Sign in again.");
+            }
+
+            if (!EnrolmentPkce.Matches(command.CodeVerifier!, ticket.CodeChallenge))
+            {
+                return Error.Validation(
+                    SyncErrorCodes.EnrolmentVerifierMismatch,
+                    "This device did not start the sign-in that enrolment code came from.");
+            }
+
+            if (owner.MustCheckForOtherOwners && owner.Owner is { } derived && await devices.AnyOutside(derived, cancellationToken))
+            {
+                // Before the burn, so the code is not spent on a refusal the person cannot
+                // act on; they sign in again once the owner is pinned.
+                LogOwnerUnpinned(log, derived.Value);
+                return Error.Conflict(
+                    SyncErrorCodes.EnrolmentOwnerUnpinned,
+                    "This sync service holds devices of an owner it is not pinned to. Its operator must set Owner__OwnerId to that owner's id; until then no device enrols or recovers.");
+            }
+
+            if (!await tickets.TryBurn(key, cancellationToken))
+            {
+                return Error.Conflict(SyncErrorCodes.EnrolmentCodeUsed, "That enrolment code has already registered a device. Sign in again.");
+            }
+
+            var ownerId = owner.Owner ?? OwnerId.New();
+            var deviceId = DeviceId.New();
+            var credential = publicKey is null ? credentials.Next() : null;
+
+            // The new device first, so a recovery that fails halfway never leaves the
+            // owner with no device at all.
+            await devices.Add(
+                new Device(
+                    deviceId,
+                    ownerId,
+                    name,
+                    credential is null ? null : hasher.Hash(credential),
+                    clock.GetUtcNow(),
+                    PublicKey: publicKey),
+                cancellationToken);
+
+            var revoked = owner.RequiresSignIn
+                ? await RevokeOthers(ownerId, deviceId, cancellationToken)
+                : 0;
+
+            return new DeviceRegistrationResponse(ownerId.Value, deviceId.Value, credential, revoked);
         }
-
-        if (string.IsNullOrEmpty(command.EnrolmentCode) || !EnrolmentPkce.IsWellFormedVerifier(command.CodeVerifier))
-        {
-            return Error.Validation(
-                SyncErrorCodes.EnrolmentCodeRequired,
-                "Registering a device needs the owner's sign-in. Start it from Backlog.");
-        }
-
-        var key = hasher.Hash(command.EnrolmentCode);
-        var ticket = await tickets.FindByHash(key, cancellationToken);
-
-        if (ticket is not { Kind: EnrolmentTicketKind.Code })
-        {
-            return Error.NotFound(SyncErrorCodes.EnrolmentCodeNotFound, "That enrolment code is not one this service issued.");
-        }
-
-        if (ticket.Redeemed)
-        {
-            return Error.Conflict(SyncErrorCodes.EnrolmentCodeUsed, "That enrolment code has already registered a device. Sign in again.");
-        }
-
-        if (ticket.HasExpired(clock.GetUtcNow()))
-        {
-            return Error.Conflict(SyncErrorCodes.EnrolmentCodeExpired, "That enrolment code has expired. Sign in again.");
-        }
-
-        if (!EnrolmentPkce.Matches(command.CodeVerifier!, ticket.CodeChallenge))
-        {
-            return Error.Validation(
-                SyncErrorCodes.EnrolmentVerifierMismatch,
-                "This device did not start the sign-in that enrolment code came from.");
-        }
-
-        if (owner.MustCheckForOtherOwners && owner.Owner is { } derived && await devices.AnyOutside(derived, cancellationToken))
-        {
-            // Before the burn, so the code is not spent on a refusal the person cannot
-            // act on; they sign in again once the owner is pinned.
-            LogOwnerUnpinned(log, derived.Value);
-            return Error.Conflict(
-                SyncErrorCodes.EnrolmentOwnerUnpinned,
-                "This sync service holds devices of an owner it is not pinned to. Its operator must set Owner__OwnerId to that owner's id; until then no device enrols or recovers.");
-        }
-
-        if (!await tickets.TryBurn(key, cancellationToken))
-        {
-            return Error.Conflict(SyncErrorCodes.EnrolmentCodeUsed, "That enrolment code has already registered a device. Sign in again.");
-        }
-
-        var ownerId = owner.Owner ?? OwnerId.New();
-        var deviceId = DeviceId.New();
-        var credential = publicKey is null ? credentials.Next() : null;
-
-        // The new device first, so a recovery that fails halfway never leaves the
-        // owner with no device at all.
-        await devices.Add(
-            new Device(
-                deviceId,
-                ownerId,
-                name,
-                credential is null ? null : hasher.Hash(credential),
-                clock.GetUtcNow(),
-                PublicKey: publicKey),
-            cancellationToken);
-
-        var revoked = owner.RequiresSignIn
-            ? await RevokeOthers(ownerId, deviceId, cancellationToken)
-            : 0;
-
-        return new DeviceRegistrationResponse(ownerId.Value, deviceId.Value, credential, revoked);
     }
 
     private async Task<int> RevokeOthers(OwnerId ownerId, DeviceId keep, CancellationToken cancellationToken)

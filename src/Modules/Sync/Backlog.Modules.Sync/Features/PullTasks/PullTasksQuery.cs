@@ -46,33 +46,35 @@ public sealed class PullTasksQueryHandler(ITaskReplica replica, ISyncCursorCodec
         activity?.SetTag(SyncTelemetry.OwnerIdTag, query.Scope.OwnerId.ToString());
         activity?.SetTag(SyncTelemetry.DeviceIdTag, query.Scope.DeviceId.ToString());
 
-        TaskReplicaCursor? cursor = null;
+        if (string.IsNullOrWhiteSpace(query.Since)) return await PageAsync(null);
 
-        if (!string.IsNullOrWhiteSpace(query.Since))
+        var verified = cursors.Verify(query.Since, query.Scope.OwnerId);
+        return verified switch
         {
-            var verified = cursors.Verify(query.Since, query.Scope.OwnerId);
-            if (verified is not Ok<SyncCursor>(var since))
-            {
-                var error = (Error)verified.Value!;
+            Ok<SyncCursor>(var since) => await PageAsync(new TaskReplicaCursor(since)),
+            Error error => Rejected(error),
+        };
 
-                SyncTelemetry.CursorRejected.Add(1, new KeyValuePair<string, object?>(
-                    SyncTelemetry.ReasonTag, error.Code));
+        async Task<Result<PullTasksResponse>> PageAsync(TaskReplicaCursor? cursor)
+        {
+            var page = await replica.ReadChanges(query.Scope.OwnerId, cursor, query.MaxItems, cancellationToken);
 
-                activity?.SetStatus(ActivityStatusCode.Error, error.Code);
+            activity?.SetTag(SyncTelemetry.BatchSizeTag, page.Changes.Count);
 
-                return error;
-            }
-
-            cursor = new TaskReplicaCursor(since);
+            return new PullTasksResponse(
+                page.Changes,
+                cursors.Mint(query.Scope.OwnerId, page.Cursor.Continuation),
+                page.HasMore);
         }
 
-        var page = await replica.ReadChanges(query.Scope.OwnerId, cursor, query.MaxItems, cancellationToken);
+        Error Rejected(Error error)
+        {
+            SyncTelemetry.CursorRejected.Add(1, new KeyValuePair<string, object?>(
+                SyncTelemetry.ReasonTag, error.Code));
 
-        activity?.SetTag(SyncTelemetry.BatchSizeTag, page.Changes.Count);
+            activity?.SetStatus(ActivityStatusCode.Error, error.Code);
 
-        return new PullTasksResponse(
-            page.Changes,
-            cursors.Mint(query.Scope.OwnerId, page.Cursor.Continuation),
-            page.HasMore);
+            return error;
+        }
     }
 }
