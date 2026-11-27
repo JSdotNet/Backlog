@@ -12,8 +12,8 @@ Dev PC Management supports multiple development PCs from a single interface:
 - register machines;
 - wake them remotely;
 - start remote desktop sessions;
-- monitor tool versions and compliance against the [Technology
-  Stack](../technology-stack/domain.md#technology-registry) baseline;
+- monitor tool versions and compliance against the team tool baseline its
+  [tool catalog](features.md#copilot-tool-catalog) declares;
 - trigger remote updates.
 
 Outside it: which agent ran on a machine, where, and for how long. That is
@@ -42,3 +42,7 @@ says this machine should have:
 The flag is on by default and marked `DEV`. The settings screen lists it
 from the feature catalog in `AppFeatures.cs`, and a person's choice is kept in
 `features.json`. The flag is retired when the pane leaves `DEV`.
+
+## Over MCP
+
+This context has no tool group on the [MCP channel](../../arc42/05-building-block-view.md#mcp-channel), `Backlog.Infrastructure.Mcp` (local ADRs 0012, 0073 §6). The tools pane checks the MCP servers the [tool catalog](features.md#copilot-tool-catalog) names for this machine; it publishes no tool of its own.

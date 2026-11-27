@@ -1,15 +1,15 @@
 using Backlog.Desktop.UI.Devbook;
 using Backlog.Desktop.UI.PullRequests;
-using Backlog.Desktop.UI.Tasks;
+using Backlog.Modules.Work.UI.Tasks;
 using Backlog.Modules.Capture.Abstractions.Services;
-using Backlog.Modules.Dashboard.UI;
+using Backlog.Modules.Insights.UI;
 using Backlog.Modules.Inbox.UI;
 using Backlog.Modules.Notifications.UI;
-using Backlog.Modules.RepositoryManagement.Abstractions.Services;
+using Backlog.Modules.Repositories.Abstractions.Services;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI;
-using Backlog.Modules.Tasks.Abstractions.Connectors;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Connectors;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.SharedKernel;
 using Backlog.UI.Components.Feedback;
 using Microsoft.Extensions.DependencyInjection;
@@ -58,7 +58,7 @@ public static class ShellSurfaceWiring
                     OpenTask = references.OpenTaskAsync,
                     SessionTask = references.SessionTaskFor,
                     // How a pull request a session leads to stands, as its readiness
-                    // verdict: read by number through Repository Management's contract
+                    // verdict: read by number through Repositories' contract
                     // (local ADR 0042) and judged the way the pull requests list judges
                     // it, so one pull request wears one chip on both screens. Null
                     // without the contract or a registered repository. A pull request it
@@ -88,11 +88,11 @@ public static class ShellSurfaceWiring
             windowStateLifetime));
 
         services.Add(new ServiceDescriptor(
-            typeof(DashboardSurfaceWiring),
+            typeof(InsightsSurfaceWiring),
             sp =>
             {
                 var state = sp.GetRequiredService<TasksDesktopState>();
-                return new DashboardSurfaceWiring
+                return new InsightsSurfaceWiring
                 {
                     RepositoryAliases = () => state.SelectedRepositoryAliases,
                     RepositoryColour = state.RepositoryColourFor,

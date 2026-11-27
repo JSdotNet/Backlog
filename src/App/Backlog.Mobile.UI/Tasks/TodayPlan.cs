@@ -1,11 +1,11 @@
-using Backlog.Modules.Tasks.Abstractions;
+using Backlog.Modules.Work.Abstractions.Tasks;
 
 namespace Backlog.Mobile.UI.Tasks;
 
 /// <summary>
 /// Today's My Day as the phone's Today screen draws it: the card at the top, then
 /// Agenda, Anytime today and Done today
-/// (<c>.devbook/domain/tasks/features.md#my-day</c>).
+/// (<c>.devbook/domain/work/features.md#my-day</c>).
 /// <para>
 /// Pure: handed the day's rows in My Day order and the phone's local time of day,
 /// it decides nothing else. A task is done when it is ticked — it carries a

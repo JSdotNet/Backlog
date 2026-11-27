@@ -1,8 +1,8 @@
 using System.ComponentModel;
 
-using Backlog.Modules.Roadmap.Abstractions;
-using Backlog.Modules.Roadmap.Abstractions.Services;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Plans;
+using Backlog.Modules.Work.Abstractions.Plans.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 
 using ModelContextProtocol.Server;
 
@@ -49,14 +49,30 @@ public sealed class RoadmapTools(
     IPlanningVelocity? velocity = null,
     TimeProvider? clock = null)
 {
+    internal const string GetPlannedWork = "get_planned_work";
+
+    /// <summary>The tool's name before Tasks and Roadmap Planning merged into Work (local
+    /// ADR 0073 §10). Still registered, answering exactly as <see cref="GetPlannedWork"/>
+    /// does, so an agent or skill written against it keeps working.</summary>
     internal const string GetRoadmap = "get_roadmap";
 
-    [McpServerTool(Name = GetRoadmap, Title = "Get the roadmap for a repository", ReadOnly = true, Idempotent = true, OpenWorld = false)]
+    [McpServerTool(Name = GetPlannedWork, Title = "Get the planned work for a repository", ReadOnly = true, Idempotent = true, OpenWorld = false)]
     [Description("The planned work, milestones and date contradictions belonging to one repository. Read-only.")]
-    public async Task<RoadmapPayload> GetRoadmapAsync(
+    public Task<RoadmapPayload> GetPlannedWorkAsync(
         [Description("The repository in owner/name form, e.g. JSdotNet/Backlog.")]
         string repository,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        AnswerAsync(repository, cancellationToken);
+
+    [McpServerTool(Name = GetRoadmap, Title = "Get the planned work for a repository (old name)", ReadOnly = true, Idempotent = true, OpenWorld = false)]
+    [Description("The old name of get_planned_work, kept as an alias; prefer get_planned_work. The planned work, milestones and date contradictions belonging to one repository. Read-only.")]
+    public Task<RoadmapPayload> GetRoadmapAsync(
+        [Description("The repository in owner/name form, e.g. JSdotNet/Backlog.")]
+        string repository,
+        CancellationToken cancellationToken = default) =>
+        AnswerAsync(repository, cancellationToken);
+
+    private async Task<RoadmapPayload> AnswerAsync(string repository, CancellationToken cancellationToken)
     {
         var scope = RepositoryScope.Resolve(repositories, repository).ValueOrThrow();
 

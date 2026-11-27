@@ -38,7 +38,9 @@ public sealed partial class ModuleUiIoTests
         // fourth; the later slices move the rest.
         "src/Modules/Devbook/Backlog.Modules.Devbook.UI/Arc42Devbook.cs",
         "src/Modules/Devbook/Backlog.Modules.Devbook.UI/C4Devbook.cs",
-        "src/Modules/Devbook/Backlog.Modules.Devbook.UI/DevbookAtlas.cs",
+        // The atlas reader moved to the pane's published surface (local ADR 0073 §9)
+        // with its graph-file fallback.
+        "src/Modules/Devbook/Backlog.Modules.Devbook.Contracts.UI/DevbookAtlas.cs",
         "src/Modules/Devbook/Backlog.Modules.Devbook.UI/DevbookFolderOpenService.cs",
         "src/Modules/Devbook/Backlog.Modules.Devbook.UI/DomainDevbookStore.cs",
         // Only by name: it has a private Directory(path) helper of its own, which

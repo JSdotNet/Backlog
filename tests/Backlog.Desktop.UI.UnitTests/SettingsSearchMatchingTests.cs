@@ -196,7 +196,7 @@ public sealed class SettingsSearchMatchingTests
     public void The_fragment_guard_reads_every_module_page()
     {
         Assert.Superset(
-            new HashSet<string>(["dashboard", "working-week", "inbox", "claude-code", "model-prices", "connectors", "devices"], StringComparer.Ordinal),
+            new HashSet<string>(["insights", "working-week", "inbox", "claude-code", "model-prices", "connectors", "devices"], StringComparer.Ordinal),
             RegisteredSections().Select(section => section.Id).ToHashSet(StringComparer.Ordinal));
     }
 

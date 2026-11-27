@@ -1,0 +1,44 @@
+using Backlog.Modules.Work.Abstractions.Plans.DataTransferObjects;
+using Backlog.Modules.Work.Plans.DomainModels;
+using Backlog.Modules.Work.Plans.Services;
+using Backlog.SharedKernel.Handlers;
+using Backlog.SharedKernel.Results;
+
+namespace Backlog.Modules.Work.Plans.Features.RescheduleItem;
+
+/// <summary>
+/// Moves planned work in time, and to another lane when one is given.
+/// <para>
+/// This is what a drag on the timeline becomes. The view proposes a placement and
+/// this decides whether it stands — which is why the dates arrive as a proposal
+/// rather than being written by whatever drew the bar.
+/// </para>
+/// </summary>
+/// <param name="Lane">The lane it lands in, or null to leave it filed where it
+/// is. Null rather than the current value on purpose: moving something in time
+/// must not silently refile it.</param>
+public sealed record RescheduleItemCommand(Guid ItemId, DateOnly Start, DateOnly End, string? Lane = null);
+
+public sealed class RescheduleItemCommandHandler(IRoadmapPlanRepository plans, RoadmapPlanGate gate)
+    : ICommandHandler<RescheduleItemCommand, Result<RoadmapItemDto>>
+{
+    public async Task<Result<RoadmapItemDto>> Handle(
+        RescheduleItemCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        var window = PlannedWindow.Create(command.Start, command.End);
+        if (window is not Ok<PlannedWindow>(var planned)) return (Error)window.Value!;
+
+        using var held = await gate.EnterAsync(cancellationToken);
+        var plan = await plans.LoadAsync(cancellationToken);
+        var lane = command.Lane is null ? null : PlanningLane.Of(command.Lane);
+        var rescheduled = plan.Reschedule(command.ItemId, planned, lane);
+
+        if (rescheduled is not Ok<RoadmapItem>(var item)) return (Error)rescheduled.Value!;
+
+        await plans.SaveAsync(plan, cancellationToken);
+        return Result.Success(item.ToDto());
+    }
+}

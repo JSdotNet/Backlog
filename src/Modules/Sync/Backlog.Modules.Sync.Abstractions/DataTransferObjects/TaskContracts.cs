@@ -19,7 +19,7 @@ namespace Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 /// </para>
 /// <para>
 /// Every member is a plain value rather than a domain type for the same reason.
-/// The Sync module has no reference to Backlog.Modules.Tasks and must not grow
+/// The Sync module has no reference to Backlog.Modules.Work.Tasks and must not grow
 /// one — the two contexts share a shape, not a model.
 /// </para>
 /// <para>

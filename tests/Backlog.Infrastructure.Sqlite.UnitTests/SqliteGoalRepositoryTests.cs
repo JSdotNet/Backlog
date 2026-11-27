@@ -1,7 +1,7 @@
-using Backlog.Infrastructure.Sqlite.Progress;
-using Backlog.Modules.Progress;
-using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
-using Backlog.Modules.Progress.DomainModels;
+using Backlog.Infrastructure.Sqlite.Goals;
+using Backlog.Modules.Goals;
+using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
+using Backlog.Modules.Goals.DomainModels;
 
 using Backlog.SharedKernel.Results;
 using Microsoft.Data.Sqlite;
@@ -9,7 +9,7 @@ using Microsoft.Data.Sqlite;
 namespace Backlog.Infrastructure.Sqlite.UnitTests;
 
 /// <summary>
-/// The stored goals: one row per goal in <c>progress_goals</c>, the whole goal as one
+/// The stored goals: one row per goal in <c>goals_goals</c>, the whole goal as one
 /// document, which is also the <c>goal</c> document that travels. What goes in comes back
 /// out unchanged, a deleted goal leaves a tombstone that travels, and a row that will not
 /// parse is skipped rather than failing the read.
@@ -37,7 +37,7 @@ public sealed class SqliteGoalRepositoryTests : IDisposable
 
     private static Goal Goal(string title = "Customers get paid faster", DateTimeOffset? createdAt = null)
     {
-        return Modules.Progress.DomainModels.Goal.Restore(
+        return Modules.Goals.DomainModels.Goal.Restore(
             Guid.NewGuid(),
             title,
             "Invoices settle in a day",
@@ -94,7 +94,7 @@ public sealed class SqliteGoalRepositoryTests : IDisposable
     }
 
     private static Goal Placed(string title, DateTimeOffset createdAt, long? rank) =>
-        Modules.Progress.DomainModels.Goal.Restore(Guid.NewGuid(), title, null, null, [], createdAt, rank);
+        Modules.Goals.DomainModels.Goal.Restore(Guid.NewGuid(), title, null, null, [], createdAt, rank);
 
     private static readonly DateTimeOffset Eight = new(2026, 10, 17, 8, 0, 0, TimeSpan.Zero);
 
@@ -115,7 +115,7 @@ public sealed class SqliteGoalRepositoryTests : IDisposable
         Assert.DoesNotContain("rank", (await _repository.ReadAsync(unplaced.Id, Cancellation))!.Content, StringComparison.Ordinal);
 
         // And the phone, which reads the same document, reads the same rank.
-        Assert.Equal(1234, Modules.Progress.Abstractions.ProgressDocuments.ReadGoal(placedContent, placed.Id)!.Rank);
+        Assert.Equal(1234, Modules.Goals.Abstractions.GoalsDocuments.ReadGoal(placedContent, placed.Id)!.Rank);
     }
 
     /// <summary>Goals list in the person's order: by rank where placed, by when they were set
@@ -138,7 +138,7 @@ public sealed class SqliteGoalRepositoryTests : IDisposable
     [Fact]
     public async Task A_goal_without_a_date_is_keyed_alike_by_the_list_and_by_a_move()
     {
-        var undated = Modules.Progress.DomainModels.Goal.Restore(Guid.NewGuid(), "U", null, null, []);
+        var undated = Modules.Goals.DomainModels.Goal.Restore(Guid.NewGuid(), "U", null, null, []);
         await _repository.SaveAsync(undated, Cancellation);
         var a = Placed("A", DateTimeOffset.UtcNow.AddHours(1), null);
         var b = Placed("B", DateTimeOffset.UtcNow.AddHours(2), null);
@@ -149,12 +149,12 @@ public sealed class SqliteGoalRepositoryTests : IDisposable
         Assert.Equal(["U", "A", "B"], listed.Select(goal => goal.Title));
         Assert.NotNull(listed[0].CreatedAt);
 
-        var moved = Modules.Progress.Services.GoalOrdering.MoveTo(listed, listed[2], 1);
+        var moved = Modules.Goals.Services.GoalOrdering.MoveTo(listed, listed[2], 1);
 
         Assert.Single(moved);
         Assert.Equal(
             ["U", "B", "A"],
-            Modules.Progress.Abstractions.GoalOrder.Sort(listed, goal => goal.Rank, goal => goal.CreatedAt, goal => goal.Id).Select(goal => goal.Title));
+            Modules.Goals.Abstractions.GoalOrder.Sort(listed, goal => goal.Rank, goal => goal.CreatedAt, goal => goal.Id).Select(goal => goal.Title));
     }
 
     /// <summary>A pulled copy carrying a rank reorders the goals here as it did there.</summary>
@@ -169,7 +169,7 @@ public sealed class SqliteGoalRepositoryTests : IDisposable
         var there = new SqliteGoalRepository(_other);
         // Moved to the top there: the same goal, now ranked before the first.
         await there.SaveAsync(
-            Modules.Progress.DomainModels.Goal.Restore(second.Id, "Second", null, null, [], second.CreatedAt, Eight.UtcTicks - 1),
+            Modules.Goals.DomainModels.Goal.Restore(second.Id, "Second", null, null, [], second.CreatedAt, Eight.UtcTicks - 1),
             Cancellation);
         var copy = (await there.ReadAsync(second.Id, Cancellation))! with { UpdatedAt = DateTimeOffset.UtcNow.AddMinutes(1) };
 
@@ -205,7 +205,7 @@ public sealed class SqliteGoalRepositoryTests : IDisposable
     {
         await _repository.SaveAsync(Goal(), Cancellation);
 
-        var document = await ScalarAsync("SELECT document FROM progress_goals;");
+        var document = await ScalarAsync("SELECT document FROM goals_goals;");
 
         Assert.Contains("\"dueDate\":\"2026-10-31\"", document, StringComparison.Ordinal);
         Assert.Contains("\"kind\":\"Plan\"", document, StringComparison.Ordinal);
@@ -224,7 +224,7 @@ public sealed class SqliteGoalRepositoryTests : IDisposable
 
         await _repository.SaveAsync(goal, Cancellation);
 
-        Assert.DoesNotContain("dueDate", await ScalarAsync("SELECT document FROM progress_goals;"), StringComparison.Ordinal);
+        Assert.DoesNotContain("dueDate", await ScalarAsync("SELECT document FROM goals_goals;"), StringComparison.Ordinal);
         Assert.Null((await _repository.GetAsync(goal.Id, Cancellation))!.DueDate);
     }
 
@@ -246,7 +246,7 @@ public sealed class SqliteGoalRepositoryTests : IDisposable
     {
         var good = Goal();
         await _repository.SaveAsync(good, Cancellation);
-        await ExecuteAsync("INSERT INTO progress_goals (id, document, created_at, updated_at) VALUES ('broken', '{not json', '2026-10-01', '2026-10-01');");
+        await ExecuteAsync("INSERT INTO goals_goals (id, document, created_at, updated_at) VALUES ('broken', '{not json', '2026-10-01', '2026-10-01');");
 
         var all = await _repository.ListAsync(Cancellation);
 
@@ -373,9 +373,37 @@ public sealed class SqliteGoalRepositoryTests : IDisposable
 
         await _repository.ListAsync(Cancellation);
 
-        Assert.Equal("1", await ScalarAsync("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'progress_goals';"));
-        Assert.Equal("1", await ScalarAsync("SELECT COUNT(*) FROM schema_stamps WHERE owner = 'progress_goals';"));
+        Assert.Equal("1", await ScalarAsync("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'goals_goals';"));
+        Assert.Equal("1", await ScalarAsync("SELECT COUNT(*) FROM schema_stamps WHERE owner = 'goals_goals';"));
         Assert.Equal("1", await ScalarAsync("SELECT COUNT(*) FROM progress_series;"));
+    }
+
+    /// <summary>A file a build before the rename wrote keeps its goals in
+    /// <c>progress_goals</c> (local ADR 0073 §10): the first open copies them into
+    /// <c>goals_goals</c> as they were, and the old table stays in the file unread.</summary>
+    [Fact]
+    public async Task Goals_a_build_before_the_rename_kept_in_progress_goals_are_carried_over()
+    {
+        var goal = Goal();
+        await new SqliteGoalRepository(_other).SaveAsync(goal, Cancellation);
+        var stored = await new SqliteGoalRepository(_other).ReadAsync(goal.Id, Cancellation);
+
+        Directory.CreateDirectory(Path.GetDirectoryName(_repository.DatabasePath)!);
+        await ExecuteAsync("""
+            CREATE TABLE progress_goals (id TEXT PRIMARY KEY NOT NULL, document TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+            CREATE TABLE schema_stamps (owner TEXT PRIMARY KEY NOT NULL, fingerprint TEXT NOT NULL);
+            INSERT INTO schema_stamps VALUES ('progress_goals', 'a build before the rename');
+            """);
+        await ExecuteAsync($"""
+            INSERT INTO progress_goals VALUES ('{goal.Id:D}', '{stored!.Content.Replace("'", "''", StringComparison.Ordinal)}', '2026-10-12T00:00:00.0000000+00:00', '2026-10-12T00:00:00.0000000+00:00');
+            """);
+
+        var carried = await _repository.GetAsync(goal.Id, Cancellation);
+
+        Assert.NotNull(carried);
+        Assert.Equal(goal.Title, carried.Title);
+        Assert.Equal(1, await CountRowsAsync());
+        Assert.Equal("1", await ScalarAsync("SELECT COUNT(*) FROM progress_goals;"));
     }
 
     [Fact]
@@ -393,7 +421,7 @@ public sealed class SqliteGoalRepositoryTests : IDisposable
     }
 
     private async Task<long> CountRowsAsync() =>
-        long.Parse(await ScalarAsync("SELECT COUNT(*) FROM progress_goals;"), System.Globalization.CultureInfo.InvariantCulture);
+        long.Parse(await ScalarAsync("SELECT COUNT(*) FROM goals_goals;"), System.Globalization.CultureInfo.InvariantCulture);
 
     private async Task<string> ScalarAsync(string sql)
     {
@@ -414,7 +442,7 @@ public sealed class SqliteGoalRepositoryTests : IDisposable
     }
 
     /// <summary>The phone reads the document this store writes with
-    /// <c>ProgressDocuments.ReadGoal</c>, in the published surface (local ADR 0035 §8): what
+    /// <c>GoalsDocuments.ReadGoal</c>, in the published surface (local ADR 0035 §8): what
     /// it reads is the goal the desktop holds, and a deleted goal reads as deleted.</summary>
     [Fact]
     public async Task The_stored_document_reads_on_the_phone_as_the_goal_the_desktop_holds()
@@ -423,20 +451,20 @@ public sealed class SqliteGoalRepositoryTests : IDisposable
         await _repository.SaveAsync(goal, Cancellation);
 
         var stored = Assert.Single(await _repository.ReadAllAsync(Cancellation));
-        var read = Modules.Progress.Abstractions.ProgressDocuments.ReadGoal(stored.Content, goal.Id);
+        var read = Modules.Goals.Abstractions.GoalsDocuments.ReadGoal(stored.Content, goal.Id);
 
         Assert.NotNull(read);
         Assert.False(read.Deleted);
         Assert.Equal(goal.CreatedAt, read.CreatedAt);
-        Assert.Equal(Modules.Progress.Services.GoalMapper.ToDto(goal).Title, read.Goal.Title);
+        Assert.Equal(Modules.Goals.Services.GoalMapper.ToDto(goal).Title, read.Goal.Title);
         Assert.Equal(
-            Modules.Progress.Services.GoalMapper.ToDto(goal).Attachments,
+            Modules.Goals.Services.GoalMapper.ToDto(goal).Attachments,
             read.Goal.Attachments);
 
         await _repository.DeleteAsync(goal.Id, Cancellation);
 
         var tombstone = Assert.Single(await _repository.ReadAllAsync(Cancellation));
-        Assert.True(Modules.Progress.Abstractions.ProgressDocuments.ReadGoal(tombstone.Content, goal.Id)!.Deleted);
+        Assert.True(Modules.Goals.Abstractions.GoalsDocuments.ReadGoal(tombstone.Content, goal.Id)!.Deleted);
     }
 
     public void Dispose()

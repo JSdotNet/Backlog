@@ -1,7 +1,7 @@
 using Backlog.Mobile.UI.Events;
 using Backlog.Mobile.UI.Notes;
 using Backlog.Mobile.UI.Notifications;
-using Backlog.Mobile.UI.Progress;
+using Backlog.Mobile.UI.Goals;
 using Backlog.Mobile.UI.Tasks;
 using Backlog.Tests;
 
@@ -27,7 +27,7 @@ public sealed class SqliteViewStoreSchemaTests : IDisposable
         var path = _folder.Combine("device.db");
 
         _ = new SqliteTaskViewStore(path);
-        _ = new SqliteProgressViewStore(path);
+        _ = new SqliteGoalsViewStore(path);
         _ = new SqliteNotificationViewStore(path);
         _ = new SqliteNoteViewStore(path);
         _ = new SqliteEventViewStore(path);
@@ -60,7 +60,7 @@ public sealed class SqliteViewStoreSchemaTests : IDisposable
                 "server_ts INTEGER notnull",
                 "content TEXT notnull",
             ],
-            Columns(path, "progress_view"));
+            Columns(path, "goals_view"));
         Assert.Equal(
             [
                 "id TEXT notnull pk",
@@ -76,7 +76,7 @@ public sealed class SqliteViewStoreSchemaTests : IDisposable
             Columns(path, "notification_reply_sent"));
         Assert.Equal(["id TEXT notnull pk", "record TEXT notnull"], Columns(path, "event_view"));
 
-        foreach (var cursor in new[] { "task_cursor", "progress_cursor", "notification_cursor", "note_cursor", "event_cursor" })
+        foreach (var cursor in new[] { "task_cursor", "goals_cursor", "notification_cursor", "note_cursor", "event_cursor" })
         {
             Assert.Equal(["id INTEGER notnull pk", "since TEXT notnull"], Columns(path, cursor));
             Assert.Contains("CHECK (id = 1)", Definition(path, cursor), StringComparison.Ordinal);

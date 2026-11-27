@@ -28,9 +28,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
-    <ProjectReference Include="..\..\Modules\Tasks\Backlog.Modules.Tasks.Abstractions\Backlog.Modules.Tasks.Abstractions.csproj" />
+    <ProjectReference Include="..\..\Modules\Work\Backlog.Modules.Work.Abstractions\Backlog.Modules.Work.Abstractions.csproj" />
     <!-- AddTaskConnector<T>(); see the header. -->
-    <ProjectReference Include="..\..\Modules\Tasks\Backlog.Modules.Tasks\Backlog.Modules.Tasks.csproj" />
+    <ProjectReference Include="..\..\Modules\Work\Backlog.Modules.Work\Backlog.Modules.Work.csproj" />
     <!-- The questions: published, answered and closed through the Notifications
          context's published ports; and the one agent session a linked task names, read
          through the Sessions context's, for a question's "Via". -->

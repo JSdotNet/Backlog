@@ -1,7 +1,7 @@
 using Backlog.Infrastructure.Sqlite.Roadmap;
-using Backlog.Modules.Roadmap.DomainModels;
-using Backlog.Modules.Tasks.Abstractions;
-using Backlog.Modules.Tasks.DomainModels;
+using Backlog.Modules.Work.Plans.DomainModels;
+using Backlog.Modules.Work.Abstractions.Tasks;
+using Backlog.Modules.Work.Tasks.DomainModels;
 using Backlog.SharedKernel.Changes;
 using Microsoft.Data.Sqlite;
 

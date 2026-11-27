@@ -105,7 +105,7 @@ survives, because what replicates is a record, not an authority:
 | pull requests the session linked | Repository, number and address. |
 | tokens per model | Counts, never content. |
 
-- **human turns:** Roadmap Planning counts the person's hours from them on every paired machine.
+- **human turns:** Work counts the person's hours from them on every paired machine.
 - **title:** It travels although the agent writes it from what the person typed. A session is recognised by its title on another machine and after its transcript is gone. A record from a device older than the field is headed by its session id.
 - **usage-limit refusals:** The refusal's sentence never travels. A usage limit is the account's, so a refusal on one machine bounds the week on every other.
 
@@ -1360,7 +1360,7 @@ restart and does not replicate, and a queue never paused reads as running.
 ```meta
 type: entity
 aliases: [SessionRequest, session request, entry request, plan request, dispatcher, Manager session]
-related: [.devbook/domain/sessions/domain.md#agent-session, .devbook/domain/tasks/features.md#copy-as-a-runnable-paste]
+related: [.devbook/domain/sessions/domain.md#agent-session, .devbook/domain/work/features.md#copy-as-a-runnable-paste]
 ```
 
 A person's ask for a session that runs one entry or one plan. It carries:
@@ -1933,7 +1933,7 @@ type: ubiquitous-language
 ```meta
 type: term
 aliases: [environment, machine_name, environment_id]
-related: [.devbook/domain/sessions/domain.md#session-log, .devbook/domain/environment/domain.md#environment, .devbook/domain/tasks/domain.md#device]
+related: [.devbook/domain/sessions/domain.md#session-log, .devbook/domain/repositories/domain.md#environment, .devbook/domain/work/domain.md#device]
 ```
 
 Where an agent ran. Today that is a development PC, named as that machine names
@@ -1941,13 +1941,12 @@ itself.
 
 It also carries a stable identity beside the name it displays: `EnvironmentId`, the
 product-wide device identity issued by the shared kernel
-([Device](../tasks/domain.md#device)), which no bounded context owns. The display
+([Device](../work/domain.md#device)), which no bounded context owns. The display
 name can change without changing the environment, so grouping keys
 on the id.
 
-**This is not the Environment context's Environment.** That one is a launchable
-destination, such as a local harness, a staging app or a cloud dashboard, and belongs
-to a person's shortcuts. This one is the place a session happened. The words collide and the concepts do not. The `related` link above leads a reader from either to the other.
+**This is not a repository's Environment.** That one is a launchable
+destination of a [registered repository](../repositories/domain.md#environment), such as its local harness, a staging app or a cloud dashboard. This one is the place a session happened. The words collide and the concepts do not. The `related` link above leads a reader from either to the other.
 
 It is also not Dev PC Management's **Machine**, though today every environment is
 one. A Machine is a registered, wakeable, compliance-tracked box. An environment is
@@ -2068,7 +2067,7 @@ what state: a task's linked-session badge, or a roadmap entry dated by its sessi
 ```meta
 type: term
 aliases: [human turn, HumanTurn]
-related: [.devbook/domain/sessions/domain.md#session-log, .devbook/domain/roadmap/domain.md#working-stretch, .devbook/domain/roadmap/domain.md#actual-hours, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
+related: [.devbook/domain/sessions/domain.md#session-log, .devbook/domain/work/domain.md#working-stretch, .devbook/domain/work/domain.md#actual-hours, .devbook/arc42/adr/0019-roadmap-counts-the-working-week.md]
 tests: [unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.AgentActivitySourceTests.A_prompt_the_person_made_is_a_human_turn_and_its_prompt_source_is_not_what_says_so, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.AgentActivitySourceTests.A_task_notification_or_a_hand_back_is_not_a_human_turn, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.AgentActivitySourceTests.A_scheduled_tasks_opening_prompt_is_not_a_human_turn, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.AgentActivitySourceTests.An_answer_to_the_agents_question_is_a_human_turn_and_no_other_tool_result_is, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.AgentSessionRecordStoreTests.Human_turns_are_kept_with_the_record]
 ```
 
@@ -2085,9 +2084,9 @@ Sessions
 [keeps only the instant of each human turn](domain.invariants.md#invariant-a-human-turn-is-kept-as-its-instant-alone),
 never its text. A session
 whose transcript does not record who made a turn has no human turns; a Copilot
-session is one. Roadmap Planning draws the person's
-[working stretches](../roadmap/domain.md#working-stretch) from these instants, and
-Productivity's [Hours worked](../productivity/features.md#hours-worked) part
+session is one. Work draws the person's
+[working stretches](../work/domain.md#working-stretch) from these instants, and
+Insights' [Hours worked](../insights/features.md#hours-worked) part
 counts the same stretches.
 
 ### Activity Run
@@ -2095,7 +2094,7 @@ counts the same stretches.
 ```meta
 type: term
 aliases: [AgentActivityRun]
-related: [.devbook/domain/sessions/domain.md#session-log, .devbook/domain/sessions/domain.md#wait, .devbook/domain/roadmap/domain.md#working-stretch]
+related: [.devbook/domain/sessions/domain.md#session-log, .devbook/domain/sessions/domain.md#wait, .devbook/domain/work/domain.md#working-stretch]
 ```
 
 A stretch in which an agent was producing. This context derives it from the agent's

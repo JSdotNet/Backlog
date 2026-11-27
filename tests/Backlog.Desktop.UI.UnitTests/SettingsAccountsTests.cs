@@ -3,7 +3,7 @@ using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Capture.Abstractions.Services;
 using Backlog.Modules.Sync.Abstractions.Services;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.SharedKernel.Replication;
 
 using Bunit;

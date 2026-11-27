@@ -4,7 +4,7 @@
 index: root
 type: context
 deployment: module
-related: [.devbook/arc42/adr/0050-events-is-its-own-bounded-context.md, .devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md, .devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md, .devbook/arc42/adr/guidelines/0005-modular-monolith-structure.md, .devbook/domain/context-map.md]
+related: [.devbook/arc42/adr/0050-events-is-its-own-bounded-context.md, .devbook/arc42/adr/0039-notifications-are-an-owned-document-kind-and-push-only-nudges.md, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md, .devbook/arc42/adr/0026-the-brain-is-a-personal-devbook-outside-any-repository.md, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md, .devbook/arc42/adr/guidelines/0005-modular-monolith-structure.md, .devbook/arc42/adr/0073-the-bounded-contexts-are-redrawn.md, .devbook/domain/context-map.md]
 ```
 
 Events keeps the knowledge events a person attends to learn something: what they
@@ -27,9 +27,9 @@ Outside it:
 | Meetings, holidays and every other appointment | Not modelled in Backlog |
 | The event pages watched for new editions | [Capture](../capture/context.md), as monitored targets |
 | Triage, and the **To Event** route | [Inbox](../inbox/context.md) |
-| The tasks themselves, and the Brain scope they file under | [Tasks](../tasks/domain.md#task), and [Brain scope](../brain/features.md#brain-scope) |
+| The tasks themselves, and the Brain scope they file under | [Work](../work/domain.task.md#task), and [Brain scope](../brain/features.md#brain-scope) |
 | The takeaways | [Brain](../brain/context.md), as [Knowledge Notes](../brain/domain.md#knowledge-note) |
-| The notes taken at a talk | [Inbox](../inbox/domain.md#note), as [Talk notes](../capture/features.md#talk-note) |
+| The notes taken at a talk | [Inbox](../inbox/domain.md#note), as [Talk notes](../capture/features.md#talk-note), until the harvest files them into the [Brain](../brain/context.md) |
 | The Calendar view | [Calendar](../calendar/features.md#calendar-view) |
 | Carrying the documents between devices | [Sync](../sync/context.md) |
 
@@ -41,6 +41,7 @@ flowchart LR
     Phone -->|Attachment Request| Event
     Event -->|Going, end day passed| Policy["Harvest Task Policy"]
     Policy -->|files, completes| Task["Task under the Brain"]
+    Policy -->|"on Harvested, files the Talk notes"| BrainNote["Note in the Brain's inbox"]
     Event -->|read by| Calendar["Calendar layer"]
 ```
 
@@ -132,6 +133,12 @@ starts on a new day, it triggers the
 [Harvest Task Policy](domain.md#harvest-task-policy). The model records nothing of
 it: the policy reads the date and files the task.
 
+## Over MCP
+
+Agents reach this context through the [MCP channel](../../arc42/05-building-block-view.md#mcp-channel), `Backlog.Infrastructure.Mcp` (local ADRs 0012, 0073 §6).
+
+- `EventTools`: `add_knowledge_event`, behind the [`events`](#events-area) flag.
+
 ## Dependencies
 
 Events is downstream of Inbox, Tasks and Sync, and upstream of the Calendar for its
@@ -143,9 +150,9 @@ Events layer. Its one Tasks edge runs out of Events, so it forms no cycle of mod
 |---|---|---|---|---|
 | [Inbox](../inbox/context.md) | OHS + Published Language (Events = conformist) | The To Event route hands the triaged item to Events' intake, through an adapter | [ItemTriaged](../inbox/domain.md#itemtriaged), route `events` | An Inbox item becomes a Spotted knowledge event. |
 | [Capture](../capture/context.md) | OHS + Published Language, through the Inbox | None direct: the facts ride on the Inbox item | [ItemCaptured](../capture/domain.md#itemcaptured), its `event` field | The dates, place and their source reach the event. |
-| [Tasks](../tasks/domain.md#task) | Customer/Supplier (Events = customer) | `IEventTaskTarget` in Events' abstractions, answered by `EventsTaskTarget` in `Backlog.Infrastructure.FileSystem` over `ITaskItems` and `ITaskChangeSignal` | `Backlog.Modules.Tasks.Abstractions` | Files a prep task, or a harvest task under an id derived from its event and only if no task holds it, under the Brain scope, reads a linked task's title and status by id, and completes one by id. |
-| [Brain](../brain/context.md) | One-way reference | A Brain note's path from the Brain's root, held on the event. The pane reads whether the note is there, its title and the notes to pick through `IEventBrainNotes`, answered by `EventsBrainNotes` in `Backlog.Infrastructure.Brain` | The path `ItemTriaged.note_path` uses | The takeaways stay Brain notes. Brain knows no event. |
-| [Inbox](../inbox/domain.md#note), notes | One-way reference | An Inbox note id, held on the event | [Note](../inbox/domain.md#note) | A Talk note is attached to its event. |
+| [Work](../work/domain.task.md#task) | Customer/Supplier (Events = customer) | `IEventTaskTarget` in Events' abstractions, answered by `EventsTaskTarget` in `Backlog.Infrastructure.FileSystem` over `ITaskItems` and `ITaskChangeSignal` | `Backlog.Modules.Work.Abstractions` | Files a prep task, or a harvest task under an id derived from its event and only if no task holds it, under the Brain scope, reads a linked task's title and status by id, and completes one by id. |
+| [Brain](../brain/context.md) | One-way reference | A Brain note's path from the Brain's root, held on the event. The pane reads whether the note is there, its title and the notes to pick through `IEventBrainNotes`, answered by `EventsBrainNotes` in `Backlog.Infrastructure.Brain`. On Harvested, `IEventTalkNotes`, answered by `EventsTalkNotes` there, writes each Talk note through `IBrainNoteWriter` | The path `ItemTriaged.note_path` uses; local ADR 0073 §8 | The takeaways and the harvested Talk notes are Brain notes. Brain knows no event. |
+| [Inbox](../inbox/domain.md#note), triage only | One-way reference | An Inbox note id, held on the event until it is harvested. On Harvested, `EventsTalkNotes` reads the note and archives it through `IInboxItems` | [Note](../inbox/domain.md#note); local ADR 0073 §8 | A Talk note is attached to its event, and leaves the Inbox for the Brain on harvest. |
 | [Sync](../sync/context.md) | Conformist (Events = conformist) | `KnowledgeEventSyncWorker` over `/api/sync/knowledge-events`; attachment requests on the task feed | `KnowledgeEventChange` in `Backlog.Modules.Sync.Abstractions`; local ADR 0050 | Events and attachment requests reach every paired device. |
 
 ### Inbound dependents (known)

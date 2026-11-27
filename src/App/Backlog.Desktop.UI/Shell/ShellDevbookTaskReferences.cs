@@ -1,5 +1,5 @@
 using Backlog.Desktop.UI.Devbook;
-using Backlog.Desktop.UI.Tasks;
+using Backlog.Modules.Work.UI.Tasks;
 
 namespace Backlog.Desktop.UI.Shell;
 

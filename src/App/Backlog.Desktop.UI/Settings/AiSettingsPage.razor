@@ -13,8 +13,8 @@
 @using Backlog.SharedKernel
 @using Backlog.Infrastructure.Claude
 @using Backlog.UI.Components.Metrics
-@using Backlog.Modules.Dashboard.Abstractions.Insights
-@using Backlog.Modules.Dashboard.Abstractions.Services
+@using Backlog.Modules.Insights.Abstractions.Insights
+@using Backlog.Modules.Insights.Abstractions.Services
 @implements IDisposable
 @inject GitHubIntegration GitHub
 @inject IAppFeatureSettings Features
@@ -73,7 +73,7 @@
            either endpoint saved both and reported through a single status line
            that could not say which vendor it was talking about. *@
         <SettingsCard Title="Claude usage API"
-                      Description="What Backlog needs to read your Claude usage and cost reports. One page per organization you belong to - a personal Console beside an employer's - and the dashboard adds their spend up."
+                      Description="What Backlog needs to read your Claude usage and cost reports. One page per organization you belong to - a personal Console beside an employer's - and Insights adds their spend up."
                       TestId="claude-usage-settings">
             <Action>
                 <AppButton Variant="ButtonVariant.None"
@@ -245,11 +245,11 @@
                                         }
                                         @if (string.IsNullOrWhiteSpace(claudeAccount.Actor))
                                         {
-                                            <text> The dashboard needs your Claude account before it can show your spend rather than the whole organization's.</text>
+                                            <text> Insights needs your Claude account before it can show your spend rather than the whole organization's.</text>
                                         }
                                         else
                                         {
-                                            <text> The dashboard reports Claude usage for <code>@claudeAccount.Actor</code>.</text>
+                                            <text> Insights reports Claude usage for <code>@claudeAccount.Actor</code>.</text>
                                         }
                                     </span>
                                 }
@@ -566,7 +566,7 @@
                 }
                 else
                 {
-                    <span>Spend needs a resource ID before the dashboard can read it.</span>
+                    <span>Spend needs a resource ID before Insights can read it.</span>
                 }
             </p>
 
@@ -754,7 +754,7 @@
     private string ClaudeAccountsSummary() => Claude.Current.Accounts.Count switch
     {
         1 => "One Claude organization. Use Add organization if you also belong to a second one.",
-        var count => $"{count} Claude organizations. The dashboard adds their spend up."
+        var count => $"{count} Claude organizations. Insights adds their spend up."
     };
 
     private static string Draft(Dictionary<string, string> drafts, ClaudeAccount account) =>

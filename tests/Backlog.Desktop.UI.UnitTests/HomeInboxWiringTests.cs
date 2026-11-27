@@ -11,9 +11,9 @@ using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Inbox.Services;
 using Backlog.Modules.Inbox.UI;
 using Backlog.Modules.Sync.Abstractions;
-using Backlog.Modules.Tasks.Abstractions.Services;
-using Backlog.Modules.Tasks.DomainModels;
-using Backlog.Modules.Tasks.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
+using Backlog.Modules.Work.Tasks.DomainModels;
+using Backlog.Modules.Work.Tasks.Services;
 using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.Time.Testing;
 using System.Net;
@@ -578,7 +578,7 @@ public sealed class HomeInboxWiringTests
         context.Services.AddSingleton<DevbookSourceSelection>();
         context.Services.AddSingleton(new DevbookCopilotCli(new UnavailableCopilotCliLauncher()));
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
-        _ = context.Services.AddUnavailableDashboard("backlog", "backlog-ide");
+        _ = context.Services.AddUnavailableInsights("backlog", "backlog-ide");
         context.Services.AddScoped(sp => new DomainDevbookStore(sp.GetRequiredService<IDevbookFolderSource>()));
 
         // Home answers the Inbox's Capture button through the module's runner and

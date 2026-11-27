@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Notifications.DomainModels;
+using Backlog.Modules.Work.Abstractions.Tasks;
 
 namespace Backlog.Infrastructure.Sqlite.Notifications;
 
@@ -91,7 +92,7 @@ internal sealed record NotificationDocument(
         Id,
         OwnerInstanceId,
         Source,
-        Subject,
+        CurrentSubject(Subject),
         Kind,
         Severity,
         Title,
@@ -110,4 +111,13 @@ internal sealed record NotificationDocument(
         string.IsNullOrWhiteSpace(Origin?.System) ? null : Origin,
         // An action that lost its label or link reads as none, rather than costing the row.
         Actions?.Where(action => action is not null && !string.IsNullOrWhiteSpace(action.Label) && !string.IsNullOrWhiteSpace(action.Link)).ToList());
+
+    /// <summary>A task subject stored under the context it carried before Tasks and Roadmap
+    /// Planning merged into Work reads under the new one (local ADR 0073 §10), so closing a
+    /// task's notifications, the startup probe and the repository filing all find it. The
+    /// row is rewritten under the new context the next time it is saved.</summary>
+    private static NotificationSubject? CurrentSubject(NotificationSubject? subject) =>
+        subject is not null && TaskNotificationSubjects.IsLegacy(subject.Context, subject.Type)
+            ? subject with { Context = TaskNotificationSubjects.Context }
+            : subject;
 }

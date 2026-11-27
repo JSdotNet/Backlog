@@ -1,5 +1,5 @@
 using System.Reflection;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 
 namespace Backlog.Infrastructure.DevPc.UnitTests;
 

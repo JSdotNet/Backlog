@@ -75,7 +75,7 @@ turned into a review note.
 ```meta
 type: aggregate
 aliases: [DevbookSubjectState, IDevbookSubjectStateStore, subject state]
-related: [.devbook/domain/devbook/features.md#rendered-devbook-documents, .devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md, .devbook/domain/devbook/domain.md#remark, .devbook/domain/devbook/domain.invariants.md#subject-state, .devbook/domain/devbook/requirements.md#rendered-devbook-documents, .devbook/domain/repository-management/requirements.md#requirement-subject-state-is-not-set-on-an-archived-devbook]
+related: [.devbook/domain/devbook/features.md#rendered-devbook-documents, .devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md, .devbook/domain/devbook/domain.md#remark, .devbook/domain/devbook/domain.invariants.md#subject-state, .devbook/domain/devbook/requirements.md#rendered-devbook-documents, .devbook/domain/repositories/requirements.md#requirement-subject-state-is-not-set-on-an-archived-devbook]
 ```
 
 The workflow state of one [Devbook Subject](#devbook-subject) in one repository,
@@ -129,7 +129,7 @@ a state is stored.
 
 A state lives with the app, so a reader can set a debt record's state on a branch
 snapshot nobody can write to. An archived repository's states are read and never
-set ([Repository Management](../repository-management/requirements.md#requirement-subject-state-is-not-set-on-an-archived-devbook)).
+set ([Repositories](../repositories/requirements.md#requirement-subject-state-is-not-set-on-an-archived-devbook)).
 The panels show a state per
 [the requirements of Rendered devbook documents](requirements.md#rendered-devbook-documents).
 A subject state holds no chapter text and is not a [Remark](#remark).
@@ -205,7 +205,7 @@ it.
 
 ```meta
 type: domain-service
-related: [.devbook/domain/devbook/features.md#instruction-optimization, .devbook/domain/repository-management/features.md#repository-devbook-folder-settings]
+related: [.devbook/domain/devbook/features.md#instruction-optimization, .devbook/domain/repositories/features.md#repository-devbook-folder-settings]
 ```
 
 Reviews the agent-facing instruction documents a repository carries, the
@@ -218,7 +218,7 @@ records the intended design and no type enforces a rule below.
 
 It is a service because the documents belong to the repository. They are read
 through the devbook-folder settings
-[Repository Management](../repository-management/features.md#repository-devbook-folder-settings)
+[Repositories](../repositories/features.md#repository-devbook-folder-settings)
 owns, and several tools' sets are examined as one subject. An aggregate holding
 their content would be a second, staler copy.
 
@@ -254,7 +254,7 @@ related: [.devbook/domain/devbook/domain.invariants.md#shared-value-objects]
 > The planning fields any devbook chapter carries in its `meta` block, a
 > repository chapter and a [Brain note](../brain/domain.md#knowledge-note) alike:
 > an optional [Effort](#effort) and a `roadmap` list of Roadmap Contributions.
-> Roadmap Planning reads both when a Roadmap Item gathers and totals the work
+> Work reads both when a Roadmap Item gathers and totals the work
 > behind it. Devbook registers and owns them, and Roadmap only reads them.
 
 ### Roadmap Contribution
@@ -264,7 +264,7 @@ type: value-object
 aliases: [roadmap contribution, contributes to]
 ```
 
-A [Roadmap Item](../roadmap/domain.md#roadmap-item) tag this chapter declares it
+A [Roadmap Item](../work/domain.plan.md#roadmap-item) tag this chapter declares it
 contributes to, held as a slug in the chapter's `roadmap` list. A chapter may
 declare several, or none. Equality is by value.
 
@@ -273,8 +273,8 @@ cross-reference is a `<path>#<slug>` address that resolves to a node and draws a
 edge in the knowledge graph. A Brain note's [Task Link](../brain/domain.md#task-link)
 names one task by its id and stays a value on the note's node. A
 `Roadmap Contribution` is a bare tag slug that resolves to nothing here. It is the
-vocabulary a [Roadmap Tag](../roadmap/domain.md#roadmap-tag) holds and a Task files
-under, and Roadmap Planning reads it when it gathers work by tag.
+vocabulary a [Roadmap Tag](../work/domain.plan.md#roadmap-tag) holds and a Task files
+under, and Work reads it when it gathers work by tag.
 
 It behaves like an alias: a chapter contributing to `sync-service` is not linked to
 any document called that
@@ -283,7 +283,7 @@ Nothing validates the slug, and a slug matching no roadmap item is harmless.
 
 It is also not a [Tag](../brain/domain.md#tag), the Brain's own `#keyword` for
 discovering notes. A Roadmap Contribution names a slug
-[Roadmap Planning](../roadmap/domain.md#roadmap-tag) owns, and only it reads it.
+[Work](../work/domain.plan.md#roadmap-tag) owns, and only it reads it.
 
 ## Shared Enums
 
@@ -331,7 +331,7 @@ folders*:
 ```meta
 type: term
 aliases: [effort, story points, story-point estimate]
-related: [.devbook/domain/devbook/domain.md#shared-value-objects, .devbook/domain/tasks/domain.md#effort]
+related: [.devbook/domain/devbook/domain.md#shared-value-objects, .devbook/domain/work/domain.md#effort]
 ```
 
 The size of a devbook chapter in **story points**, carried in its `meta` block.
@@ -342,7 +342,7 @@ treats it as unreadable
 ([An unreadable effort is no estimate](domain.invariants.md#invariant-an-unreadable-effort-is-no-estimate)).
 
 It sizes the chapter's work rather than timing it. Devbook registers and owns it.
-Roadmap Planning reads and totals it across the
+Work reads and totals it across the
 chapters an item gathers, but never sets it.
 
 ### Instruction Set

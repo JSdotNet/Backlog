@@ -14,7 +14,7 @@ Reads only; never transitions, creates, archives, moves or edits. No `backlog` s
 
 ## Gather
 
-1. `list_inbox_items` (unprocessed) and `status: deferred`; `list_entries` per repository; `get_roadmap` per repository, then `get_plan_items` per distinct plan tag; `list_goals`; `list_brain_reviews` with `on` today.
+1. `list_inbox_items` (unprocessed) and `status: deferred`; `list_entries` per repository; `get_planned_work` per repository, then `get_plan_items` per distinct plan tag; `list_goals`; `list_brain_reviews` with `on` today.
    A tool the server lacks, such as `list_brain_reviews` on an older app, or refuses → the lines it feeds read "not available", the rest goes on.
 2. A **next action** is an open entry, ready or in progress, with no `waitingFor`, no `blockedSince`, and every `dependsOn` done.
 

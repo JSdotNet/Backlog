@@ -1,10 +1,10 @@
-using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
-using Backlog.Modules.Progress.Abstractions.Services;
+using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
+using Backlog.Modules.Goals.Abstractions.Services;
 using Backlog.SharedKernel.Replication;
 
 namespace Backlog.Infrastructure.Sync.UnitTests;
 
-/// <summary>Progress's goal replication port, holding the goals the test set and answering
+/// <summary>Goals' goal replication port, holding the goals the test set and answering
 /// whatever the test said.</summary>
 internal sealed class RecordingGoalReplication : IGoalReplication
 {

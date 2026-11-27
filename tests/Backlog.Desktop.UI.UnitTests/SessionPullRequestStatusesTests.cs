@@ -1,14 +1,14 @@
 using Backlog.Desktop.UI.PullRequests;
-using Backlog.Modules.RepositoryManagement.Abstractions;
-using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Repositories.Abstractions;
+using Backlog.Modules.Repositories.Abstractions.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.Tests;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// What the sessions list's pull request card is told about a pull request: where it
-/// points on GitHub, and Repository Management's one verdict on it — the label and tone
+/// points on GitHub, and Repositories' one verdict on it — the label and tone
 /// the pull requests pane gives the same status (local ADR 0042) — read through the
 /// module's contract, never the GitHub adapter.
 /// </summary>

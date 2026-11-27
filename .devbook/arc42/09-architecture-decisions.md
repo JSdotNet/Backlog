@@ -56,7 +56,7 @@ related: [".devbook/arc42/adr/guidelines/README.md", ".devbook/arc42/05-building
 |---|---|
 | **[0002 — Central Package Management](adr/guidelines/0002-central-package-management.md)** | Adopted. `Directory.Packages.props` is the version catalog; transitive pinning is on, per org ADR 0001. |
 | **[0004 — Result objects](adr/guidelines/0004-result-objects-for-expected-failures.md)** | `Backlog.SharedKernel` implements `Result`, `Result<T>`, and `Error`, and module handlers return them. |
-| **[0009 — Feature slices](adr/guidelines/0009-feature-slices-module-structure.md)** | `Backlog.Modules.Tasks` and `Backlog.Modules.Roadmap` use the prescribed layout. |
+| **[0009 — Feature slices](adr/guidelines/0009-feature-slices-module-structure.md)** | `Backlog.Modules.Work` uses the prescribed layout, once under `Tasks/` and once under `Plans/`. |
 | **[0011 — Centralized styling variables](adr/guidelines/0011-centralized-frontend-styling-variables.md)** | Design tokens live in one file, `src/Core/Backlog.UI.Components/wwwroot/components.css`, and `DesignTokenTests` enforces it. |
 
 - **0009 — Feature slices:** The prescribed layout is `DomainModels/`, `Features/`, the repository port at the module root, `Services/` and `Extensions/`.
@@ -151,3 +151,5 @@ related: [".devbook/arc42/adr/README.md", ".devbook/arc42/04-solution-strategy.m
 - [ADR 0070 — Model calls stay on the Foundry adapter, not Agent Framework, and the prompts gain an evaluation set](adr/0070-model-calls-stay-on-the-foundry-adapter-and-gain-an-evaluation-set.md) (proposed; org ADR 0012)
 - [ADR 0071 — Agent changes are restorable through a change journal beside the store](adr/0071-agent-changes-are-restorable-through-a-change-journal-beside-the-store.md) (proposed; amends ADR 0058 §4)
 - [ADR 0072 — The Tasks pane groups by plan, and a plan is queued only as a whole](adr/0072-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md) (proposed; built on `plan/plan-first-tasks`)
+- [ADR 0073 — The bounded contexts are redrawn](adr/0073-the-bounded-contexts-are-redrawn.md) (proposed; built on `plan/boundary-redesign`)
+- [ADR 0074 — Infrastructure is organised by technology, never by bounded context](adr/0074-infrastructure-is-organised-by-technology-never-by-context.md) (proposed; amends ADR 0064 §1)

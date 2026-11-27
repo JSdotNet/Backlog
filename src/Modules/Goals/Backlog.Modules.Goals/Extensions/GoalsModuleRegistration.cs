@@ -1,0 +1,111 @@
+using Backlog.Modules.Goals.Abstractions.Services;
+using Backlog.Modules.Goals.Features.AttachWork;
+using Backlog.Modules.Goals.Features.ListGoals;
+using Backlog.Modules.Goals.Features.ListImpediments;
+using Backlog.Modules.Goals.Features.TrackImpediment;
+using Backlog.Modules.Goals.Features.ReadStandUp;
+using Backlog.Modules.Goals.Features.SetGoal;
+using Backlog.Modules.Goals.Services;
+using Backlog.SharedKernel;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+
+namespace Backlog.Modules.Goals.Extensions;
+
+/// <summary>
+/// The module's composition root. A host calls this once and gets every use case the
+/// Goals context offers through <see cref="IGoals"/>, <see cref="IImpediments"/> and
+/// <see cref="IStandUp"/>; it never registers a handler itself, and never sees a goal.
+/// <para>
+/// <see cref="IGoalRepository"/>, <see cref="IImpedimentRepository"/> and
+/// <see cref="IGoalsTaskSource"/> are deliberately not registered here: which adapters
+/// answer them is the host's decision. <see cref="IGoalPullRequestReader"/> falls back to
+/// <see cref="UnreadPullRequests"/> when the host registered none.
+/// </para>
+/// <para>
+/// Composing the module draws nothing on its own; the ports always answer, since goals,
+/// impediments and the stand-up are always on (local ADR 0035 §10).
+/// </para>
+/// </summary>
+public static class GoalsModuleRegistration
+{
+    public static IServiceCollection AddGoalsModule(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.TryAddSingleton(TimeProvider.System);
+        services.TryAddSingleton<GoalsGate>();
+        services.TryAddSingleton<IGoalPullRequestReader, UnreadPullRequests>();
+
+        // Goals (local ADR 0035). The repository and the replica store are the host's.
+        services.TryAddSingleton<GoalSaved>();
+        services.AddScoped<GoalChanges>();
+        services.AddScoped<ListGoalsQueryHandler>();
+        services.AddScoped<SetGoalCommandHandler>();
+        services.AddScoped<AttachWorkCommandHandler>();
+        services.AddScoped<IGoals>(sp => new Services.Goals(
+            sp.GetRequiredService<ListGoalsQueryHandler>(),
+            sp.GetRequiredService<SetGoalCommandHandler>(),
+            sp.GetRequiredService<AttachWorkCommandHandler>(),
+            sp.GetRequiredService<GoalSaved>()));
+
+        // The stand-up (local ADR 0035). The iteration setting and the
+        // pace are the host's; the module's own answers keep Week in memory and know no pace.
+        services.TryAddSingleton<IIterationSettings, InMemoryIterationSettings>();
+        services.TryAddSingleton<IStandUpPace, NoStandUpPace>();
+        services.AddScoped(sp => new ReadStandUpQueryHandler(
+            sp.GetRequiredService<IGoalRepository>(),
+            sp.GetRequiredService<IImpedimentRepository>(),
+            sp.GetRequiredService<IGoalsTaskSource>(),
+            sp.GetRequiredService<IGoalPullRequestReader>(),
+            sp.GetRequiredService<IIterationSettings>(),
+            sp.GetRequiredService<IStandUpPace>(),
+            sp.GetService<IWorkingHoursSettings>()));
+        services.AddScoped<IStandUp>(sp => new StandUp(
+            sp.GetRequiredService<ReadStandUpQueryHandler>(),
+            sp.GetRequiredService<IIterationSettings>(),
+            sp.GetRequiredService<TimeProvider>()));
+
+        // Each goal as a `goal` document on the task feed (local ADR 0018).
+        services.TryAddSingleton<IGoalReplication>(sp => new GoalReplication(
+            sp.GetService<IGoalReplicaStore>(),
+            sp.GetRequiredService<GoalSaved>(),
+            sp.GetRequiredService<GoalsGate>()));
+
+        // Impediments (local ADR 0035 §5). Composed through factories
+        // so a host that keeps no impediments still builds: the repository is the host's,
+        // and is asked for only when a call needs it.
+        services.TryAddSingleton<ImpedimentSaved>();
+        services.AddScoped(sp => new ImpedimentChanges(
+            sp.GetRequiredService<IImpedimentRepository>(),
+            sp.GetRequiredService<GoalsGate>(),
+            sp.GetRequiredService<ImpedimentSaved>()));
+        services.AddScoped(sp => new ListImpedimentsQueryHandler(sp.GetRequiredService<IImpedimentRepository>()));
+        services.AddScoped(sp => new ImpedimentCommandHandler(
+            sp.GetRequiredService<ImpedimentChanges>(),
+            sp.GetRequiredService<TimeProvider>()));
+        services.AddScoped<IImpediments>(sp => new Impediments(
+            sp.GetRequiredService<ListImpedimentsQueryHandler>(),
+            sp.GetRequiredService<ImpedimentCommandHandler>(),
+            sp.GetRequiredService<ImpedimentSaved>()));
+
+        // Each impediment as an `impediment` document on the task feed, as each goal is.
+        services.TryAddSingleton<IImpedimentReplication>(sp => new ImpedimentReplication(
+            sp.GetService<IImpedimentReplicaStore>(),
+            sp.GetRequiredService<ImpedimentSaved>(),
+            sp.GetRequiredService<GoalsGate>()));
+
+        // What the phone reads the stand-up with and writes impediments through (local
+        // ADR 0035 §8): the stand-up context document, and the impediment edits it queues.
+        services.TryAddSingleton<IStandUpContextSource>(sp => new StandUpContextSource(
+            sp.GetRequiredService<IServiceScopeFactory>(),
+            sp.GetRequiredService<IGoalRepository>(),
+            sp.GetRequiredService<IIterationSettings>(),
+            sp.GetRequiredService<TimeProvider>(),
+            sp.GetService<IWorkingHoursSettings>()));
+        services.TryAddSingleton<IImpedimentEditIntake>(sp => new ImpedimentEditIntake(
+            sp.GetRequiredService<IServiceScopeFactory>()));
+
+        return services;
+    }
+}

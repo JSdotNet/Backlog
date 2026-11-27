@@ -2,8 +2,8 @@ using System.Collections.Concurrent;
 
 using Backlog.Infrastructure.SpecManager.Api;
 using Backlog.Infrastructure.SpecManager.OAuth;
-using Backlog.Modules.Tasks.Abstractions;
-using Backlog.Modules.Tasks.Abstractions.Connectors;
+using Backlog.Modules.Work.Abstractions.Tasks;
+using Backlog.Modules.Work.Abstractions.Tasks.Connectors;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;

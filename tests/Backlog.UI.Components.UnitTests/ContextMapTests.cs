@@ -142,6 +142,23 @@ public sealed class ContextMapTests
         Assert.Contains(map.Lines, line => line.Touches("Sync"));
     }
 
+    /// <summary>A context folder the map names nowhere — not in the landscape table,
+    /// not in the fence — is still listed: last, as supporting, with no line. A map
+    /// that lags its folder does not hide the context.</summary>
+    [Fact]
+    public void A_folder_the_map_names_nowhere_is_still_a_context_with_no_line()
+    {
+        var map = ContextMaps.Read(Map, [.. Sources, new("progress", "Progress", null, ".devbook/domain/progress/context.md")]);
+
+        Assert.Equal(["Inbox", "Tasks", "Roadmap", "Sessions", "DevPC", "progress"], map.Contexts.Select(c => c.Id));
+        var progress = map.Context("progress")!;
+        Assert.Equal(("Progress", "supporting", "progress"), (progress.Name, progress.Kind, progress.Slug));
+        Assert.False(progress.Named);
+        Assert.All(map.Contexts.Where(c => c.Id != "progress"), c => Assert.True(c.Named));
+        Assert.Equal(0, map.LinesTouching("progress"));
+        Assert.NotNull(ContextMapLayout.Arrange(map));
+    }
+
     /// <summary>Without a landscape table the fence alone says what the contexts
     /// are, folder or not.</summary>
     [Fact]
@@ -534,10 +551,10 @@ public sealed class ContextMapTests
 
         var layout = ContextMapLayout.Arrange(map);
 
-        Assert.Equal(18, layout.Cards.Count);
+        Assert.Equal(14, layout.Cards.Count);
         Assert.Contains(map.Contexts, c => c.Id == "Brain");
-        Assert.Contains(map.Contexts, c => c.Id == "Calendar");
-        Assert.Equal(3, map.LinesTouching("Calendar"));
+        // The Calendar is drawn as a composition beside the shell, not a context (local ADR 0073 §6).
+        Assert.DoesNotContain(map.Contexts, c => c.Id == "Calendar");
         Assert.DoesNotContain(map.Contexts, c => c.Id == "Shell");
         Assert.Equal(map.Lines.Count, layout.Strokes.Count);
         var ids = map.Contexts.Select(c => c.Id).ToList();
@@ -565,14 +582,15 @@ public sealed class ContextMapTests
 
         // Every contract reads by its short name, and every rule is a card.
         Assert.Equal(
-            ["ItemCaptured", "ItemTriaged", "StatusChanged", "TaskProjected", "TaskCompleted", "AIWorkLogged", "RoadmapItemScheduled",
-             "Roadmap Item", "Roadmap Tag", "The devbook convention (local ADR 0016) and the planning fields a chapter carries",
+            ["ItemCaptured", "ItemTriaged", "StatusChanged", "TaskProjected", "TaskCompleted", "RoadmapItemScheduled", "AIWorkLogged",
+             "Roadmap Tag", "The devbook convention (local ADR 0016) and the planning fields a chapter carries",
              "The devbook database of each registered repository, read through Devbook's reader (local ADR 0015)",
-             "FollowUpCaptured", "MachineStatusChanged", "ComplianceUpdated", "ProductivityRecorded",
-             "Environment Shortcut Resolution", "Technology Baseline", "BaselineProvided", "The pull request contract",
-             "ITaskLookup", "Backlog.Modules.Tasks.Abstractions",
+             "Machine", "MachineId", "IMachineRegistry", "Backlog.Modules.DevPc.Abstractions",
+             "MachineStatusChanged", "ComplianceUpdated",
+             "The pull request contract",
+             "ITaskLookup", "Backlog.Modules.Work.Abstractions",
              "INotifications", "INotificationAnswerHandler", "NotificationDraft", "Backlog.Modules.Notifications.Abstractions",
-             "ITaskItems", "ITaskStore", "ITaskChangeSignal", "Backlog.Modules.Tasks.Abstractions",
+             "ITaskItems", "ITaskStore", "ITaskChangeSignal", "Backlog.Modules.Work.Abstractions",
              "The events read contract", "IKnowledgeEventReplication", "IEventAttachmentRequests", "Backlog.Modules.Events.Abstractions", "The replica protocol"],
             map.Contracts.SelectMany(c => c.Names).Select(n => n.Name));
         Assert.Equal("Backlog", map.Title);

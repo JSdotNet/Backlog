@@ -1,0 +1,334 @@
+using Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects;
+using Backlog.SharedKernel.Results;
+
+namespace Backlog.Modules.Work.Abstractions.Tasks.Services;
+
+/// <summary>
+/// Everything a host may do to the backlog, in one port.
+/// <para>
+/// The use cases themselves are feature slices with their own handlers (ADR
+/// 0009); this is the service contract ADR 0005 asks a module to publish, and it
+/// is a plain delegation to those handlers. An API host would map an endpoint
+/// straight onto a handler and skip it — a desktop editor that calls six use
+/// cases from one screen would otherwise take six constructor arguments to say
+/// "the backlog".
+/// </para>
+/// <para>
+/// Note what is not here: no aggregate, no repository, no general way to set a
+/// field. Changing an entry means saving its text, because in this product the
+/// text is the entry. The exceptions are the facts the text does not carry — the
+/// issue an entry became and the Devbook chapters it points at — and each has a
+/// use case of its own.
+/// </para>
+/// </summary>
+public interface ITaskItems
+{
+    /// <summary>Everything in the backlog, in rank order.</summary>
+    Task<IReadOnlyList<TaskItemDto>> ListAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>One entry, or null when no live entry has that id — the read for a
+    /// caller that already knows which entry it means, so it does not map the
+    /// whole backlog to find one.
+    /// <para>
+    /// Implemented by default over <see cref="ListAsync"/>, so a host or a test
+    /// double that keeps the list alone still composes; the module's own port
+    /// overrides it with a single-row read.
+    /// </para></summary>
+    async Task<TaskItemDto?> GetAsync(Guid id, CancellationToken cancellationToken = default) =>
+        (await ListAsync(cancellationToken).ConfigureAwait(false)).FirstOrDefault(entry => entry.Id == id);
+
+    /// <summary>How many live entries there are — what appending at the end of
+    /// the backlog needs, and nothing more.
+    /// <para>
+    /// Implemented by default over <see cref="ListAsync"/>, as
+    /// <see cref="GetAsync"/> is; the module's own port overrides it with a count
+    /// the store answers without reading a row.
+    /// </para></summary>
+    async Task<int> CountAsync(CancellationToken cancellationToken = default) =>
+        (await ListAsync(cancellationToken).ConfigureAwait(false)).Count;
+
+    /// <summary>Writes one block of entry markdown down — creating the entry when
+    /// <paramref name="id"/> is null. Fails with a validation error while the
+    /// text still has no title, which is an ordinary state for something
+    /// half-typed.
+    /// <para>
+    /// The result is a <see cref="SavedTaskDto"/> rather than the entry alone
+    /// because one save can produce two entries: completing a repeating entry
+    /// leaves it completed and creates the next occurrence, and the caller has no
+    /// other way to hear about the second one.
+    /// </para>
+    /// <para>
+    /// <paramref name="sourceInboxId"/> is provenance for an entry the Inbox
+    /// routed here — the inbox item's id — and null for one typed by hand. It
+    /// is read on create only; the aggregate holds it as constructor-only, so an
+    /// update leaves whatever the entry was born with.
+    /// </para></summary>
+    Task<Result<SavedTaskDto>> SaveFromTextAsync(
+        Guid? id,
+        string rawText,
+        int order,
+        string? sourceInboxId = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Creates an entry from one block of entry markdown under
+    /// <paramref name="id"/>, the caller's id, only when this machine holds no task
+    /// with that id, live or deleted. Answers <see langword="true"/> when it created
+    /// the entry, and <see langword="false"/> when one was already held and nothing
+    /// was written — a deleted one stays deleted. Text with no title, or a
+    /// <c>plan</c> entry, is refused as <see cref="SaveFromTextAsync"/> refuses it.
+    /// <para>
+    /// For a caller that derives the id from what the entry is for, so two machines
+    /// asking for the same entry ask for the same id and the replica folds their
+    /// copies into one. The port is told an id and a text, never what the id was
+    /// derived from.
+    /// </para>
+    /// <para>
+    /// Implemented by default as a refusal, as <see cref="SetPlannedHoursAsync"/> is,
+    /// so a host or a test double that never files under an id still composes; the
+    /// module's own port overrides it.
+    /// </para></summary>
+    Task<Result<bool>> CreateFromTextIfAbsentAsync(
+        Guid id,
+        string rawText,
+        int order,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<Result<bool>>(Error.Validation(
+            "entry.create_under_id_unavailable",
+            "An entry cannot be created under a given id here."));
+
+    Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>Position in the list becomes the entry's rank.</summary>
+    Task ReorderAsync(IReadOnlyList<Guid> idsInOrder, CancellationToken cancellationToken = default);
+
+    /// <summary>Records that an entry became an external artifact. The host
+    /// creates the issue; the module only remembers it.</summary>
+    Task<Result<TaskItemDto>> LinkToIssueAsync(
+        Guid id,
+        string repoId,
+        string externalId,
+        string targetType,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Forgets that an entry became an external artifact — the counterpart
+    /// of <see cref="LinkToIssueAsync"/>, matched on the repository, the external id
+    /// and the target type without regard to case. A link the entry does not hold
+    /// leaves it as it was and still succeeds; the entry's repositories stay.</summary>
+    Task<Result<TaskItemDto>> UnlinkFromIssueAsync(
+        Guid id,
+        string repoId,
+        string externalId,
+        string targetType,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Replaces the Devbook pages and chapters an entry points at with
+    /// <paramref name="references"/> — <c>path</c> or <c>path#anchor</c>, normalised,
+    /// order kept, repeats dropped; an empty list clears them. Answers the entry as
+    /// it now stands.
+    /// <para>
+    /// The second field written outside the text, beside the issue link: the
+    /// references are the entry's own and never tokens in it, so
+    /// <see cref="SaveFromTextAsync"/> leaves them alone. A value naming no page
+    /// fails the whole call as a validation error and writes nothing; whether the
+    /// page exists is not asked.
+    /// </para></summary>
+    Task<Result<TaskItemDto>> SetDevbookReferencesAsync(
+        Guid id,
+        IReadOnlyList<string> references,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Replaces the hours set aside for an entry on given days with
+    /// <paramref name="blocks"/> — one block a day, the last given for a day winning;
+    /// an empty list clears them. Answers the entry as it now stands.
+    /// <para>
+    /// Written outside the text, as the Devbook references are: the blocks are the
+    /// entry's own and never tokens in it, so <see cref="SaveFromTextAsync"/> leaves
+    /// them alone. Hours of zero or less, or more than a day, fail the whole call as a
+    /// validation error and write nothing. The person's own plan for the Calendar —
+    /// the roadmap never reads it.
+    /// </para>
+    /// <para>
+    /// Implemented by default as a refusal, so a host or a test double that keeps no
+    /// planned hours still composes; the module's own port overrides it.
+    /// </para></summary>
+    Task<Result<TaskItemDto>> SetPlannedHoursAsync(
+        Guid id,
+        IReadOnlyList<PlannedHoursDto> blocks,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<Result<TaskItemDto>>(Error.Validation(
+            "entry.planned_hours_unavailable",
+            "Planned hours cannot be kept here."));
+
+    /// <summary>Sets the day an entry is due on, or clears it for null. Answers the entry
+    /// as it now stands; only the due date moves.
+    /// <para>
+    /// The due date is a token in the text, so the pane writes it by saving the text; this
+    /// is for a caller that holds no text to rewrite — the Calendar moving a task to the
+    /// day it was dropped on (local ADR 0056 §2).
+    /// </para>
+    /// <para>
+    /// Implemented by default as a refusal, as <see cref="SetPlannedHoursAsync"/> is, so a
+    /// host or a test double that keeps no due-date command still composes; the module's
+    /// own port overrides it.
+    /// </para></summary>
+    Task<Result<TaskItemDto>> SetDueAsync(
+        Guid id,
+        DateOnly? dueOn,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<Result<TaskItemDto>>(Error.Validation(
+            "entry.due_unavailable",
+            "A due date cannot be set here."));
+
+    /// <summary>Notes that an entry was actually used for something.</summary>
+    Task RecordUsageAsync(Guid id, string action, CancellationToken cancellationToken = default);
+
+    /// <summary>The version the store holds of one live entry — the instant it was
+    /// last written — or null when no live entry has that id.
+    /// <para>
+    /// The token a caller hands back to the versioned writes below, so a change it
+    /// built on what it read is refused once somebody else has saved the entry since
+    /// (<see cref="TaskEntryErrorCodes.StaleWrite"/>). Read it <em>before</em> the
+    /// entry: a save landing between the two reads then leaves the caller holding an
+    /// older version than the text, which refuses its write rather than letting it
+    /// overwrite the save it never saw.
+    /// </para>
+    /// <para>
+    /// Null by default, so a host or a test double that keeps no versions still
+    /// composes; every versioned write on such a port is then refused, never written
+    /// unguarded. The module's own port overrides it.
+    /// </para></summary>
+    Task<DateTimeOffset?> GetUpdatedAtAsync(Guid id, CancellationToken cancellationToken = default) =>
+        Task.FromResult<DateTimeOffset?>(null);
+
+    /// <summary>Saves an existing entry's text as <see cref="SaveFromTextAsync"/> does,
+    /// only while the store still holds <paramref name="expectedUpdatedAt"/> — the
+    /// <see cref="GetUpdatedAtAsync"/> the caller read before building
+    /// <paramref name="rawText"/>. Any other version is refused with
+    /// <see cref="StaleTaskWrites.StaleWrite"/> and nothing is written.
+    /// <para>
+    /// The module checks and writes in one conditional save. The default here is for a
+    /// double: it compares first and writes after, so it is not atomic.
+    /// </para></summary>
+    async Task<Result<SavedTaskDto>> SaveFromTextAsync(
+        Guid id,
+        string rawText,
+        int order,
+        DateTimeOffset expectedUpdatedAt,
+        CancellationToken cancellationToken = default) =>
+        await GetUpdatedAtAsync(id, cancellationToken).ConfigureAwait(false) == expectedUpdatedAt
+            ? await SaveFromTextAsync(id, rawText, order, cancellationToken: cancellationToken).ConfigureAwait(false)
+            : StaleTaskWrites.StaleWrite;
+
+    /// <summary><see cref="LinkToIssueAsync(Guid, string, string, string, CancellationToken)"/>,
+    /// only while the store still holds <paramref name="expectedUpdatedAt"/>; on the
+    /// terms of the versioned <see cref="SaveFromTextAsync(Guid, string, int, DateTimeOffset, CancellationToken)"/>.</summary>
+    async Task<Result<TaskItemDto>> LinkToIssueAsync(
+        Guid id,
+        string repoId,
+        string externalId,
+        string targetType,
+        DateTimeOffset expectedUpdatedAt,
+        CancellationToken cancellationToken = default) =>
+        await GetUpdatedAtAsync(id, cancellationToken).ConfigureAwait(false) == expectedUpdatedAt
+            ? await LinkToIssueAsync(id, repoId, externalId, targetType, cancellationToken).ConfigureAwait(false)
+            : StaleTaskWrites.StaleWrite;
+
+    /// <summary><see cref="SetDevbookReferencesAsync(Guid, IReadOnlyList{string}, CancellationToken)"/>,
+    /// only while the store still holds <paramref name="expectedUpdatedAt"/>; on the
+    /// terms of the versioned <see cref="SaveFromTextAsync(Guid, string, int, DateTimeOffset, CancellationToken)"/>.</summary>
+    async Task<Result<TaskItemDto>> SetDevbookReferencesAsync(
+        Guid id,
+        IReadOnlyList<string> references,
+        DateTimeOffset expectedUpdatedAt,
+        CancellationToken cancellationToken = default) =>
+        await GetUpdatedAtAsync(id, cancellationToken).ConfigureAwait(false) == expectedUpdatedAt
+            ? await SetDevbookReferencesAsync(id, references, cancellationToken).ConfigureAwait(false)
+            : StaleTaskWrites.StaleWrite;
+
+    /// <summary>
+    /// Brings every entry's <c>repo_ids</c> up to the identity the registry
+    /// states, and answers how many entries changed.
+    /// <para>
+    /// A host calls this before it first reads the list, and again after the
+    /// workspace root moves. It is on the port rather than left to a screen
+    /// because what a stored repository value means is the module's rule, and
+    /// because the alias-shaped values it settles were written by this module in
+    /// the first place.
+    /// </para>
+    /// <para>
+    /// Safe to call on every start: the pass is idempotent by construction, so a
+    /// second run over a reconciled workspace is a pure read and needs no
+    /// once-flag. That also makes it immune to ordering — a run against a
+    /// registry that has not been reloaded yet settles fewer values and leaves the
+    /// rest for the next run, which is a performance question rather than a
+    /// correctness one.
+    /// </para></summary>
+    Task<Result<int>> ReconcileRepositoryIdsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Re-points every entry that names <paramref name="oldId"/> — in its
+    /// repository assignments or in an issue link — at <paramref name="newId"/>,
+    /// and answers how many entries moved.
+    /// <para>
+    /// The other half of a repository rename. Settings carries the registry row
+    /// across when a line keeps its alias and changes its <c>owner/name</c>; the
+    /// entries that filed themselves against the old coordinate live here, and
+    /// without this call <see cref="ReconcileRepositoryIdsAsync"/> would find the
+    /// old id on the next start and register it back as a directory-less
+    /// repository. Idempotent for the same reason that pass is.
+    /// </para>
+    /// </summary>
+    Task<Result<int>> RenameRepositoryAsync(string oldId, string newId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Moves the open tasks — Draft, Ready, In progress — filed under
+    /// <paramref name="repositoryId"/> to <paramref name="moveToId"/>, or, with
+    /// <paramref name="drop"/>, sets their Task Status to archived, and answers how
+    /// many tasks changed. Exactly one of the two is asked for; anything else is
+    /// refused.
+    /// <para>
+    /// The offer made when a repository is archived (local ADR 0029). A move
+    /// replaces that one filing and keeps every issue link where the issue lives;
+    /// a drop deletes nothing and keeps the filing. Finished work is left alone.
+    /// Idempotent.
+    /// </para>
+    /// </summary>
+    Task<Result<int>> RefileRepositoryTasksAsync(string repositoryId, string? moveToId, bool drop, CancellationToken cancellationToken = default);
+
+    /// <summary>Brings in a plan — a block of entry text naming more than one
+    /// prompt — and turns it into backlog entries in one step. See
+    /// <c>ImportPlanCommand</c> and ADR 0007 for what "brings in" means: the
+    /// same grammar and repository port every other entry goes through, with
+    /// two-pass dependency resolution and upsert-by-plan on top.
+    /// <para>
+    /// <paramref name="defaultRepo"/> is the Import dialog's optional "Target
+    /// repository" field. It is applied only to an entry whose own text names
+    /// no <c>repo:</c> — an entry that already specifies one keeps it.
+    /// </para>
+    /// <para>
+    /// <paramref name="repoMatches"/> is what the reader said in the dialog about
+    /// the repository names the plan mentions: the name as written, mapped to the
+    /// alias they meant. Names they did not match are resolved against the
+    /// registry, and registered there when it has never seen them.
+    /// </para>
+    /// <para>
+    /// <paramref name="sourceInboxId"/> is stamped on the entries the import
+    /// creates, and on nothing it updates or skips, for the reason
+    /// <see cref="SaveFromTextAsync"/> gives: the field is birth provenance.
+    /// </para>
+    /// <para>
+    /// <paramref name="sourceInboxIds"/> is the same provenance per entry, for a
+    /// document made of several inbox items routed together as a batch: an
+    /// entry's <c>id:</c> mapped to the inbox item it came from. A created entry
+    /// the map names is stamped with its own item, and so born Draft; any other
+    /// takes <paramref name="sourceInboxId"/>.
+    /// </para></summary>
+    Task<Result<ImportPlanResultDto>> ImportPlanAsync(
+        string rawText,
+        string? defaultRepo = null,
+        IReadOnlyDictionary<string, string>? repoMatches = null,
+        string? sourceInboxId = null,
+        IReadOnlyDictionary<string, string>? sourceInboxIds = null,
+        bool layOutOnRoadmap = false,
+        CancellationToken cancellationToken = default);
+}

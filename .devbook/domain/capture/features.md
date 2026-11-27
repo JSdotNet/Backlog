@@ -46,7 +46,7 @@ prompt and the one save button follow the choice:
 | --- | --- | --- | --- | --- |
 | **Inbox** (the default) | `Add to inbox` | `Added to inbox — capture another` | both | An ordinary capture, the same one a share from another app sends. |
 | **Note** | `Save note` | `Note saved — capture another` | both | A note the phone keeps and edits (see [Notes on the phone](../inbox/features.md#notes-on-the-phone)). |
-| **Today** | `Add to today` | `Added to today — capture another` | text only | A task picked for today, as My Day's add does (see [My Day](../tasks/features.md#my-day)). |
+| **Today** | `Add to today` | `Added to today — capture another` | text only | A task picked for today, as My Day's add does (see [My Day](../work/features.md#my-day)). |
 
 A save leaves the sheet open and cleared, with the line from the table, so
 several thoughts in a row need no reopening. Opened from Focus, a save goes back
@@ -415,7 +415,7 @@ capture now.
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/capture/domain.md#source-adapter, .devbook/domain/monitoring/features.md#automation-status]
+related: [.devbook/domain/capture/domain.md#source-adapter, .devbook/domain/insights/features.md#personal-productivity-dashboard]
 ```
 
 Let the user compose a monitor from a trigger, a condition, and the
@@ -433,8 +433,8 @@ a composed monitor's source credentials stay on the machine and never route
 through the optional Cloud Service.
 
 Boundary: this covers monitors watching sources *outside* the product. Signals
-about the product's own health continue to reach the Inbox as Monitoring's
-[`FollowUpCaptured`](../monitoring/domain.md#followupcaptured), not as a capture.
+about the product's own health are [Insights'](../insights/features.md#personal-productivity-dashboard)
+to show, and never reach the Inbox as a capture.
 
 ## Web clipper capture
 
@@ -558,7 +558,7 @@ source link and capture timestamp.
 
 ```meta
 type: feature
-related: [.devbook/domain/repository-management/features.md#github-access-resolution]
+related: [.devbook/domain/repositories/features.md#github-access-resolution]
 ```
 
 Report a problem from inside the app, at the moment it happens.

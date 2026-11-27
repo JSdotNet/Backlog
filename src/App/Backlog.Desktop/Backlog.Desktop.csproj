@@ -69,7 +69,7 @@
       ServiceDefaults, because every one of those is on a path the mobile head
       compiles". Eleven projects reach net11.0-android through
       Backlog.Mobile — ServiceDefaults, Backlog.Mobile.UI, Backlog.UI.Components,
-      Backlog.Infrastructure.Sync, Backlog.SharedKernel, Backlog.Modules.Tasks
+      Backlog.Infrastructure.Sync, Backlog.SharedKernel, Backlog.Modules.Work
       and the Tasks/Sync/Inbox/Devbook/Sessions abstractions — and that head
       cannot take this reference: it fails NETSDK1082, which is exactly how an
       AspNetCore instrumentation package once broke it through ServiceDefaults.
@@ -105,20 +105,19 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Modules\Tasks\Backlog.Modules.Tasks\Backlog.Modules.Tasks.csproj" />
+    <ProjectReference Include="..\..\Modules\Work\Backlog.Modules.Work\Backlog.Modules.Work.csproj" />
     <!-- Composition is a host's job: picking the storage adapter and calling
          AddRoadmapModule() means seeing both sides of the Roadmap module, which only
          an executable head does. -->
-    <ProjectReference Include="..\..\Modules\Roadmap\Backlog.Modules.Roadmap\Backlog.Modules.Roadmap.csproj" />
     <!-- The Inbox module implementation, for AddInboxModule() and its two
          repository ports; the pane asks through the abstractions project. -->
     <ProjectReference Include="..\..\Modules\Inbox\Backlog.Modules.Inbox\Backlog.Modules.Inbox.csproj" />
     <!-- The Capture module implementation, for AddCaptureModule(); the same
          reasoning as the Roadmap line above. -->
     <ProjectReference Include="..\..\Modules\Capture\Backlog.Modules.Capture\Backlog.Modules.Capture.csproj" />
-    <!-- The Dashboard module implementation, for AddDashboardModule(). The host is
+    <!-- The Dashboard module implementation, for AddInsightsModule(). The host is
          the only thing that sees it: the parts ask through the abstractions project. -->
-    <ProjectReference Include="..\..\Modules\Dashboard\Backlog.Modules.Dashboard\Backlog.Modules.Dashboard.csproj" />
+    <ProjectReference Include="..\..\Modules\Insights\Backlog.Modules.Insights\Backlog.Modules.Insights.csproj" />
     <!-- Dev PC Management's published surface: the port and the catalog format,
          from here rather than from the UI project that happens to render the
          answer. -->

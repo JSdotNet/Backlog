@@ -1,6 +1,6 @@
 using Backlog.Infrastructure.GitHub;
-using Backlog.Modules.Dashboard.Abstractions.Services;
-using Backlog.Infrastructure.GitHub.Dashboard;
+using Backlog.Modules.Insights.Abstractions.Services;
+using Backlog.Infrastructure.GitHub.Insights;
 
 namespace Backlog.Infrastructure.GitHub.UnitTests;
 
@@ -39,7 +39,7 @@ public sealed class GitHubActivitySourceTests : IDisposable
         var source = new GitHubActivitySource(client, new SignedIn("jsdotnet"), settings);
 
         var report = await source.GetActivityAsync(
-            [new DashboardRepository("backlog", "JSdotNet/Backlog"), new DashboardRepository("renamed", "JSdotNet/Renamed")],
+            [new InsightsRepository("backlog", "JSdotNet/Backlog"), new InsightsRepository("renamed", "JSdotNet/Renamed")],
             From,
             To,
             TestContext.Current.CancellationToken);
@@ -64,7 +64,7 @@ public sealed class GitHubActivitySourceTests : IDisposable
         var source = new GitHubActivitySource(client, new SignedIn("jsdotnet"), settings);
 
         var report = await source.GetActivityAsync(
-            [new DashboardRepository("backlog", "JSdotNet/Backlog")],
+            [new InsightsRepository("backlog", "JSdotNet/Backlog")],
             From,
             To,
             TestContext.Current.CancellationToken);
@@ -101,7 +101,7 @@ public sealed class GitHubActivitySourceTests : IDisposable
         var source = new GitHubActivitySource(client, new SignedIn("jsdotnet"), settings);
 
         var report = await source.GetActivityAsync(
-            [new DashboardRepository("backlog", "JSdotNet/Backlog"), new DashboardRepository("fincent", "innovadis-dev/Fincent")],
+            [new InsightsRepository("backlog", "JSdotNet/Backlog"), new InsightsRepository("fincent", "innovadis-dev/Fincent")],
             From,
             To,
             TestContext.Current.CancellationToken);
@@ -132,7 +132,7 @@ public sealed class GitHubActivitySourceTests : IDisposable
         };
 
         var report = await new GitHubActivitySource(client, new SignedIn("jsdotnet"), settings).GetActivityAsync(
-            [new DashboardRepository("backlog", "JSdotNet/Backlog"), new DashboardRepository("budget", "innovadis-dev/Budgetbeheer")],
+            [new InsightsRepository("backlog", "JSdotNet/Backlog"), new InsightsRepository("budget", "innovadis-dev/Budgetbeheer")],
             From,
             To,
             TestContext.Current.CancellationToken);

@@ -1,0 +1,89 @@
+using Backlog.Modules.Goals.Abstractions;
+using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
+using Backlog.Modules.Goals.DomainModels;
+using Backlog.SharedKernel.Results;
+
+namespace Backlog.Modules.Goals.Services;
+
+/// <summary>
+/// The one place a saved impediment is announced, on the terms <see cref="GoalSaved"/>
+/// gives a goal: every change that saves one raises it once the gate is let go, and a
+/// pulled copy raises it too. A singleton, because the commands run in scopes of their own.
+/// </summary>
+public sealed class ImpedimentSaved : DocumentSaved;
+
+/// <summary>From the aggregate to what a caller receives.</summary>
+public static class ImpedimentMapper
+{
+    public static ImpedimentDto ToDto(this Impediment impediment)
+    {
+        ArgumentNullException.ThrowIfNull(impediment);
+
+        return new ImpedimentDto(
+            impediment.Id,
+            impediment.Title,
+            impediment.State,
+            impediment.ReportedTo,
+            impediment.HandledBy,
+            impediment.CheckAgain,
+            impediment.Note,
+            [.. impediment.History.Select(step => new ImpedimentStateChangeDto(step.State, step.On, step.With))],
+            [.. impediment.HoldsBack.Select(ToDto)]);
+    }
+
+    public static HeldBackItemDto ToDto(this HeldBackItem item)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+
+        return new HeldBackItemDto(item.Kind, item.TaskId, item.Repository, item.Number, item.PlanTag);
+    }
+}
+
+/// <summary>
+/// The load–change–save every command over impediments shares, as <see cref="GoalChanges"/>
+/// is for goals: under the <see cref="GoalsGate"/>, load, apply the change, and save only
+/// when it succeeded — a refused change leaves the stored impediment as it was.
+/// </summary>
+public sealed class ImpedimentChanges(IImpedimentRepository repository, GoalsGate gate, ImpedimentSaved saved)
+{
+    /// <summary>Changes impediment <paramref name="impedimentId"/>.</summary>
+    public async Task<Result<ImpedimentDto>> ChangeAsync(
+        Guid impedimentId,
+        Func<Impediment, Result> change,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(change);
+
+        using var held = await gate.EnterAsync(cancellationToken).ConfigureAwait(false);
+
+        var impediment = await repository.GetAsync(impedimentId, cancellationToken).ConfigureAwait(false);
+        if (impediment is null) return GoalsErrors.ImpedimentNotFound(impedimentId);
+
+        var changed = change(impediment);
+        if (changed is Error error) return error;
+
+        await repository.SaveAsync(impediment, cancellationToken).ConfigureAwait(false);
+        held.Dispose(); // Let go first, so nothing that hears the notice waits on this write.
+        saved.Raise();
+        return impediment.ToDto();
+    }
+
+    /// <summary>Saves a new impediment under the gate and announces it.</summary>
+    public async Task<Result<ImpedimentDto>> AddAsync(Impediment impediment, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(impediment);
+
+        using var held = await gate.EnterAsync(cancellationToken).ConfigureAwait(false);
+        await repository.SaveAsync(impediment, cancellationToken).ConfigureAwait(false);
+        held.Dispose();
+        saved.Raise();
+        return impediment.ToDto();
+    }
+
+    /// <summary>Every impediment, read under the gate.</summary>
+    public async Task<IReadOnlyList<Impediment>> ListAsync(CancellationToken cancellationToken = default)
+    {
+        using var held = await gate.EnterAsync(cancellationToken).ConfigureAwait(false);
+        return await repository.ListAsync(cancellationToken).ConfigureAwait(false);
+    }
+}

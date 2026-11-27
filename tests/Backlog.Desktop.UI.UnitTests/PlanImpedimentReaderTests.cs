@@ -1,7 +1,7 @@
-using Backlog.Modules.Progress.Abstractions;
-using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
-using Backlog.Modules.Progress.Abstractions.Services;
-using Backlog.Modules.Progress.UI.Goals;
+using Backlog.Modules.Goals.Abstractions;
+using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
+using Backlog.Modules.Goals.Abstractions.Services;
+using Backlog.Modules.Goals.UI.Goals;
 using Backlog.SharedKernel;
 using Backlog.SharedKernel.Results;
 
@@ -11,7 +11,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// The host's side of the impediment a Blocked plan names (local ADR 0035 §5; local ADR
 /// 0072 §2–§3): the open impediment holding back the plan by its tag or one of its
 /// entries by id, read again when an impediment is stored, with nothing named when none
-/// is linked or the Progress port is not composed.
+/// is linked or the Goals port is not composed.
 /// </summary>
 public sealed class PlanImpedimentReaderTests
 {
@@ -89,7 +89,7 @@ public sealed class PlanImpedimentReaderTests
         };
         using var reader = await ReaderAsync(impediments);
 
-        impediments.Failure = new Error("progress.unavailable", "down");
+        impediments.Failure = new Error("goals.unavailable", "down");
         await reader.RefreshAsync();
 
         Assert.Equal("Roofer not booked", reader.Source.TitleOf("+delta", [Roof]));

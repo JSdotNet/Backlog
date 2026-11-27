@@ -1,7 +1,7 @@
-using Backlog.Modules.Progress.Abstractions;
-using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
-using Backlog.Modules.Progress.Abstractions.Services;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Goals.Abstractions;
+using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
+using Backlog.Modules.Goals.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.SharedKernel.Results;
 
 using ModelContextProtocol;
@@ -9,9 +9,9 @@ using ModelContextProtocol;
 namespace Backlog.Infrastructure.Mcp.UnitTests;
 
 /// <summary>
-/// The impediment tools (<c>.devbook/domain/progress/features.md#impediments-for-agents</c>):
+/// The impediment tools (<c>.devbook/domain/goals/features.md#impediments-for-agents</c>):
 /// <c>raise_impediment</c>, <c>set_impediment_state</c>, <c>link_to_impediment</c> and
-/// <c>unlink_from_impediment</c>. Each hands its arguments to Progress's
+/// <c>unlink_from_impediment</c>. Each hands its arguments to Goals'
 /// <see cref="IImpediments"/> port, answers the impediment with its state as a wire token,
 /// and turns a refusal into the failure a client sees.
 /// </summary>
@@ -151,11 +151,11 @@ public sealed class ImpedimentToolsTests
     [Fact]
     public async Task A_refused_link_reaches_the_client_with_its_code()
     {
-        var port = new FakeImpediments { ItemAnswer = ProgressErrors.ImpedimentNotFound(Guid.Empty) };
+        var port = new FakeImpediments { ItemAnswer = GoalsErrors.ImpedimentNotFound(Guid.Empty) };
 
         var failure = await Assert.ThrowsAsync<McpException>(() => Tools(port).LinkAsync(Guid.Empty, planTag: "goals", cancellationToken: Cancellation));
 
-        Assert.StartsWith("progress.impediment_not_found", failure.Message, StringComparison.Ordinal);
+        Assert.StartsWith("goals.impediment_not_found", failure.Message, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -184,7 +184,7 @@ public sealed class ImpedimentToolsTests
 
         var failure = await Assert.ThrowsAsync<McpException>(() => Tools(port).SetStateAsync(Guid.NewGuid(), token, null, cancellationToken: Cancellation));
 
-        Assert.StartsWith("progress.impediment_state_unknown", failure.Message, StringComparison.Ordinal);
+        Assert.StartsWith("goals.impediment_state_unknown", failure.Message, StringComparison.Ordinal);
         Assert.Null(port.Moved);
     }
 
@@ -193,16 +193,16 @@ public sealed class ImpedimentToolsTests
     {
         var port = new FakeImpediments
         {
-            MoveAnswer = ProgressErrors.ImpedimentMoveNotAllowed(ImpedimentState.Escalated, ImpedimentState.Reported)
+            MoveAnswer = GoalsErrors.ImpedimentMoveNotAllowed(ImpedimentState.Escalated, ImpedimentState.Reported)
         };
 
         var failure = await Assert.ThrowsAsync<McpException>(() => Tools(port).SetStateAsync(Guid.NewGuid(), "reported", null, cancellationToken: Cancellation));
 
-        Assert.StartsWith("progress.impediment_move_not_allowed", failure.Message, StringComparison.Ordinal);
+        Assert.StartsWith("goals.impediment_move_not_allowed", failure.Message, StringComparison.Ordinal);
     }
 }
 
-/// <summary>Progress's impediment port, recording what a tool asked of it.</summary>
+/// <summary>Goals' impediment port, recording what a tool asked of it.</summary>
 internal sealed class FakeImpediments : IImpediments
 {
     public event Action? Changed { add { } remove { } }

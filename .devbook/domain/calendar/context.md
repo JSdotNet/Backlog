@@ -20,20 +20,19 @@ Outside it:
 
 | Concern | Owner |
 |---|---|
-| Tasks, their due dates and their planned hours | [Tasks](../tasks/features.md#tasks-on-the-calendar) |
-| The Tasks filter bar, the open task and the selection, none of which reaches the Calendar | [Tasks](../tasks/features.md#search-filter-and-organize) |
-| Plans, their windows, the shelf and the working week | [Roadmap Planning](../roadmap/features.md#laying-out-a-plan-whose-tasks-arrived-first) |
+| Tasks, their due dates and their planned hours | [Work](../work/features.md#tasks-on-the-calendar) |
+| The Tasks filter bar, the open task and the selection, none of which reaches the Calendar | [Work](../work/features.md#search-filter-and-organize) |
+| Plans, their windows, the shelf and the working week | [Work](../work/features.md#laying-out-a-plan-whose-tasks-arrived-first) |
 | Knowledge events and their key dates | [Events](../events/features.md#events-on-the-calendar) |
 | The repository scope and the repository colours | The window's view state, which the desktop shell answers |
 | The header, the windows a surface opens in, and showing another surface | The desktop shell (local ADR 0043) |
 
 ```mermaid
 flowchart LR
-    Tasks -->|Tasks layer| Calendar
-    Roadmap["Roadmap Planning"] -->|Plans layer| Calendar
+    Work -->|Tasks layer| Calendar
+    Work -->|Plans layer| Calendar
     Events -->|Events layer| Calendar
-    Calendar -->|"due date, hours"| Tasks
-    Calendar -->|"start a shelf plan"| Roadmap
+    Calendar -->|"due date, hours, start a shelf plan"| Work
 ```
 
 A layer writes only back through its source, which decides whether the change is
@@ -48,9 +47,9 @@ and `Backlog.Modules.Calendar.UI` the surface and its grid.
 
 - **Grid:** the Calendar's own, `CalendarGrid` in `Backlog.Modules.Calendar.UI`. Built.
 - **Tasks layer:** the Calendar's own port, `ICalendarTasks`, which an adapter answers
-  over Tasks' published contract. Built.
+  over Work's published task contract. Built.
 - **Plans layer and the hours worked each day:** the Calendar's own ports, which adapters
-  answer over Roadmap Planning. Built.
+  answer over Work's plan. Built.
 - **Events layer:** the Calendar's own port, which an adapter answers over Events. Built.
 - **Range, Show tasks, Show plans and Show events:** the Calendar's own view choices.
   Built.
@@ -79,7 +78,7 @@ type: setting
 key: calendarTasksShown
 scope: user
 default: on
-related: [.devbook/domain/calendar/features.md#calendar-view, .devbook/domain/calendar/domain.md#layer-choice, .devbook/domain/tasks/features.md#tasks-on-the-calendar, .devbook/arc42/adr/0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md]
+related: [.devbook/domain/calendar/features.md#calendar-view, .devbook/domain/calendar/domain.md#layer-choice, .devbook/domain/work/features.md#tasks-on-the-calendar, .devbook/arc42/adr/0056-the-calendar-owns-its-grid-and-tasks-is-one-layer.md]
 ```
 
 Whether the Tasks layer is drawn, the tasks and their planned hours together. On, each
@@ -114,14 +113,18 @@ Whether the Events layer is drawn. It is offered only while the
 [Events area](../events/context.md#events-area) is on, and is remembered on this device
 apart from Show plans.
 
+## Over MCP
+
+This context has no tool group on the [MCP channel](../../arc42/05-building-block-view.md#mcp-channel), `Backlog.Infrastructure.Mcp` (local ADRs 0012, 0073 §6). It is a composition and owns no data; its layers are Work's and Events', and their groups answer for them.
+
 ## Dependencies
 
 ### Outbound dependencies
 
 | Depends on (context/module) | DDD pattern | Integration mechanism | Contract | Why |
 |---|---|---|---|---|
-| [Tasks](../tasks/features.md#tasks-on-the-calendar) | Customer/Supplier | `ICalendarTasks` in `Backlog.Modules.Calendar.Abstractions`, answered by `TasksCalendarTasks` under `Infrastructure.FileSystem/Calendar/`, or `NoCalendarTasks` (Off) in a host without Tasks | `ITaskItems`, `ITaskStore` and `ITaskChangeSignal` in `Backlog.Modules.Tasks.Abstractions`; local ADR 0056 §2 | The tasks with a due date in the range, their hours, and the due-date and hours writes back |
-| [Roadmap Planning](../roadmap/domain.md#roadmap-item) | Customer/Supplier | `ICalendarPlans` and `ICalendarCapacity` in `Backlog.Modules.Calendar.Abstractions`, answered by `RoadmapCalendarPlans` and `RoadmapCalendarCapacity` under `Infrastructure.FileSystem/Calendar/` over Roadmap's abstractions | Roadmap's plans, shelf and working week | The plan bars, the shelf drop, and a day's capacity |
+| [Work](../work/features.md#tasks-on-the-calendar) | Customer/Supplier | `ICalendarTasks` in `Backlog.Modules.Calendar.Abstractions`, answered by `TasksCalendarTasks` under `Infrastructure.FileSystem/Calendar/`, or `NoCalendarTasks` (Off) in a host without Tasks | `ITaskItems`, `ITaskStore` and `ITaskChangeSignal` in `Backlog.Modules.Work.Abstractions`; local ADR 0056 §2 | The tasks with a due date in the range, their hours, and the due-date and hours writes back |
+| [Work](../work/domain.plan.md#roadmap-item) | Customer/Supplier | `ICalendarPlans` and `ICalendarCapacity` in `Backlog.Modules.Calendar.Abstractions`, answered by `RoadmapCalendarPlans` and `RoadmapCalendarCapacity` under `Infrastructure.FileSystem/Calendar/` over Roadmap's abstractions | Roadmap's plans, shelf and working week | The plan bars, the shelf drop, and a day's capacity |
 | [Events](../events/domain.md#knowledge-event) | Customer/Supplier | `ICalendarEvents` in `Backlog.Modules.Calendar.Abstractions`, answered by `EventsCalendarEvents` under `Infrastructure.FileSystem/Calendar/`, or `NoCalendarEvents` (Off) in a host without Events | `IKnowledgeEventReader` in `Backlog.Modules.Events.Abstractions` | The event bars and key dates |
 | The desktop shell | Composition root | `ICalendarWindowScope`, which the host answers from the window's view state as `ShellCalendarWindowScope`, and `ISurfaceNavigator` (local ADR 0043 §3) | The repository scope and colours; the `tasks` surface id and its `entry` key | Narrowing the Tasks layer, colouring chips and bars, and opening a task in the Tasks view |
 

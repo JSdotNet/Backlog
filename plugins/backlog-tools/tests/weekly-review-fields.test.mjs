@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 const PLUGIN = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SRC = path.join(PLUGIN, "..", "..", "src");
 const MCP = path.join(SRC, "Infrastructure", "Backlog.Infrastructure.Mcp");
-const BUILDER = path.join(SRC, "Modules", "Progress", "Backlog.Modules.Progress.UI", "WeeklyReview", "WeeklyReviewChecklistBuilder.cs");
+const BUILDER = path.join(SRC, "Modules", "Goals", "Backlog.Modules.Goals.UI", "WeeklyReview", "WeeklyReviewChecklistBuilder.cs");
 
 const skill = fs.readFileSync(path.join(PLUGIN, "skills", "weekly-review", "SKILL.md"), "utf8");
 const sources = fs

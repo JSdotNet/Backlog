@@ -1,8 +1,8 @@
 using Backlog.Desktop.UI.Devbook.Extensions;
 using Backlog.Desktop.UI.PullRequests;
 using Backlog.Modules.Devbook.Abstractions;
-using Backlog.Modules.Dashboard.Abstractions;
-using Backlog.Modules.Dashboard.UI.Extensions;
+using Backlog.Modules.Insights.Abstractions;
+using Backlog.Modules.Insights.UI.Extensions;
 using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Modules.DevPc.UI;
 using Backlog.Modules.Events.Abstractions;
@@ -11,7 +11,7 @@ using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Inbox.UI;
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Notifications.UI;
-using Backlog.Modules.RepositoryManagement.Abstractions;
+using Backlog.Modules.Repositories.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI;
 using Microsoft.Extensions.DependencyInjection;
@@ -31,8 +31,8 @@ public sealed class TakeoverSurfaceRegistrationTests
         { "inbox", "Inbox", InboxFeatures.Pane, ["item"] },
         { "events", "Events", EventsFeatures.Events, ["event"] },
         { "sessions", "Sessions", SessionFeatures.Sessions, ["session", "page", "schedule"] },
-        { "pull-requests", "Pull requests", RepositoryManagementFeatures.PullRequests, ["pullRequest"] },
-        { "dashboard", "Dashboard", null, ["tab"] },
+        { "pull-requests", "Pull requests", RepositoriesFeatures.PullRequests, ["pullRequest"] },
+        { "insights", "Insights", null, ["tab"] },
         { "notifications", "Notifications", NotificationsFeatures.Notifications, ["notification"] },
         { "tools", "Tools", DevPcFeatures.SystemTools, [] },
         { "atlas", "Atlas", DevbookFeatures.LobesAtlas, ["layout"] },
@@ -61,7 +61,7 @@ public sealed class TakeoverSurfaceRegistrationTests
             services.AddEventsSurface();
             services.AddSessionsSurface();
             services.AddPullRequestsSurface();
-            services.AddDashboardSurface();
+            services.AddInsightsSurface();
             services.AddNotificationsSurface();
             services.AddToolsSurface();
             services.AddAtlasSurface();
@@ -78,7 +78,7 @@ public sealed class TakeoverSurfaceRegistrationTests
             .OrderBy(surface => surface.Order)
             .Select(surface => surface.Id);
 
-        Assert.Equal(["inbox", "weekly-review", "devbook", "events", "sessions", "pull-requests", "dashboard", "notifications", "tools", "atlas"], order);
+        Assert.Equal(["inbox", "weekly-review", "devbook", "events", "sessions", "pull-requests", "insights", "notifications", "tools", "atlas"], order);
     }
 
     private static List<ShellSurface> Registered() =>

@@ -37,7 +37,7 @@ public sealed class McpTokenBrokerTests : IDisposable
     [Fact]
     public async Task A_request_for_a_grant_is_answered_with_a_token_the_listener_accepts()
     {
-        var grant = _grants.Create("Claude Code", ["tasks:read"], "jobsc");
+        var grant = _grants.Create("Claude Code", ["work:read"], "jobsc");
 
         var reply = await ExchangeAsync("{\"grant\":\"" + grant.Id + "\"}\n");
 
@@ -146,7 +146,7 @@ public sealed class McpTokenBrokerTests : IDisposable
     {
         Assert.SkipUnless(OperatingSystem.IsWindows(), "The broker's pipe is Windows-only.");
 
-        var grant = _grants.Create("Claude Code", ["tasks:read"], "jobsc");
+        var grant = _grants.Create("Claude Code", ["work:read"], "jobsc");
         using var broker = new McpTokenBroker(_tokens, UniquePipeName(), log: null);
         broker.Start();
 
@@ -252,7 +252,7 @@ public sealed class McpTokenBrokerTests : IDisposable
         Assert.SkipUnless(OperatingSystem.IsWindows(), "The broker's pipe is Windows-only.");
         Assert.SkipUnless(NodeInstalled(), "Node.js is not installed.");
 
-        var grant = _grants.Create("Claude Code", ["tasks:read"], "jobsc");
+        var grant = _grants.Create("Claude Code", ["work:read"], "jobsc");
         using var broker = new McpTokenBroker(_tokens, UniquePipeName(), log: null);
         broker.Start();
         await ListeningAsync(broker);

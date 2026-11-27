@@ -1,7 +1,7 @@
-using Backlog.Infrastructure.Sqlite.Progress;
-using Backlog.Modules.Progress.Abstractions;
-using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
-using Backlog.Modules.Progress.DomainModels;
+using Backlog.Infrastructure.Sqlite.Goals;
+using Backlog.Modules.Goals.Abstractions;
+using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
+using Backlog.Modules.Goals.DomainModels;
 
 using Backlog.SharedKernel.Results;
 using Microsoft.Data.Sqlite;
@@ -9,7 +9,7 @@ using Microsoft.Data.Sqlite;
 namespace Backlog.Infrastructure.Sqlite.UnitTests;
 
 /// <summary>
-/// The stored impediments: one row per impediment in <c>progress_impediments</c>, the
+/// The stored impediments: one row per impediment in <c>goals_impediments</c>, the
 /// whole impediment as one document, which is also the <c>impediment</c> document that
 /// travels. What goes in comes back out unchanged, a copy from another device is kept
 /// verbatim at its stamp, and a row that will not parse is skipped rather than failing
@@ -73,7 +73,7 @@ public sealed class SqliteImpedimentRepositoryTests : IDisposable
     }
 
     /// <summary>The phone reads the document this store writes with
-    /// <c>ProgressDocuments.ReadImpediment</c> (local ADR 0035 §8), and what it reads is the
+    /// <c>GoalsDocuments.ReadImpediment</c> (local ADR 0035 §8), and what it reads is the
     /// impediment the desktop holds, history and all.</summary>
     [Fact]
     public async Task The_stored_document_reads_on_the_phone_as_the_impediment_the_desktop_holds()
@@ -82,10 +82,10 @@ public sealed class SqliteImpedimentRepositoryTests : IDisposable
         await _repository.SaveAsync(impediment, Cancellation);
 
         var stored = Assert.Single(await _repository.ReadAllAsync(Cancellation));
-        var read = Modules.Progress.Abstractions.ProgressDocuments.ReadImpediment(stored.Content, impediment.Id);
+        var read = Modules.Goals.Abstractions.GoalsDocuments.ReadImpediment(stored.Content, impediment.Id);
 
         Assert.NotNull(read);
-        Assert.Equivalent(Modules.Progress.Services.ImpedimentMapper.ToDto(impediment), read.Impediment, strict: true);
+        Assert.Equivalent(Modules.Goals.Services.ImpedimentMapper.ToDto(impediment), read.Impediment, strict: true);
         Assert.Equal(impediment.CreatedAt, read.CreatedAt);
     }
 
@@ -141,7 +141,7 @@ public sealed class SqliteImpedimentRepositoryTests : IDisposable
     {
         await _repository.SaveAsync(Escalated(), Cancellation);
 
-        var document = await ScalarAsync("SELECT document FROM progress_impediments;");
+        var document = await ScalarAsync("SELECT document FROM goals_impediments;");
 
         Assert.Contains("\"state\":\"Escalated\"", document, StringComparison.Ordinal);
         Assert.Contains("\"on\":\"2026-10-16\"", document, StringComparison.Ordinal);
@@ -157,7 +157,7 @@ public sealed class SqliteImpedimentRepositoryTests : IDisposable
         var impediment = Escalated();
         await _repository.SaveAsync(impediment, Cancellation);
 
-        var document = await ScalarAsync("SELECT document FROM progress_impediments;");
+        var document = await ScalarAsync("SELECT document FROM goals_impediments;");
         var asVersion1 = System.Text.Json.JsonSerializer.Deserialize<Version1Shape>(document, ImpedimentDocument.JsonOptions)!;
 
         Assert.Equal(2, asVersion1.Version);
@@ -278,7 +278,7 @@ public sealed class SqliteImpedimentRepositoryTests : IDisposable
     public async Task A_row_that_will_not_parse_is_skipped()
     {
         await _repository.SaveAsync(Escalated(), Cancellation);
-        await ExecuteAsync("INSERT INTO progress_impediments (id, document, created_at, updated_at) VALUES ('broken', '{not json', '2026-10-01', '2026-10-01');");
+        await ExecuteAsync("INSERT INTO goals_impediments (id, document, created_at, updated_at) VALUES ('broken', '{not json', '2026-10-01', '2026-10-01');");
 
         Assert.Single(await _repository.ListAsync(Cancellation));
     }
@@ -336,9 +336,33 @@ public sealed class SqliteImpedimentRepositoryTests : IDisposable
         await new SqliteGoalRepository(_dir).ListAsync(Cancellation);
         await _repository.ListAsync(Cancellation);
 
-        Assert.Equal("1", await ScalarAsync("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'progress_impediments';"));
-        Assert.Equal("1", await ScalarAsync("SELECT COUNT(*) FROM schema_stamps WHERE owner = 'progress_impediments';"));
-        Assert.Equal("1", await ScalarAsync("SELECT COUNT(*) FROM schema_stamps WHERE owner = 'progress_goals';"));
+        Assert.Equal("1", await ScalarAsync("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'goals_impediments';"));
+        Assert.Equal("1", await ScalarAsync("SELECT COUNT(*) FROM schema_stamps WHERE owner = 'goals_impediments';"));
+        Assert.Equal("1", await ScalarAsync("SELECT COUNT(*) FROM schema_stamps WHERE owner = 'goals_goals';"));
+    }
+
+    /// <summary>A file a build before the rename wrote keeps its impediments in
+    /// <c>progress_impediments</c> (local ADR 0073 §10): the first open copies them into
+    /// <c>goals_impediments</c> as they were, and the old table stays in the file unread.</summary>
+    [Fact]
+    public async Task Impediments_a_build_before_the_rename_kept_in_progress_impediments_are_carried_over()
+    {
+        var impediment = Escalated();
+        var document = System.Text.Json.JsonSerializer.Serialize(ImpedimentDocument.From(impediment), ImpedimentDocument.JsonOptions);
+
+        Directory.CreateDirectory(Path.GetDirectoryName(_repository.DatabasePath)!);
+        await ExecuteAsync($"""
+            CREATE TABLE progress_impediments (id TEXT PRIMARY KEY NOT NULL, document TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+            INSERT INTO progress_impediments VALUES ('{impediment.Id:D}', '{document.Replace("'", "''", StringComparison.Ordinal)}', '2026-10-12T00:00:00.0000000+00:00', '2026-10-12T00:00:00.0000000+00:00');
+            """);
+
+        var carried = await _repository.GetAsync(impediment.Id, Cancellation);
+
+        Assert.NotNull(carried);
+        Assert.Equal(impediment.Title, carried.Title);
+        Assert.Equal(impediment.State, carried.State);
+        Assert.Equal("1", await ScalarAsync("SELECT COUNT(*) FROM goals_impediments;"));
+        Assert.Equal("1", await ScalarAsync("SELECT COUNT(*) FROM progress_impediments;"));
     }
 
     [Fact]
@@ -359,7 +383,7 @@ public sealed class SqliteImpedimentRepositoryTests : IDisposable
     private sealed record Version1Shape(int Version, List<Guid> HoldsBack);
 
     private async Task<long> CountRowsAsync() =>
-        long.Parse(await ScalarAsync("SELECT COUNT(*) FROM progress_impediments;"), System.Globalization.CultureInfo.InvariantCulture);
+        long.Parse(await ScalarAsync("SELECT COUNT(*) FROM goals_impediments;"), System.Globalization.CultureInfo.InvariantCulture);
 
     private async Task<string> ScalarAsync(string sql)
     {

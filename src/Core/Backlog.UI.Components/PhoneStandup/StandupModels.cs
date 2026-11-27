@@ -5,7 +5,7 @@ namespace Backlog.UI.Components.PhoneStandup;
 /// <summary>
 /// Whether a goal lands in time, in the two words its forecast badge prints
 /// (<c>.devbook/design/color-scheme.md#goal-forecast-badges</c>). The library's own: it
-/// references no module, so a host maps the Progress module's standing onto this.
+/// references no module, so a host maps the Goals module's standing onto this.
 /// </summary>
 public enum StandupStanding
 {
@@ -18,7 +18,7 @@ public enum StandupStanding
 
 /// <summary>
 /// Where an impediment stands, in the order it moves
-/// (<c>.devbook/domain/progress/domain.md#impediment-state</c>), as the library draws it
+/// (<c>.devbook/domain/goals/domain.md#impediment-state</c>), as the library draws it
 /// (<c>.devbook/design/color-scheme.md#impediment-state-tones</c>). The library's own, for
 /// the reason <see cref="StandupStanding"/> is.
 /// </summary>

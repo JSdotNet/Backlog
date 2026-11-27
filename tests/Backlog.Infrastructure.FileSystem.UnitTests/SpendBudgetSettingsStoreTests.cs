@@ -1,5 +1,5 @@
 using Backlog.Infrastructure.FileSystem;
-using Backlog.Modules.Dashboard.Abstractions.Insights;
+using Backlog.Modules.Insights.Abstractions.Insights;
 
 namespace Backlog.Infrastructure.FileSystem.UnitTests;
 

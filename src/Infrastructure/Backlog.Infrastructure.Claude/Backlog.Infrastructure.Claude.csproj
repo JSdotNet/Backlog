@@ -22,7 +22,7 @@
          spend port, which is the adapter conforming to a module's language rather
          than a module reaching for an adapter — the direction ModuleBoundaryTests
          allows, and the abstractions see nothing back. -->
-    <ProjectReference Include="..\..\Modules\Dashboard\Backlog.Modules.Dashboard.Abstractions\Backlog.Modules.Dashboard.Abstractions.csproj" />
+    <ProjectReference Include="..\..\Modules\Insights\Backlog.Modules.Insights.Abstractions\Backlog.Modules.Insights.Abstractions.csproj" />
   </ItemGroup>
 
   <ItemGroup>

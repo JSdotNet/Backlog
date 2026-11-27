@@ -42,8 +42,8 @@ public sealed class McpServerWaitingCardTests : IDisposable
     [Fact]
     public async Task The_headline_counts_the_waiting_request_and_the_pending_grant_is_not_an_agent()
     {
-        _grants.Create("Backlog delivery", ["tasks:read"], McpAgents.CreatedInSettings);
-        await _desk.RegisterAsync("Copilot CLI", ["tasks:read"], "copilot.exe", @"D:\Repos\Backlog", Cancel);
+        _grants.Create("Backlog delivery", ["work:read"], McpAgents.CreatedInSettings);
+        await _desk.RegisterAsync("Copilot CLI", ["work:read"], "copilot.exe", @"D:\Repos\Backlog", Cancel);
         using var context = PageContext();
 
         var frame = context.Render<SettingsFrame>(parameters => parameters
@@ -67,7 +67,7 @@ public sealed class McpServerWaitingCardTests : IDisposable
     [Fact]
     public async Task No_card_is_drawn_while_nothing_waits()
     {
-        var registered = await _desk.RegisterAsync("Copilot CLI", ["tasks:read"], null, null, Cancel);
+        var registered = await _desk.RegisterAsync("Copilot CLI", ["work:read"], null, null, Cancel);
         await _desk.DeclineAsync(registered.Request!.Id, Cancel);
         using var context = PageContext();
 
@@ -79,23 +79,23 @@ public sealed class McpServerWaitingCardTests : IDisposable
     [Fact]
     public async Task Trim_scopes_then_Allow_with_Hello_grants_the_trimmed_scopes()
     {
-        var registered = await _desk.RegisterAsync("Copilot CLI", ["tasks:read", "tasks:write"], null, null, Cancel);
+        var registered = await _desk.RegisterAsync("Copilot CLI", ["work:read", "work:write"], null, null, Cancel);
         using var context = PageContext();
         var page = context.Render<McpServerSettingsPage>();
 
         page.Find("[data-testid='agent-request-trim']").Click();
-        page.Find("[data-testid='agent-request-switches'] [data-scope='tasks:write'] button[role='switch']").Click();
+        page.Find("[data-testid='agent-request-switches'] [data-scope='work:write'] button[role='switch']").Click();
         page.Find("[data-testid='agent-request-allow']").Click();
 
         page.WaitForAssertion(() => Assert.Empty(page.FindAll("[data-testid='mcp-server-waiting-card']")));
-        Assert.Equal(["tasks:read"], _grants.Find(registered.Grant!.Id)!.Scopes);
+        Assert.Equal(["work:read"], _grants.Find(registered.Grant!.Id)!.Scopes);
         Assert.Equal(["Copilot CLI"], page.FindAll("[data-testid='agent-row-name']").Select(name => name.TextContent.Trim()));
     }
 
     [Fact]
     public async Task Allow_where_Hello_is_not_available_says_why_and_leaves_the_request_waiting()
     {
-        var registered = await _desk.RegisterAsync("Copilot CLI", ["tasks:read"], null, null, Cancel);
+        var registered = await _desk.RegisterAsync("Copilot CLI", ["work:read"], null, null, Cancel);
         _consent.Answer = UserConsentOutcome.NotAvailable;
         using var context = PageContext();
         var page = context.Render<McpServerSettingsPage>();
@@ -112,7 +112,7 @@ public sealed class McpServerWaitingCardTests : IDisposable
     [Fact]
     public async Task Decline_on_the_page_revokes_the_pending_grant()
     {
-        var registered = await _desk.RegisterAsync("Copilot CLI", ["tasks:read"], null, null, Cancel);
+        var registered = await _desk.RegisterAsync("Copilot CLI", ["work:read"], null, null, Cancel);
         using var context = PageContext();
         var page = context.Render<McpServerSettingsPage>();
 
@@ -126,14 +126,14 @@ public sealed class McpServerWaitingCardTests : IDisposable
     [Fact]
     public async Task The_request_window_starts_agents_grant_off_and_answers_with_Hello()
     {
-        var registered = await _desk.RegisterAsync("Manager session", ["tasks:read", "agents:grant"], "claude.exe", null, Cancel);
+        var registered = await _desk.RegisterAsync("Manager session", ["work:read", "agents:grant"], "claude.exe", null, Cancel);
         using var context = PageContext();
 
         var window = context.Render<AgentRequestSurface>(parameters => parameters
             .Add(surface => surface.Query, new Dictionary<string, string> { [AgentRequestSurface.RequestKey] = registered.Request!.Id }));
 
         Assert.Equal("Manager session wants access", window.Find("#agent-request-window-title").TextContent.Trim());
-        Assert.Equal("true", window.Find("[data-scope='tasks:read'] button[role='switch']").GetAttribute("aria-checked"));
+        Assert.Equal("true", window.Find("[data-scope='work:read'] button[role='switch']").GetAttribute("aria-checked"));
         Assert.Equal("false", window.Find("[data-scope='agents:grant'] button[role='switch']").GetAttribute("aria-checked"));
         Assert.Empty(window.FindAll("[data-testid='agent-request-trim']"));
         Assert.Equal(2, window.FindAll(".agent-row__actions button").Count);
@@ -142,7 +142,7 @@ public sealed class McpServerWaitingCardTests : IDisposable
 
         window.WaitForAssertion(() => Assert.NotEmpty(window.FindAll("[data-testid='agent-request-window-answered']")));
         Assert.Equal(1, _consent.Asked);
-        Assert.Equal(["tasks:read"], _grants.Find(registered.Grant!.Id)!.Scopes);
+        Assert.Equal(["work:read"], _grants.Find(registered.Grant!.Id)!.Scopes);
     }
 
     [Fact]

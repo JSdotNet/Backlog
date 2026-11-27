@@ -8,7 +8,7 @@ namespace Backlog.UI.Components.Settings;
 /// scopes exist and what each one opens is the MCP server's to say (local ADR 0058 §4).
 /// </para>
 /// </summary>
-/// <param name="Name">The scope as a grant stores it, such as <c>tasks:read</c>.</param>
+/// <param name="Name">The scope as a grant stores it, such as <c>work:read</c>.</param>
 /// <param name="Description">One line on what it lets the agent do.</param>
 /// <param name="Locked">Drawn disabled, as the grant holds it, so a boundary the person cannot
 /// move here is visible rather than missing — <c>devbook:decide</c>, which no grant holds.</param>

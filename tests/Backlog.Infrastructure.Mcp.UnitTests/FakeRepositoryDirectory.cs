@@ -1,4 +1,4 @@
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.SharedKernel.Results;
 
 namespace Backlog.Infrastructure.Mcp.UnitTests;
@@ -7,7 +7,7 @@ namespace Backlog.Infrastructure.Mcp.UnitTests;
 /// The repository registry, small enough to read, standing in for the adapter
 /// over Settings.
 /// <para>
-/// The same double <c>Backlog.Modules.Tasks.UnitTests</c> keeps, and for the same
+/// The same double <c>Backlog.Modules.Work.Tasks.UnitTests</c> keeps, and for the same
 /// reason: resolution dispatches on shape, an id compares without regard to case,
 /// an alias compares exactly. A second answer to "what does a name resolve to"
 /// would make these tests agree with themselves and with nothing else. It is

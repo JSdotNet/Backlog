@@ -1,6 +1,6 @@
 using Backlog.Mobile.UI.Outbox;
-using Backlog.Mobile.UI.Progress;
-using Backlog.Modules.Progress.Abstractions;
+using Backlog.Mobile.UI.Goals;
+using Backlog.Modules.Goals.Abstractions;
 
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Time.Testing;
@@ -8,7 +8,7 @@ using Microsoft.Extensions.Time.Testing;
 namespace Backlog.Mobile.UI.UnitTests;
 
 /// <summary>
-/// An impediment's own page on the phone (<c>.devbook/domain/progress/features.md#goals-on-the-phone</c>):
+/// An impediment's own page on the phone (<c>.devbook/domain/goals/features.md#goals-on-the-phone</c>):
 /// its age and the goal it holds back, its state as the list that moves it, its check-again
 /// day, its note and the tasks it holds back. The three edits it allows each queue exactly
 /// one <c>impediment-edit</c> through the device outbox, and the page shows what was asked,
@@ -184,7 +184,7 @@ public sealed class ImpedimentScreenTests
     }
 
     /// <summary>A desktop change made since stands
-    /// (<c>.devbook/domain/progress/features.md#goals-on-the-phone</c>): the phone gives
+    /// (<c>.devbook/domain/goals/features.md#goals-on-the-phone</c>): the phone gives
     /// up the note it asked for and shows the desktop's.</summary>
     [Fact]
     public async Task A_desktop_change_made_since_stands_over_the_note_the_phone_asked_for()
@@ -200,7 +200,7 @@ public sealed class ImpedimentScreenTests
 
         tasks.State = InboxServiceState.Answering;
         tasks.Append(EscalatedWith(note: "Desktop note", at: StandupFixture.Now.AddMinutes(5)));
-        await app.InvokeAsync(() => host.Service<ProgressViewProjection>().PullAsync());
+        await app.InvokeAsync(() => host.Service<GoalsViewProjection>().PullAsync());
 
         app.WaitForAssertion(() => Assert.Equal("Desktop note", app.Find("[data-testid='impediment-note'] textarea").GetAttribute("value")));
         Assert.Empty(app.FindAll("[data-testid='impediment-waiting-note']"));
@@ -220,7 +220,7 @@ public sealed class ImpedimentScreenTests
 
         // The edit has left the phone; the next pull brings the impediment back unchanged.
         tasks.Append(EscalatedWith(note: "Support silent for 2 days.", at: StandupFixture.Now.AddMinutes(5)));
-        await app.InvokeAsync(() => host.Service<ProgressViewProjection>().PullAsync());
+        await app.InvokeAsync(() => host.Service<GoalsViewProjection>().PullAsync());
 
         app.WaitForAssertion(() => Assert.Equal("true", app.Find("[data-testid='impediment-steps-escalated']").GetAttribute("aria-checked")));
     }
@@ -239,7 +239,7 @@ public sealed class ImpedimentScreenTests
         // A desktop rewrites the stand-up context on every GitHub read; that says nothing
         // about the move.
         tasks.Append(StandupFixture.Context() with { UpdatedAt = StandupFixture.Now.AddMinutes(10) });
-        await app.InvokeAsync(() => host.Service<ProgressViewProjection>().PullAsync());
+        await app.InvokeAsync(() => host.Service<GoalsViewProjection>().PullAsync());
 
         Assert.Equal("true", app.Find("[data-testid='impediment-steps-being-handled']").GetAttribute("aria-checked"));
         Assert.Empty(app.FindAll("[data-testid='impediment-waiting-state']"));
@@ -373,11 +373,11 @@ public sealed class ImpedimentScreenTests
     }
 
     /// <summary>The impediment edits waiting in the outbox, as the documents they travel as.</summary>
-    private static List<Backlog.Modules.Progress.Abstractions.DataTransferObjects.ImpedimentEditDto> Edits(ShellHost host) =>
+    private static List<Backlog.Modules.Goals.Abstractions.DataTransferObjects.ImpedimentEditDto> Edits(ShellHost host) =>
     [
         .. host.Outbox.Entries
             .Where(entry => entry.Kind == ImpedimentEditOutboxKind.Token)
-            .Select(entry => ProgressDocuments.ReadEdit(TaskOutboxKind.Read(entry).Task.ContentMd)!)
+            .Select(entry => GoalsDocuments.ReadEdit(TaskOutboxKind.Read(entry).Task.ContentMd)!)
     ];
 
     private static string Squash(string text) => string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));

@@ -1,6 +1,6 @@
 using Backlog.Modules.Notifications.Abstractions;
-using Backlog.Modules.Tasks.Abstractions;
-using Backlog.Modules.Tasks;
+using Backlog.Modules.Work.Abstractions.Tasks;
+using Backlog.Modules.Work.Tasks;
 
 namespace Backlog.Infrastructure.Sqlite;
 

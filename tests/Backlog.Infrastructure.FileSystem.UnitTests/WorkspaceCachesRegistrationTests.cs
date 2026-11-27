@@ -1,9 +1,9 @@
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.GitHub;
-using Backlog.Modules.Dashboard.Abstractions.Services;
-using Backlog.Modules.RepositoryManagement.Abstractions.Services;
+using Backlog.Modules.Insights.Abstractions.Services;
+using Backlog.Modules.Repositories.Abstractions.Services;
 using Backlog.Modules.Sessions.Abstractions;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Infrastructure.FileSystem.UnitTests;

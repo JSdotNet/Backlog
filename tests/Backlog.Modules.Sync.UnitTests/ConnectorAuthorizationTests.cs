@@ -88,9 +88,9 @@ public sealed class ConnectorAuthorizationTests
     }
 
     [Theory]
-    [InlineData(McpScopes.TasksAdmin)]
+    [InlineData(McpScopes.WorkAdmin)]
     [InlineData(McpScopes.DevbookDecide)]
-    [InlineData("inbox:capture tasks:read")]
+    [InlineData("inbox:capture work:read")]
     public async Task A_scope_outside_inbox_capture_is_redirected_back(string scope)
     {
         await _connector.Secret();

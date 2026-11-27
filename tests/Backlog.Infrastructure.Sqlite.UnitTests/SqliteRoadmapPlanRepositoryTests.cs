@@ -2,10 +2,10 @@ using System.Globalization;
 using System.Text.Json;
 
 using Backlog.Infrastructure.Sqlite.Roadmap;
-using Backlog.Modules.Roadmap.Abstractions;
-using Backlog.Modules.Roadmap.DomainModels;
-using Backlog.Modules.Tasks.Abstractions;
-using Backlog.Modules.Tasks.DomainModels;
+using Backlog.Modules.Work.Abstractions.Plans;
+using Backlog.Modules.Work.Plans.DomainModels;
+using Backlog.Modules.Work.Abstractions.Tasks;
+using Backlog.Modules.Work.Tasks.DomainModels;
 
 using Backlog.SharedKernel.Results;
 using Microsoft.Data.Sqlite;
@@ -617,13 +617,13 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
     public async Task ThePlanTableIsAddedToADatabaseTheTasksAlreadyMade_AndCostsThemNothing()
     {
         // The upgrade path for everyone who already has a backlog.db: the tasks table
-        // is there, roadmap_plan is not, and the plan repository has to create its own
+        // is there, work_plan is not, and the plan repository has to create its own
         // table on the way in rather than expecting one. Local ADR 0003's idempotent
         // open is what makes that a non-event; this is the test that says so.
         var tasks = new SqliteTaskRepository(_dir);
         var task = new TaskItem("Was here first", "Body.", EntryType.Task);
         await tasks.SaveAsync(task, TestContext.Current.CancellationToken);
-        Assert.False(await TableExistsAsync("roadmap_plan"));
+        Assert.False(await TableExistsAsync("work_plan"));
 
         var plan = RoadmapPlan.Empty();
         plan.AddItem("Arrived later", Window(5, 9));
@@ -631,6 +631,40 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
 
         Assert.Equal("Arrived later", Assert.Single((await _plans.LoadAsync(TestContext.Current.CancellationToken)).Items).Title);
         Assert.Equal("Was here first", Assert.Single(await tasks.ListAsync(TestContext.Current.CancellationToken)).Title);
+    }
+
+    [Fact]
+    public async Task APlanABuildBeforeTheRenameKeptInRoadmapPlan_IsCarriedOver_AndTheOldTableIsKept()
+    {
+        // Local ADR 0073 §10: the table was roadmap_plan, stamped under the owner
+        // roadmap. A file from before the rename has its row copied into work_plan on
+        // the first open, and the old table stays behind unread (ADR 0006 never drops).
+        var plan = RoadmapPlan.Empty();
+        plan.AddItem("Planned before the rename", Window(5, 9));
+        var document = System.Text.Json.JsonSerializer.Serialize(
+            RoadmapPlanDocument.From(plan), RoadmapPlanDocument.JsonOptions);
+
+        await using (var connection = await OpenAsync())
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText =
+                """
+                CREATE TABLE roadmap_plan (id TEXT PRIMARY KEY NOT NULL, document TEXT NOT NULL, updated_at TEXT NOT NULL);
+                CREATE TABLE schema_stamps (owner TEXT PRIMARY KEY NOT NULL, fingerprint TEXT NOT NULL);
+                INSERT INTO schema_stamps VALUES ('roadmap', 'a build before the rename');
+                INSERT INTO roadmap_plan (id, document, updated_at) VALUES ($id, $document, '2026-10-12T00:00:00.0000000+00:00');
+                """;
+            command.Parameters.AddWithValue("$id", SqliteRoadmapPlanRepository.PlanRowId);
+            command.Parameters.AddWithValue("$document", document);
+            await command.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
+        }
+
+        var loaded = await _plans.LoadAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal("Planned before the rename", Assert.Single(loaded.Items).Title);
+        Assert.Equal("2026-10-12T00:00:00.0000000+00:00", await StoredUpdatedAtAsync());
+        Assert.True(await TableExistsAsync("roadmap_plan"));
+        Assert.Equal(1, await PlanRowCountAsync());
     }
 
     [Fact]
@@ -663,18 +697,18 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
 
     /// <summary>The stored plan document, exactly as another reader would find it.</summary>
     private async Task<string?> StoredDocumentAsync() =>
-        await ScalarAsync("SELECT document FROM roadmap_plan WHERE id = $id;");
+        await ScalarAsync("SELECT document FROM work_plan WHERE id = $id;");
 
     /// <summary>The stored timestamp, as written rather than as parsed, so a test can
     /// say what format it is in.</summary>
     private async Task<string?> StoredUpdatedAtAsync() =>
-        await ScalarAsync("SELECT updated_at FROM roadmap_plan WHERE id = $id;");
+        await ScalarAsync("SELECT updated_at FROM work_plan WHERE id = $id;");
 
     private async Task<int> PlanRowCountAsync()
     {
         await using var connection = await OpenAsync();
         await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT COUNT(*) FROM roadmap_plan;";
+        command.CommandText = "SELECT COUNT(*) FROM work_plan;";
 
         return Convert.ToInt32(await command.ExecuteScalarAsync(), CultureInfo.InvariantCulture);
     }
@@ -707,13 +741,13 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
         await using var command = connection.CreateCommand();
         command.CommandText =
             """
-            CREATE TABLE IF NOT EXISTS roadmap_plan (
+            CREATE TABLE IF NOT EXISTS work_plan (
                 id         TEXT PRIMARY KEY NOT NULL,
                 document   TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
 
-            INSERT INTO roadmap_plan (id, document, updated_at)
+            INSERT INTO work_plan (id, document, updated_at)
             VALUES ($id, $document, $updated_at)
             ON CONFLICT(id) DO UPDATE SET
                 document = excluded.document,

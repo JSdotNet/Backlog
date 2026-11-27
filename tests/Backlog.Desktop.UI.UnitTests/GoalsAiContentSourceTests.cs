@@ -1,6 +1,6 @@
-using Backlog.Modules.Progress.Abstractions;
-using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
-using Backlog.Modules.Progress.UI;
+using Backlog.Modules.Goals.Abstractions;
+using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
+using Backlog.Modules.Goals.UI;
 using Backlog.SharedKernel.Results;
 using Backlog.SharedKernel.Ai;
 

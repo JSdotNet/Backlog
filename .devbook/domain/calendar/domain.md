@@ -20,7 +20,7 @@ type: ubiquitous-language
 ```meta
 type: term
 aliases: [layer, Tasks layer, Plans layer, Events layer]
-related: [.devbook/domain/calendar/features.md#calendar-view, .devbook/domain/tasks/features.md#tasks-on-the-calendar, .devbook/domain/events/features.md#events-on-the-calendar, .devbook/domain/calendar/context.md]
+related: [.devbook/domain/calendar/features.md#calendar-view, .devbook/domain/work/features.md#tasks-on-the-calendar, .devbook/domain/events/features.md#events-on-the-calendar, .devbook/domain/calendar/context.md]
 ```
 
 What one source draws on the Calendar's days. There are three: the **Tasks layer**, the

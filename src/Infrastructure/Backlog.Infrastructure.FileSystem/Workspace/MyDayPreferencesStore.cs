@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.SharedKernel.Replication;
 
 namespace Backlog.Infrastructure.FileSystem;

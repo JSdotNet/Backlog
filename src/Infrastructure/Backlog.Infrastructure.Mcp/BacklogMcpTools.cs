@@ -3,7 +3,7 @@ using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
-using Backlog.Modules.Tasks.Abstractions;
+using Backlog.Modules.Work.Abstractions.Tasks;
 using Backlog.SharedKernel;
 
 namespace Backlog.Infrastructure.Mcp;
@@ -103,12 +103,14 @@ public static class BacklogMcpTools
             TrackerTools.ListDevbookReferences
         ]);
 
-    /// <summary>The roadmap tool. Always listed: the roadmap is not switchable. Its
-    /// own group because Roadmap Planning is its own bounded context.</summary>
+    /// <summary>The planned-work tool, and <c>get_roadmap</c>, the name it had before
+    /// Tasks and Roadmap Planning merged into Work (local ADR 0073 §10), kept as its
+    /// alias. Always listed: the roadmap is not switchable. Its own group because a group
+    /// is a tool class, and this class holds the plan's port alone.</summary>
     public static McpToolGroup Roadmap { get; } = new(
         FeatureKey: null,
         typeof(RoadmapTools),
-        [RoadmapTools.GetRoadmap]);
+        [RoadmapTools.GetPlannedWork, RoadmapTools.GetRoadmap]);
 
     /// <summary>The devbook tools. Always listed: the Devbook is not switchable.</summary>
     public static McpToolGroup Devbook { get; } = new(
@@ -207,8 +209,8 @@ public static class BacklogMcpTools
 
     /// <summary>
     /// The impediment tools beside <c>set_blocked</c> — raise, move, and link and unlink what
-    /// an impediment holds back: Progress's own, so their own group (local ADR 0035 §5).
-    /// Always listed: Progress has no switch of its own — goals, impediments and the
+    /// an impediment holds back: Goals' own, so their own group (local ADR 0035 §5).
+    /// Always listed: Goals has no switch of its own — goals, impediments and the
     /// stand-up are always on (§10).
     /// </summary>
     public static McpToolGroup Impediments { get; } = new(
@@ -250,9 +252,9 @@ public static class BacklogMcpTools
     /// <summary>
     /// The goal tools: read the goals and the iterations they are read over, set, edit and
     /// delete one, attach and detach its work.
-    /// Progress's own, so their own group, beside <see cref="Impediments"/> rather than in it:
+    /// Goals' own, so their own group, beside <see cref="Impediments"/> rather than in it:
     /// a goal and an impediment are two things a model is told about. Always listed, for the
-    /// reason the impediment tools give: Progress has no switch of its own (local ADR 0035 §10).
+    /// reason the impediment tools give: Goals has no switch of its own (local ADR 0035 §10).
     /// </summary>
     public static McpToolGroup Goals { get; } = new(
         FeatureKey: null,

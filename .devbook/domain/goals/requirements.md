@@ -1,0 +1,1314 @@
+# Requirements
+
+```meta
+type: requirements
+related: [.devbook/domain/goals/features.md]
+```
+
+> What this context's features guarantee, one chapter per feature. Each
+> requirement is one SHALL sentence with the scenarios that prove it.
+
+The requirements of the Goals view, the stand-up and syncing name the tests that prove
+them. Syncing is proved between two desktops through the real sync
+service; none is proved end to end in the app yet. The scenarios use the goal
+"Customers get paid faster", due Friday 30 October 2026, with the plan `+bank-integration`
+attached. Today is Monday 19 October 2026 unless a scenario says otherwise, and the
+person reads by Week, so the last window is 12 to 16 October and the next is 19 to
+23 October.
+
+## The Goals view
+
+```meta
+type: requirements
+related: [.devbook/domain/goals/features.md#the-goals-view]
+```
+
+### Requirement: A goal lands from the done rate of the last four iterations
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Goals.UnitTests.GoalForecastingTests.Two_a_week_with_six_open_lands_at_the_end_of_the_third_week_from_now, unit:dotnet:Backlog.Modules.Goals.UnitTests.GoalForecastingTests.Month_reads_the_done_rate_from_June_to_September, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsTextTests.A_goal_line_reads_done_over_total_plus_the_window_due_and_landing]
+```
+
+The system SHALL forecast a goal's landing date from the average number of its items done in each of the last four iterations of the chosen length.
+
+#### Scenario: Two items a week, six open
+
+- **Given** the goal had 1, 3, 2 and 2 items done in the four weeks up to 16 October, and has 6 open items
+- **When** the Goals view is read
+- **Then** the goal lands at the end of the third week from now, Friday 6 November
+
+#### Scenario: A longer iteration reads a longer history
+
+- **Given** the person chose Month
+- **When** the Goals view is read
+- **Then** the done rate is read from June, July, August and September
+
+### Requirement: A goal landing after its due date is At risk
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Goals.UnitTests.GoalForecastingTests.Landing_after_the_due_date_is_at_risk, unit:dotnet:Backlog.Modules.Goals.UnitTests.GoalForecastingTests.Landing_on_the_due_date_is_on_track, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.A_goal_card_reads_its_line_and_forecast_and_its_bar_in_words]
+```
+
+The system SHALL show a goal as At risk when its landing date falls after its due date.
+
+#### Scenario: Landing a week late
+
+- **Given** the goal is due 30 October and lands 6 November, and no open impediment holds it back
+- **When** the Goals view is read
+- **Then** the goal reads "At risk" and "lands ~6 Nov"
+
+#### Scenario: Landing in time
+
+- **Given** the goal "Devbook search ships" is due 23 October and lands 23 October, and no open impediment holds it back
+- **When** the Goals view is read
+- **Then** the goal reads "On track"
+
+### Requirement: A goal without a due date is At risk when it lands after the current iteration
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Goals.UnitTests.GoalForecastingTests.A_goal_without_a_due_date_landing_after_next_is_at_risk, unit:dotnet:Backlog.Modules.Goals.UnitTests.GoalForecastingTests.A_goal_without_a_due_date_landing_inside_next_is_on_track, unit:dotnet:Backlog.Modules.Goals.UnitTests.GoalForecastingTests.A_goal_without_a_due_date_is_due_on_the_last_day_of_next_at_every_length, unit:dotnet:Backlog.Modules.Goals.UnitTests.StandUpTests.A_goal_without_a_due_date_reads_as_due_at_the_end_of_next, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsMapperTests.A_goal_without_a_due_date_reaches_the_card_due_at_the_iteration_end]
+```
+
+The system SHALL show a goal without a due date as At risk when its landing date falls after the last day of [next](domain.md#iteration).
+
+#### Scenario: A dateless goal landing a week late
+
+- **Given** the goal "Devbook search ships" has no due date and lands 30 October, and no open impediment holds it back
+- **When** the Goals view is read
+- **Then** the goal reads "due 23 Oct (end of iteration)", "At risk" and "lands ~30 Oct"
+
+#### Scenario: A dateless goal landing in the iteration
+
+- **Given** the goal "Devbook search ships" has no due date and lands 23 October, and no open impediment holds it back
+- **When** the Goals view is read
+- **Then** the goal reads "due 23 Oct (end of iteration)" and "On track"
+
+### Requirement: An open impediment puts its goal at risk
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Goals.UnitTests.GoalForecastingTests.An_open_impediment_puts_a_goal_landing_in_time_at_risk, unit:dotnet:Backlog.Modules.Goals.UnitTests.GoalForecastingTests.Without_an_open_impediment_a_goal_landing_in_time_is_on_track, unit:dotnet:Backlog.Modules.Goals.UnitTests.StandUpTests.A_goal_landing_in_time_with_only_a_resolved_impediment_is_on_track, unit:dotnet:Backlog.Modules.Goals.UnitTests.StandUpTests.An_open_impediment_on_the_goals_plan_puts_it_at_risk, unit:dotnet:Backlog.Modules.Goals.UnitTests.StandUpTests.An_impediment_on_a_pull_request_a_counted_task_links_names_that_goal_and_puts_it_at_risk, unit:dotnet:Backlog.Modules.Goals.UnitTests.StandUpTests.A_goal_stays_at_risk_while_its_impediment_reads_ready_to_resolve, unit:dotnet:Backlog.Modules.Goals.UnitTests.GoalForecastingTests.A_goal_with_no_open_item_held_back_by_an_open_impediment_is_at_risk_with_no_landing_date, unit:dotnet:Backlog.Modules.Goals.UnitTests.StandUpTests.A_finished_goal_stays_at_risk_until_the_impediment_holding_it_back_is_resolved]
+```
+
+The system SHALL show a goal as At risk while an open impediment holds back one of its counted items, or a plan with an entry it counts, whatever its landing date.
+
+#### Scenario: An impediment on a plan's entry
+
+- **Given** the goal lands before its due date, and the impediment "Bank sample files missing" is Escalated and holds back "Bank import mapping", an entry of `+bank-integration`
+- **When** the Goals view is read
+- **Then** the goal reads "At risk"
+
+#### Scenario: The impediment is resolved
+
+- **Given** the goal lands before its due date, and "Bank sample files missing" is Resolved
+- **When** the Goals view is read
+- **Then** the goal reads "On track"
+
+#### Scenario: An impediment on the goal's plan
+
+- **Given** the goal lands before its due date, and the open impediment "Bank API contract unsigned" holds back the plan `bank-integration`
+- **When** the Goals view is read
+- **Then** the goal reads "At risk"
+
+#### Scenario: An impediment ready to resolve
+
+- **Given** the goal lands before its due date, and "Bank sample files missing" is Reported and reads Ready to resolve
+- **When** the Goals view is read
+- **Then** the goal reads "At risk" until the person resolves the impediment
+
+### Requirement: A goal with no recent done rate and open items is At risk
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Goals.UnitTests.GoalForecastingTests.Nothing_done_in_four_iterations_with_open_items_is_at_risk_with_no_landing_date, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsTextTests.A_goal_line_drops_plus_nought_and_a_missing_landing]
+```
+
+The system SHALL show a goal that had no item done in the last four iterations and still has open items as At risk, with no landing date.
+
+#### Scenario: Nothing done for a month
+
+- **Given** the goal "Phone capture in daily use" had no item done in the four weeks up to 16 October and has 7 open items
+- **When** the Goals view is read
+- **Then** the goal reads "At risk" and shows no landing date
+
+### Requirement: Work in progress that no goal holds is listed under No goal
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHoldingTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests.Work_in_progress_no_goal_holds_is_listed_under_no_goal, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_goals_view_draws_the_board_over_the_shells_tasks, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsMapperTests.A_no_goal_task_row_carries_its_status_through_the_board, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsMapperTests.A_no_goal_pull_request_row_carries_its_read_status, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsMapperTests.A_no_goal_pull_request_row_whose_status_was_not_read_draws_unknown_with_its_title_and_url, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsMapperTests.The_pull_requests_no_goal_lists_are_read_after_the_goals_and_the_stand_ups, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.A_no_goal_task_row_is_dotted_as_the_open_goals_tasks_are_and_says_its_status, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.A_no_goal_pull_request_row_draws_its_status_line_in_place_of_the_plain_number]
+```
+
+The system SHALL list under No goal each task in progress and each open pull request in the repository scope that no goal holds, each with its state and Attach.
+
+#### Scenario: A task in progress outside every goal
+
+- **Given** the task "VAT rate per line item" in `backlog` is in progress and no goal holds it, and the header's scope is `backlog`
+- **When** the Goals view is read
+- **Then** "VAT rate per line item" is listed under No goal with its in-progress dot and "Attach…"
+
+#### Scenario: A blocked task outside every goal
+
+- **Given** the task "Payment matching rules" in `backlog` is blocked and no goal holds it
+- **When** the Goals view is read
+- **Then** "Payment matching rules" is listed under No goal with its blocked dot, and a screen reader hears "Payment matching rules, blocked"
+
+#### Scenario: An open pull request outside every goal
+
+- **Given** pull request #1362 "Credit notes" in `JSdotNet/Backlog` is open with 10 checks, 1 failing and 2 running, and asks for the person's review
+- **When** the Goals view is read
+- **Then** #1362 is listed under No goal with its status line in place of its plain number: its number, its checks and approvals and "your review"
+
+## Setting a goal
+
+```meta
+type: requirements
+related: [.devbook/domain/goals/features.md#setting-a-goal]
+```
+
+### Requirement: A goal needs a title
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Goals.UnitTests.GoalsTests.A_goal_without_a_due_date_is_saved_without_one, unit:dotnet:Backlog.Modules.Goals.UnitTests.GoalsTests.A_goal_without_a_title_is_not_saved, unit:dotnet:Backlog.UI.Components.UnitTests.GoalPickerTests.New_goal_with_a_title_and_no_due_date_hands_back_no_date]
+```
+
+The system SHALL refuse to save a goal only when it has no title.
+
+#### Scenario: No due date
+
+- **Given** the person opened New goal
+- **When** they give the title "Customers get paid faster" and no due date, and save
+- **Then** the goal is saved and reads "due 23 Oct (end of iteration)"
+
+### Requirement: Deleting a goal leaves its work unchanged
+
+```meta
+type: requirement
+```
+
+The system SHALL, once the person confirms deleting a goal, remove the goal and its attachments and change no plan, task or pull request it held.
+
+#### Scenario: Deleting a goal with a plan attached
+
+- **Given** the goal holds `+bank-integration` and the task "Credit notes"
+- **When** the person deletes the goal and confirms
+- **Then** the goal is gone, every task of `+bank-integration` and "Credit notes" are unchanged, and "Credit notes", while in progress, shows under No goal
+
+## Attaching work to a goal
+
+```meta
+type: requirements
+related: [.devbook/domain/goals/features.md#attaching-work-to-a-goal]
+```
+
+### Requirement: An attached plan counts each of its entries
+
+```meta
+type: requirement
+```
+
+The system SHALL count an attached plan as one item per entry filed under its tag, finished or not, including entries filed after it was attached.
+
+#### Scenario: A plan of nine entries
+
+- **Given** `+bank-integration` has 9 entries, 5 of them done, and the goal holds nothing else
+- **When** the goal is read
+- **Then** its progress is 5/9
+
+#### Scenario: An entry filed later
+
+- **Given** the goal holds `+bank-integration` at 5/9
+- **When** a new task is filed under `+bank-integration`
+- **Then** the goal's progress reads 5/10
+
+### Requirement: An attached task counts once with its pull requests
+
+```meta
+type: requirement
+```
+
+The system SHALL count an attached task as one item, and SHALL not count again the pull requests the task links.
+
+#### Scenario: A task with two pull requests
+
+- **Given** the goal holds only the task "Invoice PDF export", which links #1338 and #1340
+- **When** the goal is read
+- **Then** its total is 1
+
+#### Scenario: A pull request attached beside its task
+
+- **Given** the goal holds the task "Invoice PDF export", which links #1338, and holds #1338 as well
+- **When** the goal is read
+- **Then** its total is 1
+
+### Requirement: An attached pull request counts once
+
+```meta
+type: requirement
+```
+
+The system SHALL count an attached pull request that no attached task links as one item, done once it is merged.
+
+#### Scenario: A merged pull request
+
+- **Given** the goal holds only #1352, which is merged
+- **When** the goal is read
+- **Then** its progress is 1/1
+
+### Requirement: An attached session counts once with its tasks and pull request
+
+```meta
+type: requirement
+related: [.devbook/arc42/adr/0037-a-session-attaches-to-a-goal-as-its-own-item.md]
+```
+
+The system SHALL count an attached session as one item, and SHALL not count again the tasks linked to it or the pull request on its branch.
+
+#### Scenario: A session with a task and a pull request
+
+- **Given** the goal holds only "Session abcd1234", which is linked to the task "Quick add by session" and whose branch has #1531
+- **When** the goal is read
+- **Then** its total is 1
+
+#### Scenario: A session beside its linked task
+
+- **Given** the goal holds "Session abcd1234" and also the task "Quick add by session", which is linked to it
+- **When** the goal is read
+- **Then** its total is 1, counted as the task
+
+#### Scenario: A session beside its pull request
+
+- **Given** the goal holds "Session abcd1234" and also #1531, the pull request on its branch
+- **When** the goal is read
+- **Then** its total is 1
+
+### Requirement: An attached session is done by its work
+
+```meta
+type: requirement
+related: [.devbook/domain/goals/domain.md#done]
+```
+
+The system SHALL count an attached session as done when the pull request on its branch is merged or it has linked tasks that are all done, and never because the session finished.
+
+#### Scenario: Its pull request merges
+
+- **Given** the goal holds only "Session abcd1234", whose branch pull request #1531 is open
+- **When** #1531 is merged
+- **Then** the goal's progress reads 1/1
+
+#### Scenario: Its linked task is done
+
+- **Given** the goal holds only "Session abcd1234", linked to "Quick add by session", and its branch has no pull request
+- **When** "Quick add by session" is marked Done
+- **Then** the goal's progress reads 1/1
+
+#### Scenario: A finished session that shipped nothing
+
+- **Given** the goal holds only "Session abcd1234", which has finished, has no linked task and no pull request on its branch
+- **When** the goal is read
+- **Then** its progress is 0/1
+
+### Requirement: Quick add by session number offers the session and what it has
+
+```meta
+type: requirement
+related: [.devbook/domain/goals/features.md#attaching-work-to-a-goal]
+```
+
+The system SHALL find a session in a goal's attach search by its session id, whole or its first eight characters, listing it first, then each linked task, then any pull request on its branch.
+
+#### Scenario: Typing a short id
+
+- **Given** "Session abcd1234" is linked to "Quick add by session" and its branch has #1531
+- **When** the person types `abcd1234` in the goal's attach search
+- **Then** the list shows "Session abcd1234", then "Quick add by session", then #1531, each named by its kind
+
+#### Scenario: A session with nothing yet
+
+- **Given** "Session ef015678" has no linked task and no pull request on its branch
+- **When** the person types `Session ef015678` in the goal's attach search
+- **Then** the list shows only "Session ef015678"
+
+#### Scenario: The Sessions area is off
+
+- **Given** the Sessions area is switched off
+- **When** the person types `abcd1234` in the goal's attach search
+- **Then** no session is listed
+
+### Requirement: A finished plan and a done task are not offered
+
+```meta
+type: requirement
+related: [.devbook/domain/goals/features.md#attaching-work-to-a-goal, .devbook/domain/goals/features.md#linking-what-an-impediment-holds-back, .devbook/domain/goals/domain.md#settled]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsMapperTests.The_attach_search_matches_every_unfinished_plan_every_open_task_and_every_open_pull_request, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsMapperTests.The_attach_search_leaves_out_a_plan_whose_entries_are_all_done, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsMapperTests.The_attach_search_keeps_a_plan_with_an_open_entry, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsMapperTests.The_attach_search_keeps_a_plan_with_no_entries]
+```
+
+The system SHALL leave out of a goal's attach search and an impediment's Link… search every done task and every plan that gathers at least one entry, all of them done or archived.
+
+#### Scenario: A plan with every entry over, in the attach search
+
+- **Given** every entry `+bank-integration` gathers is done or archived
+- **When** the person types `bank` in the attach search of "Customers get paid faster"
+- **Then** `+bank-integration` is not offered
+
+#### Scenario: A plan with every entry over, in Link…
+
+- **Given** every entry `+bank-integration` gathers is done or archived
+- **When** the person types `bank` in an impediment's Link… search
+- **Then** `+bank-integration` is not offered
+
+#### Scenario: A plan with an open entry
+
+- **Given** `+bank-integration` gathers one done entry and "Bank import mapping", which is in progress
+- **When** the person types `bank` in the attach search of "Customers get paid faster"
+- **Then** `+bank-integration` is offered
+
+#### Scenario: A plan with no entries
+
+- **Given** `+bank-integration` gathers no entry
+- **When** the person types `bank` in the attach search of "Customers get paid faster"
+- **Then** `+bank-integration` is offered
+
+#### Scenario: A done task
+
+- **Given** the task "Bank import mapping" is done
+- **When** the person types `bank import` in the attach search of "Customers get paid faster"
+- **Then** "Bank import mapping" is not offered
+
+#### Scenario: Reopening an entry
+
+- **Given** every entry `+bank-integration` gathers is done or archived, so it is not offered
+- **When** the person reopens its entry "Bank import mapping" and types `bank` in the attach search of "Customers get paid faster"
+- **Then** `+bank-integration` is offered
+
+### Requirement: A task in an attached plan counts once
+
+```meta
+type: requirement
+```
+
+The system SHALL count a task that the goal holds both directly and as an entry of an attached plan as one item.
+
+#### Scenario: Attached twice over
+
+- **Given** the goal holds `+bank-integration`, 9 entries, and also holds its entry "Customer search by IBAN" as a task
+- **When** the goal is read
+- **Then** its total is 9
+
+### Requirement: An item belongs to at most one goal
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests.An_item_another_goal_holds_asks_first_and_moves_on_confirm, unit:dotnet:Backlog.UI.Components.UnitTests.GoalPickerTests]
+```
+
+The system SHALL NOT attach an item another goal holds without naming that goal, asking whether to move the item and moving it only on yes, so the item is never in two goals.
+
+#### Scenario: A task another goal holds
+
+- **Given** the goal "Devbook search ships" holds the task "Highlight matches"
+- **When** the person attaches "Highlight matches" to "Customers get paid faster"
+- **Then** the view asks in the Attach to goal picker, "Customers get paid faster" chosen, saying "Attaching moves this task from “Devbook search ships”.", and until the person answers the task stays in that goal
+
+#### Scenario: Moving a task to another goal
+
+- **Given** the view asks whether to move "Highlight matches" from "Devbook search ships"
+- **When** the person presses Attach
+- **Then** "Customers get paid faster" holds "Highlight matches", and "Devbook search ships" no longer does
+
+#### Scenario: Declining the move
+
+- **Given** the view asks whether to move "Highlight matches" from "Devbook search ships"
+- **When** the person presses Cancel
+- **Then** "Highlight matches" stays in "Devbook search ships", and "Customers get paid faster" holds nothing new
+
+#### Scenario: An entry another goal holds directly
+
+- **Given** "Devbook search ships" holds the task "Bank import mapping" directly, and "Customers get paid faster" holds `+bank-integration`, which files it
+- **When** both goals are read
+- **Then** "Bank import mapping" counts in "Devbook search ships" only
+
+### Requirement: A No goal row dropped on a goal is attached to it
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.With_a_host_listening_and_a_goal_each_no_goal_row_has_a_grip_and_every_goal_takes_a_drop, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.Without_a_host_listening_or_without_a_goal_no_row_can_be_carried, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.A_no_goal_row_dropped_on_a_goal_attaches_to_it_and_says_so, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.A_carried_row_follows_the_pointer_and_a_drop_off_every_goal_attaches_nothing, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.A_row_a_reading_took_out_of_no_goal_during_the_carry_attaches_nothing, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.A_drop_the_host_refuses_is_not_said, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.A_cancelled_carry_attaches_nothing, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.While_the_host_writes_a_row_is_not_picked_up, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.A_goal_drag_passing_over_a_no_goal_row_still_reorders_and_attaches_nothing]
+```
+
+The system SHALL attach a No goal row dragged onto a goal, open or folded, to that goal as Attach does, and attach nothing when it is dropped anywhere else or the drag is cancelled.
+
+#### Scenario: Dropping a task on a folded goal
+
+- **Given** "VAT rate per line item" is listed under No goal and "Customers get paid faster" is folded
+- **When** the person drags the row by its grip onto "Customers get paid faster" and releases
+- **Then** "Customers get paid faster" holds "VAT rate per line item", and a screen reader hears "Attached VAT rate per line item to Customers get paid faster."
+
+#### Scenario: Dropping off every goal
+
+- **Given** the person is dragging "VAT rate per line item"
+- **When** they release it over another No goal row, or press Escape
+- **Then** no goal holds "VAT rate per line item", and it stays under No goal
+
+#### Scenario: A refused drop
+
+- **Given** the person drops "VAT rate per line item" on "Customers get paid faster"
+- **When** the attach is refused
+- **Then** the refusal shows and nothing is announced as attached
+
+### Requirement: Attaching changes nothing on the work
+
+```meta
+type: requirement
+```
+
+The system SHALL leave a plan, task, pull request or session unchanged when it is attached to a goal or detached from one.
+
+#### Scenario: Detaching a task
+
+- **Given** the goal holds the task "Credit notes", which is in progress
+- **When** the person detaches it
+- **Then** "Credit notes" is still in progress with the same tags and linked pull requests
+
+## Choosing the iteration
+
+```meta
+type: requirements
+related: [.devbook/domain/goals/features.md#choosing-the-iteration]
+```
+
+### Requirement: A Day window is one working day
+
+```meta
+type: requirement
+```
+
+The system SHALL, with Day chosen, read the next window as today when today is a working day, and the last window as the working day before it.
+
+#### Scenario: A Monday stand-up
+
+- **Given** today is Monday 19 October and the person works Monday to Friday
+- **When** the person chooses Day
+- **Then** the last window is Friday 16 October and the next is Monday 19 October
+
+### Requirement: A Week window runs Monday to Friday
+
+```meta
+type: requirement
+```
+
+The system SHALL, with Week chosen, read each window as Monday to Friday, and on a day outside every window take the next window as the first one after today.
+
+#### Scenario: Read on a Saturday
+
+- **Given** today is Saturday 17 October
+- **When** the person chooses Week
+- **Then** the header reads "12–16 Oct → 19–23 Oct"
+
+### Requirement: Two-week windows keep to the start date
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests.Choosing_2_weeks_the_first_time_asks_for_the_start_offering_this_weeks_monday_and_keeps_it_before_the_length, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests.Cancelling_the_two_week_start_keeps_the_iteration_as_it_was, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests.With_a_two_week_start_kept_2_weeks_switches_without_asking, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.The_two_week_start_dialog_opens_on_the_offered_day_and_hands_back_the_one_given, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.The_two_week_start_dialog_refuses_a_blank_day_and_keeps_nothing]
+```
+
+The system SHALL, with 2 weeks chosen, read each window as fourteen days starting on the two-week start or a whole number of fourteen days from it.
+
+#### Scenario: Anchored on 5 October
+
+- **Given** the two-week start is Monday 5 October and today is Monday 19 October
+- **When** the person chooses 2 weeks
+- **Then** the last window is 5 to 18 October and the next is 19 October to 1 November
+
+#### Scenario: Choosing 2 weeks for the first time
+
+- **Given** the person has never chosen 2 weeks
+- **When** they choose it
+- **Then** they are asked for the start date, with Monday 19 October offered
+
+### Requirement: A Month window is a calendar month
+
+```meta
+type: requirement
+```
+
+The system SHALL, with Month chosen, read each window as one calendar month.
+
+#### Scenario: Read in October
+
+- **Given** today is Monday 19 October
+- **When** the person chooses Month
+- **Then** the last window is September and the next is October
+
+### Requirement: The iteration length is the person's own
+
+```meta
+type: requirement
+```
+
+The system SHALL keep the chosen iteration length as the person's setting and open the Goals view and the stand-up on it.
+
+#### Scenario: Reopening the app
+
+- **Given** the person chose 2 weeks
+- **When** they reopen the app
+- **Then** the Goals view reads by 2 weeks
+
+## The stand-up
+
+```meta
+type: requirements
+related: [.devbook/domain/goals/features.md#the-stand-up]
+```
+
+### Requirement: The stand-up has four blocks
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.The_goals_heading_carries_the_count_of_goals, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.The_stand_up_heads_each_block_with_its_count_and_tags_planned_with_points]
+```
+
+The system SHALL show the stand-up as four blocks in this order: Goals, Finished, Planned and Impediments, each heading with its count.
+
+#### Scenario: A week's stand-up
+
+- **Given** three goals, seven items done from 12 to 16 October, five planned items and three open impediments
+- **When** the stand-up is read
+- **Then** it shows Goals, Finished 7, Planned 5 and Impediments 3, in that order
+
+### Requirement: Finished lists only what a goal counts
+
+```meta
+type: requirement
+```
+
+The system SHALL list under Finished every item done in the last window that a goal counts, grouped by that goal, and no item that no goal counts.
+
+#### Scenario: A task done outside every goal
+
+- **Given** "Invoice PDF export" of "Customers get paid faster" and "VAT rate per line item" of no goal were both done on 14 October
+- **When** the stand-up is read
+- **Then** "Invoice PDF export" is under "Customers get paid faster" and "VAT rate per line item" is not listed
+
+### Requirement: Planned is derived from three sources
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Goals.UnitTests.StandUpTests.Planned_is_derived_from_three_sources, unit:dotnet:Backlog.Modules.Goals.UnitTests.StandUpTests.An_item_from_two_sources_is_planned_once]
+```
+
+The system SHALL list under Planned, each once, the items goals hold in progress, items due inside the next window, and each attached plan's first ready entry in plan order not in progress.
+
+#### Scenario: All three sources
+
+- **Given** "Customer search by IBAN" of the goal is in progress, "Recurring invoices" is due 22 October, and "Payment matching rules" is the first ready entry of `+bank-integration` not in progress
+- **When** the stand-up is read
+- **Then** all three are under Planned, under "Customers get paid faster"
+
+#### Scenario: An item from two sources
+
+- **Given** "Customer search by IBAN" is in progress and due 21 October
+- **When** the stand-up is read
+- **Then** it is listed under Planned once
+
+### Requirement: The points tag compares planned effort with the scaled pace
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Goals.UnitTests.StandUpTests.The_points_tag_adds_up_planned_effort_beside_the_weekly_pace, unit:dotnet:Backlog.Modules.Goals.UnitTests.StandUpTests.The_points_tag_scales_the_pace_to_a_day, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsTextTests.The_points_tag_compares_planned_with_capacity, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.A_planned_item_shows_its_effort_in_points_and_one_without_shows_none, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests.A_planned_items_effort_reaches_the_stand_up_in_points]
+```
+
+The system SHALL tag Planned with the planned items' `effort:` added up, then the person's pace from the Roadmap scaled to the next window's working days, as `planned / capacity pts`.
+
+#### Scenario: A week at 18 points
+
+- **Given** the planned items carry 5, 8, 3 and 5 points and one carries none, and the pace is 18 points a week
+- **When** the stand-up is read by Week
+- **Then** Planned is tagged `21 / 18 pts`
+
+#### Scenario: A day at 18 points a week
+
+- **Given** the planned items carry 5 points, and the pace is 18 points a five-day week
+- **When** the stand-up is read by Day
+- **Then** Planned is tagged `5 / 4 pts`
+
+### Requirement: Impediments lists the open ones and counts the resolved
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Modules.Goals.UnitTests.StandUpTests.Read_by_Day_impediments_list_the_open_ones_with_who_age_and_goal_and_count_the_resolved, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsTextTests.An_impediment_with_nobody_named_reads_not_reported_yet, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.An_impediment_row_names_who_it_is_with_its_age_and_its_goal_in_the_error_ink, unit:dotnet:Backlog.Modules.Goals.UnitTests.StandUpTests.An_impediment_on_a_pull_request_a_counted_task_links_names_that_goal_and_puts_it_at_risk, unit:dotnet:Backlog.Modules.Goals.UnitTests.StandUpTests.The_line_names_the_goal_of_the_first_item_linked]
+```
+
+The system SHALL list under Impediments every open impediment, with its state, who it is with, its age in working days and the goal it holds back, then the count resolved in the last window.
+
+#### Scenario: One escalated, one resolved
+
+- **Given** "Bank sample files missing" was raised on Wednesday 14 October and is Escalated to the account manager, and one other impediment was resolved on 15 October
+- **When** the stand-up is read by Day on Friday 16 October, so the last window is Thursday 15 October
+- **Then** it lists "Bank sample files missing", Escalated, "Account manager · 3 days · Customers get paid faster", and reads "1 resolved"
+
+#### Scenario: A new impediment
+
+- **Given** "Credit note numbering unclear" is New
+- **When** the stand-up is read
+- **Then** its line reads "Not reported yet"
+
+#### Scenario: An impediment on a pull request
+
+- **Given** "Bank sandbox down" holds back `acme/invoicing#1358` alone, which the task "Bank import mapping" of "Customers get paid faster" links
+- **When** the stand-up is read
+- **Then** its line names "Customers get paid faster"
+
+### Requirement: Copy for stand-up copies the four blocks
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.UI.Components.UnitTests.StandUpClipboardTests]
+```
+
+The system SHALL put the four blocks on the clipboard on the desktop as plain text, each heading with its count.
+
+#### Scenario: Pasting into Teams
+
+- **Given** the stand-up is read on the desktop
+- **When** the person chooses Copy for stand-up and pastes into a Teams message
+- **Then** the message holds the four blocks as plain text, with their counts
+
+### Requirement: An agent reads the goals and iterations through MCP
+
+```meta
+type: requirement
+related: [.devbook/domain/goals/features.md#reading-the-stand-up-as-an-agent]
+tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.GoalToolsTests.Read_iterations_without_a_length_reads_the_persons_own_iteration, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.GoalToolsTests.Read_iterations_with_a_length_reads_that_length_as_of_today, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.GoalToolsTests.An_unknown_length_is_refused_and_nothing_is_read, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.GoalToolsTests.Read_iterations_answers_each_goal_with_its_standing_its_landing_and_what_it_did_in_the_window, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.GoalToolsTests.Read_iterations_answers_what_was_finished_and_what_is_planned_grouped_by_goal, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.GoalToolsTests.Read_iterations_answers_each_open_impediment_with_what_it_holds_back_and_whether_it_reads_ready_to_resolve]
+```
+
+The system SHALL let an agent read the goals and the stand-up through MCP, by the person's own iteration length or a named one, and refuse any other length.
+
+#### Scenario: The person's own length
+
+- **Given** the person's iteration length is Week, and today is Saturday 17 October
+- **When** an agent calls `read_iterations` with no length
+- **Then** the last window is 12–16 October and the next is 19–23 October, with "Customers get paid faster" and "Bank sample files missing" read over them
+
+#### Scenario: A named length
+
+- **Given** the person's iteration length is Week, and today is Monday 19 October
+- **When** an agent calls `read_iterations` with the length `month`
+- **Then** the last window is September and the next is October, whatever the person's setting
+
+#### Scenario: An unknown length
+
+- **Given** the goal "Customers get paid faster" is set
+- **When** an agent calls `read_iterations` with the length `sprint`
+- **Then** the call is refused with `goals.iteration_length_unknown`, and nothing is read
+
+## Tracking an impediment
+
+```meta
+type: requirements
+related: [.devbook/domain/goals/features.md#tracking-an-impediment]
+```
+
+### Requirement: An impediment moves forward along its states
+
+```meta
+type: requirement
+```
+
+The system SHALL let an impediment move from New to Reported, from Reported to Escalated or Being handled, and from Escalated to Being handled, and SHALL refuse every other move except to Resolved.
+
+#### Scenario: Skipping Escalated
+
+- **Given** "Android build runner flaky" is Reported to the platform team
+- **When** the person moves it to Being handled
+- **Then** it is Being handled, and its history reads New, Reported, Being handled
+
+#### Scenario: Moving back
+
+- **Given** "Bank sample files missing" is Escalated
+- **When** the person moves it to Reported
+- **Then** the move is refused and it stays Escalated
+
+### Requirement: Any open impediment can be resolved
+
+```meta
+type: requirement
+```
+
+The system SHALL let an impediment in any state but Resolved move to Resolved.
+
+#### Scenario: Resolved while New
+
+- **Given** "Credit note numbering unclear" is New
+- **When** the person resolves it
+- **Then** it is Resolved, and its history reads New, Resolved
+
+#### Scenario: A resolved impediment stays resolved
+
+- **Given** "Credit note numbering unclear" is Resolved
+- **When** the person tries to move it to Reported
+- **Then** the move is refused
+
+### Requirement: Every move records its day and who it is with
+
+```meta
+type: requirement
+```
+
+The system SHALL record with each move the day it was made and who the impediment is with at that step.
+
+#### Scenario: Escalating on a Friday
+
+- **Given** "Bank sample files missing" was New on 14 October and Reported to bank support on 15 October
+- **When** the person escalates it to the account manager on Friday 16 October
+- **Then** its history reads New Wed 14, Reported · bank support Thu 15, Escalated · account manager Fri 16
+
+### Requirement: A person raises an impediment from the stand-up
+
+```meta
+type: requirement
+related: [.devbook/domain/goals/features.md#raising-an-impediment]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests.Raise_impediment_raises_it_through_the_module_with_its_first_items_and_reads_again, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests.A_refused_raise_keeps_the_dialog_open_with_the_modules_words_and_reads_nothing, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.The_raise_dialog_refuses_a_blank_title_on_the_field_and_hands_nothing_back, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.The_raise_dialogs_blank_title_message_clears_once_a_title_is_typed, unit:dotnet:Backlog.Modules.Goals.UnitTests.ImpedimentsTests.Raising_stores_a_New_impediment_dated_today_with_its_items_and_note]
+```
+
+The system SHALL let a person raise an impediment from the desktop stand-up's Impediments block with a title, an optional note and optional first items it holds back.
+
+#### Scenario: Raising with a title alone
+
+- **Given** no impediment is called "Bank API contract unsigned"
+- **When** the person raises "Bank API contract unsigned" on Monday 19 October
+- **Then** it is listed under Impediments, New, holding back nothing, and its history reads New Mon 19
+
+#### Scenario: Raising with a note and a first item
+
+- **Given** the task "Bank import mapping" is in progress
+- **When** the person raises "Bank sample files missing" with the note "Asked Jan on 14 Oct" and links "Bank import mapping" in the same form
+- **Then** it is listed New, shows the note, and holds back "Bank import mapping"
+
+#### Scenario: Raising without a title
+
+- **Given** the raise form is open
+- **When** the person leaves the title blank and confirms
+- **Then** no impediment is raised, and the form says a title is needed
+
+### Requirement: A person links and unlinks what an impediment holds back
+
+```meta
+type: requirement
+related: [.devbook/domain/goals/features.md#linking-what-an-impediment-holds-back]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests.Link_holds_back_the_picked_item_through_the_module_and_reads_again, unit:dotnet:Backlog.Desktop.UI.UnitTests.GoalsHostTests.A_refused_unlink_stays_in_the_row_and_reads_nothing, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.Link_opens_the_work_search_without_what_the_row_holds_and_hands_the_pick_back, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.Unlink_hands_the_item_back_named_for_it_and_the_impediment, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.The_work_search_offers_only_the_kinds_it_is_given, unit:dotnet:Backlog.Modules.Goals.UnitTests.ImpedimentsTests.Pull_requests_and_plans_are_linked_once_and_unlinked_leaving_the_history_alone]
+```
+
+The system SHALL let a person, on the desktop stand-up, link a task, a pull request or a plan to an open impediment and unlink one, changing nothing on the work it names.
+
+#### Scenario: Linking a pull request no task covers
+
+- **Given** "Bank sandbox down" holds back nothing, and no task links `acme/invoicing#1358`
+- **When** the person links `acme/invoicing#1358` to it
+- **Then** it holds back `acme/invoicing#1358`, and the pull request is unchanged
+
+#### Scenario: Linking a plan
+
+- **Given** "Bank API contract unsigned" holds back nothing
+- **When** the person links the plan `bank-integration`
+- **Then** it holds back the plan, and an entry filed under `+bank-integration` later is held back with it
+
+#### Scenario: Linking an item twice
+
+- **Given** "Bank sample files missing" holds back "Bank import mapping"
+- **When** the person links "Bank import mapping" again
+- **Then** it holds back "Bank import mapping" once, and its history is unchanged
+
+#### Scenario: Unlinking an item
+
+- **Given** "Bank sample files missing" holds back "Bank import mapping" and `acme/invoicing#1358`
+- **When** the person unlinks `acme/invoicing#1358`
+- **Then** it holds back "Bank import mapping" alone, keeps its state, and its history is unchanged
+
+#### Scenario: No session is offered
+
+- **Given** the session "Session abcd1234" is running
+- **When** the person searches for "abcd1234" in an impediment's Link… search
+- **Then** the session is not offered
+
+### Requirement: An agent raises and links impediments through MCP
+
+```meta
+type: requirement
+related: [.devbook/domain/goals/features.md#impediments-for-agents]
+tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.ImpedimentToolsTests.Raise_takes_tasks_pull_requests_and_plan_tags, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.ImpedimentToolsTests.Link_hands_the_one_item_its_selector_names_to_the_port, unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.ImpedimentToolsTests.Link_and_unlink_take_exactly_one_whole_selector]
+```
+
+The system SHALL let an agent, through MCP, raise an impediment holding back tasks, pull requests and plans, and link or unlink a task, a pull request or a plan on an existing one.
+
+#### Scenario: Raising with a pull request
+
+- **Given** an agent hits a failing bank sandbox while working on `acme/invoicing#1358`
+- **When** it calls `raise_impediment` titled "Bank sandbox down", holding back `acme/invoicing#1358`
+- **Then** a New impediment "Bank sandbox down" holds back that pull request
+
+#### Scenario: Linking a plan
+
+- **Given** the impediment "Bank API contract unsigned" holds back nothing
+- **When** an agent links the plan `bank-integration` to it
+- **Then** it holds back the plan
+
+#### Scenario: A pull request without its repository
+
+- **Given** the impediment "Bank sandbox down" is open
+- **When** an agent links pull request 1358 with no repository
+- **Then** the link is refused, and the impediment is unchanged
+
+### Requirement: A held-back item is settled by its kind
+
+```meta
+type: requirement
+related: [.devbook/domain/goals/domain.md#settled]
+tests: [unit:dotnet:Backlog.Modules.Goals.UnitTests.HeldBackItemsTests.A_task_is_settled_when_Done_or_Archived, unit:dotnet:Backlog.Modules.Goals.UnitTests.HeldBackItemsTests.A_task_the_reading_does_not_have_is_never_settled, unit:dotnet:Backlog.Modules.Goals.UnitTests.HeldBackItemsTests.A_pull_request_is_settled_when_merged_or_closed_and_read_from_a_repository_that_is_not_archived, unit:dotnet:Backlog.Modules.Goals.UnitTests.HeldBackItemsTests.A_pull_request_with_no_answer_is_never_settled, unit:dotnet:Backlog.Modules.Goals.UnitTests.HeldBackItemsTests.A_plan_is_settled_when_every_entry_it_gathers_is_Done_or_Archived, unit:dotnet:Backlog.Modules.Goals.UnitTests.HeldBackItemsTests.A_plan_with_an_open_entry_or_no_entry_is_not_settled, unit:dotnet:Backlog.Modules.Goals.UnitTests.StandUpTests.The_line_lists_each_held_back_item_with_whether_it_is_settled]
+```
+
+The system SHALL count a held-back task as settled when Done or Archived, a pull request when merged or closed, and a plan when it gathers at least one entry, all Done or Archived.
+
+#### Scenario: An archived task
+
+- **Given** "Bank sample files missing" holds back "Old CSV import", which was archived on 15 October
+- **When** the stand-up is read
+- **Then** "Old CSV import" counts as settled
+
+#### Scenario: A pull request closed without merging
+
+- **Given** "Bank sandbox down" holds back `acme/invoicing#1344`, which was closed without merging
+- **When** the stand-up is read
+- **Then** `acme/invoicing#1344` counts as settled
+
+#### Scenario: A plan with one open entry left
+
+- **Given** "Bank API contract unsigned" holds back the plan `bank-integration`, eight of whose nine entries are Done and "Payment matching rules" is in progress
+- **When** the stand-up is read
+- **Then** the plan does not count as settled
+
+#### Scenario: A plan with no entries
+
+- **Given** "Bank API contract unsigned" holds back the plan `bank-statements`, which no entry carries
+- **When** the stand-up is read
+- **Then** the plan does not count as settled
+
+#### Scenario: A deleted task
+
+- **Given** "Bank sample files missing" holds back a task that was deleted on 16 October
+- **When** the stand-up is read
+- **Then** that item does not count as settled
+
+#### Scenario: A pull request that cannot be read
+
+- **Given** "Bank sandbox down" holds back `acme/legacy-billing#77`, whose repository is archived
+- **When** the stand-up is read
+- **Then** `acme/legacy-billing#77` does not count as settled
+
+### Requirement: An impediment whose items are all settled reads Ready to resolve
+
+```meta
+type: requirement
+related: [.devbook/domain/goals/domain.md#ready-to-resolve, .devbook/domain/goals/features.md#seeing-an-impediment-ready-to-resolve]
+tests: [unit:dotnet:Backlog.Modules.Goals.UnitTests.StandUpTests.Ready_to_resolve_follows_the_work_and_reading_it_stores_nothing, unit:dotnet:Backlog.Modules.Goals.UnitTests.StandUpTests.A_goal_stays_at_risk_while_its_impediment_reads_ready_to_resolve, unit:dotnet:Backlog.Modules.Goals.UnitTests.HeldBackItemsTests.An_impediment_that_holds_back_nothing_is_never_ready, unit:dotnet:Backlog.Modules.Goals.UnitTests.HeldBackItemsTests.One_unsettled_item_keeps_it_from_being_ready, unit:dotnet:Backlog.UI.Components.UnitTests.GoalsBoardComponentsTests.Ready_to_resolve_is_a_settled_badge_beside_the_picker_that_keeps_the_stored_state]
+```
+
+The system SHALL mark an open impediment Ready to resolve, on the desktop and on the phone, while it holds back at least one item and all are settled, leaving its state and history unchanged.
+
+#### Scenario: A done task still marked blocked
+
+- **Given** the impediment "Beschikbaarheid van reserveringen" is New and holds back the task of that name alone, which was Done on 20 October and still carries `blocked:2026-10-13`
+- **When** the stand-up is read
+- **Then** the impediment is listed, New, and reads Ready to resolve
+
+#### Scenario: An impediment with no links
+
+- **Given** "Credit note numbering unclear" is New and holds back nothing
+- **When** the stand-up is read
+- **Then** it is listed and does not read Ready to resolve
+
+#### Scenario: One item still open
+
+- **Given** "Bank sample files missing" holds back "Old CSV import", archived, and "Bank import mapping", in progress
+- **When** the stand-up is read
+- **Then** it does not read Ready to resolve
+
+#### Scenario: Work that comes back
+
+- **Given** "Beschikbaarheid van reserveringen" reads Ready to resolve, and its task is moved from Done back to in progress
+- **When** the stand-up is read again
+- **Then** it no longer reads Ready to resolve, and it is still New
+
+#### Scenario: The person resolves it
+
+- **Given** "Beschikbaarheid van reserveringen" reads Ready to resolve
+- **When** the person moves it to Resolved
+- **Then** it leaves the list of open impediments, and its history reads New, Resolved
+
+### Requirement: A task's blocked mark changes no impediment
+
+```meta
+type: requirement
+related: [.devbook/domain/work/features.md#marking-a-task-blocked]
+tests: [integration:dotnet:Backlog.HostComposition.UnitTests.BlockedMarkRaisesNoImpedimentTests.Set_blocked_raises_no_impediment, integration:dotnet:Backlog.HostComposition.UnitTests.BlockedMarkRaisesNoImpedimentTests.Removing_the_blocked_token_leaves_the_impediment_that_holds_the_task_back_alone]
+```
+
+The system SHALL raise, move and change no impediment when a task is marked blocked or its mark is removed.
+
+#### Scenario: Marking a task blocked
+
+- **Given** the task "Bank import mapping" is held back by no impediment
+- **When** an agent calls `set_blocked` on it
+- **Then** no impediment is raised
+
+#### Scenario: The token is removed
+
+- **Given** "Bank sample files missing", Being handled, holds back "Bank import mapping", which is marked blocked
+- **When** the `blocked:` token is removed from the task
+- **Then** "Bank sample files missing" is still Being handled
+
+### Requirement: A blocked task raises one New impediment
+
+```meta
+type: requirement
+```
+
+When a task is marked blocked, by its `blocked:` token or a `set_blocked` call, the system SHALL raise a New impediment titled with the task's title that holds the task back, unless an impediment already holds it back that is not Resolved, or that was raised on or after the day the task was marked blocked.
+
+#### Scenario: Marking a task blocked
+
+- **Given** the task "Bank import mapping" is held back by no impediment
+- **When** an agent calls `set_blocked` on it
+- **Then** a New impediment "Bank import mapping" holds it back
+
+#### Scenario: Already held back
+
+- **Given** "Bank sample files missing", Escalated, holds back "Bank import mapping"
+- **When** the person adds a `blocked:` token to "Bank import mapping"
+- **Then** no impediment is raised
+
+#### Scenario: Held back only by a resolved impediment
+
+- **Given** the only impediment that held back "Bank import mapping" is Resolved
+- **When** the task is marked blocked again
+- **Then** a New impediment "Bank import mapping" holds it back
+
+#### Scenario: Resolved while the task is still blocked
+
+- **Given** "Bank import mapping" was marked blocked on 15 October, and the impediment that raised is Resolved on 16 October
+- **When** the task is written again with its mark unchanged
+- **Then** no impediment is raised
+
+## Pull request status
+
+```meta
+type: requirements
+related: [.devbook/domain/goals/features.md#pull-request-status, .devbook/domain/repositories/requirements.md#pull-request-status]
+```
+
+> What the checks and approvals marks show, and how a screen reader hears them, is
+> [Repositories'](../repositories/requirements.md#pull-request-status),
+> which publishes the status (local
+> [ADR 0042](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#5-progresss-reader-goes-through-the-contract)).
+> Goals promises only that its rows carry that status.
+
+### Requirement: A goal's pull request row shows the status Repositories publishes
+
+```meta
+type: requirement
+related: [.devbook/domain/repositories/features.md#pull-request-status]
+```
+
+The system SHALL draw every pull request row in Goals from the status Repositories publishes for that pull request, so the row shows the same checks, approvals and state as the pull requests pane.
+
+#### Scenario: An open pull request on a goal
+
+- **Given** #1341 is attached to "Customers get paid faster", and Repositories reads it with 14 of 14 checks passed and one of two approvals
+- **When** the Goals view draws its row
+- **Then** it shows `14/14` and `1/2`, as the pull requests pane's row of #1341 does
+
+#### Scenario: A merged pull request on a goal
+
+- **Given** #1344 is attached to "Customers get paid faster", and Repositories reads it as merged
+- **When** the Goals view draws its row
+- **Then** it reads "merged" instead of both marks
+
+## The weekly review
+
+```meta
+type: requirements
+related: [.devbook/domain/goals/features.md#the-weekly-review]
+```
+
+> Today is Wednesday 11 November 2026 in these scenarios. The Brain has the PARA
+> default areas, an archive among them.
+
+### Requirement: The weekly review takes the screen beside the Inbox
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_weekly_review_option_is_absent_while_its_flag_is_off, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_weekly_review_option_follows_the_inbox_and_carries_its_dev_flag, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.The_weekly_review_takes_the_screen_over_the_view_and_a_second_press_returns_to_it, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.Escape_heard_at_the_document_closes_the_weekly_review]
+```
+
+The system SHALL offer the weekly review, while its flag is on, as a takeover whose header option follows the Inbox's, and return to the view underneath on a second press or Escape.
+
+#### Scenario: The flag is off
+
+- **Given** the `weekly-review` flag is off, as it ships
+- **When** the Home shell draws its header
+- **Then** there is no Weekly review option
+
+#### Scenario: Opened over the roadmap
+
+- **Given** the flag is on and the Roadmap view is on screen
+- **When** the person presses Weekly review
+- **Then** the review has the whole screen and its option reads pressed, titled "Back to Roadmap"
+- **When** they press it again
+- **Then** the Roadmap is back
+
+### Requirement: The review walks the skill's three stages one at a time
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.WeeklyReviewSurfaceTests.The_review_opens_on_get_clear_and_shows_only_that_stages_lines, unit:dotnet:Backlog.Desktop.UI.UnitTests.WeeklyReviewChecklistBuilderTests]
+```
+
+The system SHALL show the lines of one stage at a time — Get clear, Get current, Get creative, opening on Get clear — each found by the check the `weekly-review` skill reports for it.
+
+#### Scenario: One item waiting and one entry overdue
+
+- **Given** "Call the plumber" waits in the Inbox and "Taxes" was due on 1 November
+- **When** the review opens
+- **Then** Get clear lists "Call the plumber" alone, and Get current's option counts one line
+- **When** the person presses Next
+- **Then** Get current lists "Taxes"
+
+### Requirement: A deferral with no review date is looked at every week
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.WeeklyReviewChecklistBuilderTests.Get_clear_lists_a_deferred_item_with_no_review_date_as_one_to_look_at_again]
+```
+
+The system SHALL list on Get clear each deferred Inbox item that has no review date, as one to look at again, in the words the `weekly-review` skill reports it in.
+
+#### Scenario: One deferral undated, one due this week
+
+- **Given** "Learn the cello" was deferred with no date and "Renew passport" was deferred to 13 November
+- **When** the review opens
+- **Then** Get clear lists "Learn the cello" with "No review date: look at it again." and "Renew passport" with "Deferred to 13 Nov 2026: look at it again."
+
+### Requirement: Each line carries its action in place
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.WeeklyReviewSurfaceTests.Marking_the_plans_next_action_acts_and_reads_again_so_the_line_goes, unit:dotnet:Backlog.Desktop.UI.UnitTests.WeeklyReviewSurfaceTests.Moving_a_note_to_the_archive_acts_on_its_path, unit:dotnet:Backlog.Desktop.UI.UnitTests.WeeklyReviewSurfaceTests.Opening_a_note_from_get_creative_hands_its_path_to_the_window, unit:dotnet:Backlog.Desktop.UI.UnitTests.WeeklyReviewSurfaceTests.A_refused_action_is_said_and_the_line_stays]
+```
+
+The system SHALL give each line the actions that answer it — open the Inbox, the note, the task, the Goals view or the plan; mark the plan's next action; move the note to the archive — and read the review again after an action that writes.
+
+#### Scenario: A plan with no next action
+
+- **Given** the plan `+launch` holds one open entry, "Write the brief", a draft nothing holds
+- **When** the person presses Mark next action on the plan's line
+- **Then** "Write the brief" is ready, the review reads again, and Get current reads Clear
+
+#### Scenario: A finished plan's project note
+
+- **Given** `projects/done.md` belongs to a finished plan
+- **When** the person presses Move to archive on its line
+- **Then** the note is moved to the archive area
+
+#### Scenario: A move the Brain refuses
+
+- **Given** the move of `projects/done.md` is refused
+- **When** the person presses Move to archive
+- **Then** the review says why and the line stays
+
+### Requirement: A stage with nothing left reads done
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.WeeklyReviewSurfaceTests.A_stage_with_nothing_left_shows_done, unit:dotnet:Backlog.Desktop.UI.UnitTests.WeeklyReviewChecklistBuilderTests.Nothing_to_review_leaves_every_stage_done]
+```
+
+The system SHALL mark a stage done, on its option and in its place, when the review finds no line in it.
+
+#### Scenario: Nothing to review
+
+- **Given** the Inbox, the Brain and the backlog hold nothing the checks find
+- **When** the review opens
+- **Then** every stage's option reads done and the stage on screen says Clear
+
+### Requirement: A missing source is said and the rest is checked
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.WeeklyReviewChecklistBuilderTests.A_missing_brain_or_goals_is_said_and_the_rest_goes_on, unit:dotnet:Backlog.Desktop.UI.UnitTests.WeeklyReviewSurfaceTests.A_missing_brain_is_said_on_the_review]
+```
+
+The system SHALL say on the review when the Brain cannot be read, or no goals are composed, and still check the rest.
+
+#### Scenario: No Brain on this device
+
+- **Given** no Brain folder is set
+- **When** the review opens
+- **Then** it says "Brain unavailable" and still lists the Inbox's items
+
+## Goals on the phone
+
+```meta
+type: requirements
+related: [.devbook/domain/goals/features.md#goals-on-the-phone]
+```
+
+### Requirement: The phone reads goals, the stand-up and impediments
+
+```meta
+type: requirement
+tests: [unit:dotnet:Backlog.Mobile.UI.UnitTests.ImpedimentScreenTests.The_page_lists_the_tasks_pull_requests_and_plans_it_holds_back_and_reads_ready_to_resolve, unit:dotnet:Backlog.Mobile.UI.UnitTests.ImpedimentScreenTests.The_stand_up_card_of_an_impediment_ready_to_resolve_says_so, unit:dotnet:Backlog.Modules.Goals.UnitTests.PhoneGoalsTests.The_context_carries_the_pull_requests_open_impediments_hold_back_even_with_no_goal]
+```
+
+The system SHALL show on the phone the goals, the four stand-up blocks and the impediments that the paired desktop has synced.
+
+#### Scenario: Opening the Stand-up tab
+
+- **Given** the desktop synced three goals and three open impediments
+- **When** the person opens Stand-up on the phone
+- **Then** it shows the three goals, Finished, Planned and the three impediments
+
+#### Scenario: An impediment ready to resolve on the phone
+
+- **Given** "Bank sandbox down" holds back `acme/invoicing#1344` alone, and a desktop last read it as closed
+- **When** the person opens Stand-up on the phone
+- **Then** "Bank sandbox down" reads Ready to resolve, as it does on the desktop
+
+### Requirement: The phone changes only an impediment's state, check-again date and note
+
+```meta
+type: requirement
+tests: unit:dotnet:Backlog.Mobile.UI.UnitTests.ImpedimentScreenTests.The_phone_offers_no_raise_link_or_unlink
+```
+
+The system SHALL let the phone change an impediment's state, check-again date and note, through the device outbox, and nothing else in Progress.
+
+#### Scenario: Moving an impediment on the phone
+
+- **Given** "Bank sample files missing" is Escalated, and the phone is offline
+- **When** the person moves it to Being handled and sets check again to Tuesday 20 October
+- **Then** both changes wait in the device outbox and reach the desktop once the phone is back online
+
+#### Scenario: A desktop change made since stands
+
+- **Given** the phone last synced "Bank sample files missing" with no note
+- **When** the person writes a note on the desktop, then a different note on the phone, and both sync
+- **Then** both devices show the desktop's note
+
+#### Scenario: A move the desktop did not apply gives way
+
+- **Given** "Bank sample files missing" is Escalated, and the phone's move to Being handled has left the phone
+- **When** the next copy the phone pulls is still Escalated
+- **Then** the phone shows it Escalated
+
+#### Scenario: Only the moves its state allows are offered
+
+- **Given** "Credit note numbering unclear" is New
+- **When** the person opens its state list on the phone
+- **Then** only Reported and Resolved can be chosen
+
+#### Scenario: No goal editing on the phone
+
+- **Given** the goal "Customers get paid faster" is open on the phone
+- **When** the person looks for a way to edit it, attach work to it or copy the stand-up
+- **Then** the phone offers none
+
+#### Scenario: No raising or linking on the phone
+
+- **Given** "Bank sample files missing" is open on the phone
+- **When** the person looks for a way to raise an impediment, or to link or unlink what it holds back
+- **Then** the phone offers none
+
+## Syncing goals and impediments
+
+```meta
+type: requirements
+related: [.devbook/domain/goals/features.md#syncing-goals-and-impediments]
+```
+
+### Requirement: Goals and impediments travel as one document each
+
+```meta
+type: requirement
+tests: [integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.GoalSyncBetweenDevicesTests.A_goal_set_on_one_desktop_appears_on_the_other, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.ImpedimentSyncBetweenDevicesTests.An_impediment_raised_on_one_desktop_appears_on_the_other, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.ImpedimentSyncBetweenDevicesTests.A_sprint_series_on_the_replica_is_still_dropped_beside_an_impediment, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.ImpedimentSyncBetweenDevicesTests.A_version_1_write_keeps_the_pull_requests_and_plans_a_version_2_desktop_holds]
+```
+
+The system SHALL carry each goal as one `goal` document and each impediment as one `impediment` document on the task feed, under its own id, while sync is on and the device is paired.
+
+#### Scenario: A goal reaches the other desktop
+
+- **Given** two paired desktops with sync on
+- **When** the person sets the goal "Customers get paid faster" on the first
+- **Then** the second shows the goal after its next pull, without a Refresh
+
+#### Scenario: An impediment reaches the other desktop
+
+- **Given** two paired desktops with sync on
+- **When** the person raises "Bank sample files missing" on the first, holding back one task
+- **Then** the second shows it New, with its note and the task it holds back, after its next pull, without a Refresh
+
+#### Scenario: An impediment holding back all three kinds
+
+- **Given** two paired desktops on the same build, with sync on
+- **When** the person links a task, `acme/invoicing#1358` and the plan `bank-integration` to "Bank sample files missing" on the first
+- **Then** the second shows it holding back all three after its next pull
+
+#### Scenario: A sprint series an older build left
+
+- **Given** the replica holds a `sprint-series` document an older desktop pushed, beside the impediment "Bank sample files missing"
+- **When** the second desktop pulls
+- **Then** it shows the impediment and writes nothing for the sprint series
+
+### Requirement: The newer change wins per document
+
+```meta
+type: requirement
+tests: [integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.GoalSyncBetweenDevicesTests.The_newer_change_wins_per_goal_on_both_desktops, integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.ImpedimentSyncBetweenDevicesTests.The_newer_move_wins_per_impediment_on_both_desktops]
+```
+
+The system SHALL keep, when two devices both changed one goal or one impediment since they last synced, the copy with the newer change on every device.
+
+#### Scenario: Two edits to one impediment
+
+- **Given** the phone set "Bank sample files missing" to Being handled at 09:10, and the desktop changed its note at 09:20 before pulling
+- **When** both have synced
+- **Then** every device holds the desktop's copy, and the move to Being handled is lost
+
+#### Scenario: Two moves made apart
+
+- **Given** the first desktop reported "Bank sample files missing" to Finance, and the second resolved it later, before either synced
+- **When** both have synced
+- **Then** both desktops hold it Resolved, and the report to Finance is lost
+
+#### Scenario: Two goals changed at once
+
+- **Given** the first desktop changed "Customers get paid faster" and the second changed "Devbook search ships", both offline
+- **When** both have synced
+- **Then** both changes are kept on every device
+
+### Requirement: A deletion travels like a change
+
+```meta
+type: requirement
+tests: [integration:dotnet:Backlog.Modules.Sync.Api.UnitTests.GoalSyncBetweenDevicesTests.A_goal_deleted_on_one_desktop_is_deleted_on_the_other]
+```
+
+The system SHALL delete a goal or impediment on every paired device once its deletion is the newer change.
+
+#### Scenario: A goal deleted on one desktop
+
+- **Given** the person deleted the goal "Phone capture in daily use" on the first desktop, and the second has not changed it since
+- **When** both have synced
+- **Then** the goal is gone on both desktops and on the phone

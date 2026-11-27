@@ -45,7 +45,7 @@ internal static class RemoteMcpAuthentication
     /// resource, from the current client generation, granting <c>inbox:capture</c>.</summary>
     internal const string InboxCapturePolicy = "mcp:inbox-capture";
 
-    /// <summary>The scopes the remote endpoint serves. <c>tasks:admin</c> and
+    /// <summary>The scopes the remote endpoint serves. <c>work:admin</c> and
     /// <c>devbook:decide</c> never join it (local ADR 0058 §8).</summary>
     internal static IReadOnlyList<string> ServedScopes { get; } = [McpScopes.InboxCapture];
 

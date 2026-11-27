@@ -217,16 +217,16 @@ public class WorkspaceMcpServerSettingsTests : IDisposable
         var raised = 0;
         store.McpChanged += () => raised++;
 
-        Assert.Null(store.SetMcpServerUnauthenticatedScopes([McpScopes.NotifyAsk, McpScopes.TasksRead, McpScopes.TasksRead]));
+        Assert.Null(store.SetMcpServerUnauthenticatedScopes([McpScopes.NotifyAsk, McpScopes.WorkRead, McpScopes.WorkRead]));
 
         Assert.Equal(1, raised);
-        Assert.Equal([McpScopes.TasksRead, McpScopes.NotifyAsk], store.McpServerUnauthenticatedScopes);
-        Assert.Equal([McpScopes.TasksRead, McpScopes.NotifyAsk], Store().McpServerUnauthenticatedScopes);
+        Assert.Equal([McpScopes.WorkRead, McpScopes.NotifyAsk], store.McpServerUnauthenticatedScopes);
+        Assert.Equal([McpScopes.WorkRead, McpScopes.NotifyAsk], Store().McpServerUnauthenticatedScopes);
 
         using (var document = JsonDocument.Parse(File.ReadAllText(SettingsFile)))
         {
             var scopes = document.RootElement.GetProperty("mcpServer").GetProperty("unauthenticatedScopes");
-            Assert.Equal(["tasks:read", "notify:ask"], scopes.EnumerateArray().Select(scope => scope.GetString()));
+            Assert.Equal(["work:read", "notify:ask"], scopes.EnumerateArray().Select(scope => scope.GetString()));
         }
 
         // Closing the row again writes no row at all, as before it was opened.
@@ -247,7 +247,7 @@ public class WorkspaceMcpServerSettingsTests : IDisposable
     {
         File.WriteAllText(SettingsFile, """
             { "mcpServer": { "unauthenticatedScopes": [
-              "tasks:admin", "agents:grant", "sessions:dispatch", "devbook:decide", "telemetry:write", "ui:open",
+              "work:admin", "agents:grant", "sessions:dispatch", "devbook:decide", "telemetry:write", "ui:open",
               "inbox:capture", "made:up", "Tasks:Read", "devbook:read" ] } }
             """);
 
@@ -255,10 +255,24 @@ public class WorkspaceMcpServerSettingsTests : IDisposable
         Assert.Equal([McpScopes.DevbookRead, McpScopes.InboxCapture], Store().McpServerUnauthenticatedScopes);
     }
 
+    /// <summary>A row saved before the Work scopes were renamed (local ADR 0073 §10) holds them
+    /// under their new names, and the old admin name stays locked.</summary>
+    [Fact]
+    public void A_row_saved_under_the_old_scope_names_reads_under_the_new_ones()
+    {
+        File.WriteAllText(SettingsFile, """
+            { "mcpServer": { "unauthenticatedScopes": [ "tasks:read", "tasks:write", "tasks:admin" ] } }
+            """);
+
+        Assert.Equal([McpScopes.WorkRead, McpScopes.WorkWrite], Store().McpServerUnauthenticatedScopes);
+        Assert.Null(Store().SetMcpServerUnauthenticatedScopes(["tasks:read"]));
+        Assert.Equal([McpScopes.WorkRead], Store().McpServerUnauthenticatedScopes);
+    }
+
     /// <summary>The setter refuses what the row never offers with a sentence, and the row does
     /// not move.</summary>
     [Theory]
-    [InlineData(McpScopes.TasksAdmin)]
+    [InlineData(McpScopes.WorkAdmin)]
     [InlineData(McpScopes.AgentsGrant)]
     [InlineData(McpScopes.SessionsDispatch)]
     [InlineData(McpScopes.DevbookDecide)]
@@ -268,16 +282,16 @@ public class WorkspaceMcpServerSettingsTests : IDisposable
     public void Setting_a_scope_the_row_never_offers_is_refused(string scope)
     {
         var store = Store();
-        Assert.Null(store.SetMcpServerUnauthenticatedScopes([McpScopes.TasksRead]));
+        Assert.Null(store.SetMcpServerUnauthenticatedScopes([McpScopes.WorkRead]));
         var raised = 0;
         store.McpChanged += () => raised++;
 
-        var error = store.SetMcpServerUnauthenticatedScopes([McpScopes.TasksWrite, scope]);
+        var error = store.SetMcpServerUnauthenticatedScopes([McpScopes.WorkWrite, scope]);
 
         Assert.False(string.IsNullOrWhiteSpace(error));
         Assert.Equal(0, raised);
-        Assert.Equal([McpScopes.TasksRead], store.McpServerUnauthenticatedScopes);
-        Assert.Equal([McpScopes.TasksRead], Store().McpServerUnauthenticatedScopes);
+        Assert.Equal([McpScopes.WorkRead], store.McpServerUnauthenticatedScopes);
+        Assert.Equal([McpScopes.WorkRead], Store().McpServerUnauthenticatedScopes);
     }
 
     /// <summary>A workspace nobody has switched the server on in keeps producing

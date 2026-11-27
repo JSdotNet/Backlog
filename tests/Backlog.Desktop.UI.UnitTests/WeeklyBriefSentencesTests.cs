@@ -1,6 +1,6 @@
-using Backlog.Modules.Dashboard.Abstractions.Insights;
-using Backlog.Modules.Dashboard.Abstractions.Services;
-using Backlog.Modules.Dashboard.UI.Parts;
+using Backlog.Modules.Insights.Abstractions.Insights;
+using Backlog.Modules.Insights.Abstractions.Services;
+using Backlog.Modules.Insights.UI.Parts;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -72,13 +72,13 @@ public sealed class WeeklyBriefSentencesTests
 
         Assert.Equal(
             "$212 spent — $28 more than last week.",
-            WeeklyBriefSentences.Spent(new DashboardMoney(212m, "USD"), new DashboardMoney(184m, "USD")));
+            WeeklyBriefSentences.Spent(new InsightsMoney(212m, "USD"), new InsightsMoney(184m, "USD")));
         Assert.Equal(
             "$150 spent — $34 less than last week.",
-            WeeklyBriefSentences.Spent(new DashboardMoney(150m, "USD"), new DashboardMoney(184m, "USD")));
+            WeeklyBriefSentences.Spent(new InsightsMoney(150m, "USD"), new InsightsMoney(184m, "USD")));
         Assert.Equal(
             "$184 spent — as much as last week.",
-            WeeklyBriefSentences.Spent(new DashboardMoney(184m, "USD"), new DashboardMoney(184m, "USD")));
+            WeeklyBriefSentences.Spent(new InsightsMoney(184m, "USD"), new InsightsMoney(184m, "USD")));
     }
 
     /// <summary>Two currencies cannot be compared without a rate, so the comparison is
@@ -88,7 +88,7 @@ public sealed class WeeklyBriefSentencesTests
     {
         Assert.Equal(
             "€12 spent.",
-            WeeklyBriefSentences.Spent(new DashboardMoney(12m, "EUR"), new DashboardMoney(9m, "USD")));
+            WeeklyBriefSentences.Spent(new InsightsMoney(12m, "EUR"), new InsightsMoney(9m, "USD")));
     }
 
     [Fact]
@@ -178,10 +178,10 @@ public sealed class WeeklyBriefSentencesTests
     private static SpendProjection Projection(SpendProvider provider, decimal spent, decimal? budget, string currency, decimal? projected = null) =>
         new(
             provider,
-            new DashboardMoney(spent, currency),
-            new DashboardMoney(1m, currency),
-            new DashboardMoney(projected ?? spent, currency),
-            budget is { } amount ? new DashboardMoney(amount, currency) : null,
+            new InsightsMoney(spent, currency),
+            new InsightsMoney(1m, currency),
+            new InsightsMoney(projected ?? spent, currency),
+            budget is { } amount ? new InsightsMoney(amount, currency) : null,
             new DateOnly(2026, 10, 12),
             19,
             IsEstimate: false);

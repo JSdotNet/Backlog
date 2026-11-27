@@ -7,10 +7,10 @@ namespace Backlog.ArchitectureTests;
 /// </summary>
 public class ModuleSurfaceTests
 {
-    private const string Module = "Backlog.Modules.Tasks";
-    private const string Abstractions = "Backlog.Modules.Tasks.Abstractions";
+    private const string Module = "Backlog.Modules.Work";
+    private const string Abstractions = "Backlog.Modules.Work.Abstractions";
 
-    /// <summary>The second module the desktop hosts compose beside Tasks. Named
+    /// <summary>The second module the desktop hosts compose beside Work. Named
     /// here rather than discovered, because the rule is about the two contexts
     /// whose stores live in <c>backlog.db</c> and not about every module folder.</summary>
     private const string InboxModule = "Backlog.Modules.Inbox";

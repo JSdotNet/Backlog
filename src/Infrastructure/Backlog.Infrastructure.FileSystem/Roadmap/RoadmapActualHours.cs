@@ -1,6 +1,6 @@
 using Backlog.Infrastructure.FileSystem.Activity;
-using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
-using Backlog.Modules.Roadmap.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Plans.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Plans.Services;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.SharedKernel;
 

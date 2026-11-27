@@ -6,9 +6,12 @@
     From your Brain box under a repository chapter, the atlas over the Brain,
     Show hidden, and the mode that hands them all to the pane.
 
-    Devbook draws the pane; this project conforms to the one extension point it
-    publishes for that (IDevbookPaneMode), which is the one declared edge between
-    the two contexts. Nothing in Devbook references this project back.
+    Devbook draws the pane; this project conforms to what it publishes for that
+    in Backlog.Modules.Devbook.Contracts.UI - the mode extension point
+    (IDevbookPaneMode), the editor, the atlas and Lobes, the chapter content and
+    link - and to its published language in Devbook.Abstractions: the declared
+    Customer/Supplier edge between the two contexts (local ADR 0040 §2, ADR 0073
+    §9). Nothing in Devbook references this project back.
   -->
   <PropertyGroup>
     <!--
@@ -46,10 +49,12 @@
     <!-- The read side of the devbook database the Brain's atlas reads, and the
          chapter reference a note is edited through. A screen may take an adapter. -->
     <ProjectReference Include="..\..\..\Infrastructure\Backlog.Infrastructure.Devbook\Backlog.Infrastructure.Devbook.csproj" />
-    <!-- Declared edge (local ADR 0040 §2; .devbook/domain/context-map.md,
+    <!-- Declared edge (local ADR 0040 §2, ADR 0073 §9; .devbook/domain/context-map.md,
          Customer/Supplier): the Brain conforms to the Devbook pane's mode
-         extension point and renders its notes with Devbook's viewer and editor. -->
-    <ProjectReference Include="..\..\Devbook\Backlog.Modules.Devbook.UI\Backlog.Modules.Devbook.UI.csproj" />
+         extension point and edits its notes with the pane's editor, through the
+         pane's published surface rather than Devbook's own screens. The viewer it
+         reads them with is the shared DevbookMarkdownView in Backlog.UI.Components. -->
+    <ProjectReference Include="..\..\Devbook\Backlog.Modules.Devbook.Contracts.UI\Backlog.Modules.Devbook.Contracts.UI.csproj" />
     <!-- Declared edge (local ADR 0040 §2; .devbook/domain/context-map.md,
          Customer/Supplier): the Brain answers Devbook's personal-source port and
          opens repository chapters in Devbook's published language. -->

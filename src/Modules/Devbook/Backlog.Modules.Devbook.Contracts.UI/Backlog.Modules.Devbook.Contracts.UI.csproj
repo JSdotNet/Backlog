@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <!--
+    What the Devbook pane publishes to the screens of another context that render
+    on it (local ADR 0073 §9, ADR 0067): the pane-mode extension point a mode
+    conforms to (IDevbookPaneMode), the atlas and Lobes models and readers a mode
+    draws its devbook into, the viewer switches and scope, the chapter content,
+    link, editor and remark mapping a note is read and edited through, and the
+    chapter parser. Backlog.Modules.Devbook.UI draws the pane over these; the
+    Brain's screens conform to them without referencing Devbook's own screens.
+
+    Nothing here renders a Devbook panel or names another context. The shared
+    viewer itself, DevbookMarkdownView, is in Backlog.UI.Components, and the
+    chapter model it draws in the kernel (Backlog.SharedKernel.Devbook).
+  -->
+  <PropertyGroup>
+    <!--
+      Backlog.Desktop.UI.Devbook, as in Backlog.Modules.Devbook.UI, for the
+      reason its project file gives: a namespace with a second "Backlog" segment
+      shadows the repository root inside the generated @using directives. Keeping
+      it also meant the move here changed no using line in a consumer or a test.
+    -->
+    <RootNamespace>Backlog.Desktop.UI.Devbook</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The pane reads the internal seams here (the atlas folder keys, the
+         unavailable Lobes source, the remark age) as it did when they were its own. -->
+    <InternalsVisibleTo Include="Backlog.Modules.Devbook.UI" />
+    <InternalsVisibleTo Include="Backlog.Desktop.UI.UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Backlog.Infrastructure.Devbook.Chapters" />
+    <Using Include="Backlog.SharedKernel.Devbook" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Core\Backlog.UI.Components\Backlog.UI.Components.csproj" />
+    <ProjectReference Include="..\..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+    <ProjectReference Include="..\Backlog.Modules.Devbook.Abstractions\Backlog.Modules.Devbook.Abstractions.csproj" />
+    <!-- The devbook database the atlas and Lobes read, the chapter reader and writer
+         the content and the editor go through. A screen may take an adapter. -->
+    <ProjectReference Include="..\..\..\Infrastructure\Backlog.Infrastructure.Devbook\Backlog.Infrastructure.Devbook.csproj" />
+    <!-- The repository registry the scope reads a repository's configured folders from. -->
+    <ProjectReference Include="..\..\..\Infrastructure\Backlog.Infrastructure.GitHub\Backlog.Infrastructure.GitHub.csproj" />
+  </ItemGroup>
+
+</Project>

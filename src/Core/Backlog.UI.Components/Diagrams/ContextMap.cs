@@ -21,6 +21,11 @@ public sealed record ContextMapContext(string Id, string Name, string Kind, stri
 {
     /// <summary>Whether the landscape table calls the context Core.</summary>
     public bool IsCore => string.Equals(Kind, "core", StringComparison.Ordinal);
+
+    /// <summary>Whether the map names the context, in its landscape table or its
+    /// fence. False for a context folder it names nowhere, whose
+    /// <see cref="Kind"/> is then the default rather than anything a chapter says.</summary>
+    public bool Named { get; init; } = true;
 }
 
 /// <summary>One line of the map: every Mermaid edge between the same two contexts,
@@ -81,7 +86,8 @@ public sealed record ContextMapSource(string Slug, string Name, string? Dependen
 /// <param name="Contexts">Every context in reading order: the Subdomain landscape
 /// table's rows as written, then each node of the fence the table does not list —
 /// with a table, only one a domain folder holds; any other node, the composition
-/// root among them, is no context, and its lines are not read.</param>
+/// root among them, is no context, and its lines are not read — then each
+/// context folder neither names, as a supporting context with no line.</param>
 /// <param name="Lines">One per pair of contexts, in the order the pair's first edge
 /// is written.</param>
 /// <param name="Languages">The published-languages chapter's body, or the empty string.</param>
@@ -173,6 +179,16 @@ public static partial class ContextMaps
             var folder = Folder(id, name, sources);
             if (landscape.Count > 0 && folder is null) continue;
             contexts.Add(new ContextMapContext(id, name, "supporting", string.Empty, folder?.Slug));
+        }
+
+        // Last, every context folder the map names nowhere: a folder under the
+        // domain folder is a bounded context whether or not the map has caught up
+        // with it, so it is listed, with no line, rather than left out.
+        foreach (var source in sources)
+        {
+            if (contexts.Any(c => string.Equals(c.Slug, source.Slug, StringComparison.OrdinalIgnoreCase))) continue;
+            var name = string.IsNullOrWhiteSpace(source.Name) ? source.Slug : source.Name;
+            contexts.Add(new ContextMapContext(UnusedId(Slugify(source.Slug), nodes, contexts), name, "supporting", string.Empty, source.Slug) { Named = false });
         }
 
         var rowsBySlug = new Dictionary<string, IReadOnlyList<DomainNeighbourRow>>(StringComparer.OrdinalIgnoreCase);

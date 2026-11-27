@@ -3,7 +3,7 @@ using Backlog.Infrastructure.AzureMaps;
 using Backlog.Infrastructure.Brain;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.FileSystem;
-using Backlog.Infrastructure.FileSystem.Progress;
+using Backlog.Infrastructure.FileSystem.Goals;
 using Backlog.Infrastructure.FileSystem.Tasks;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Desktop.Composition;
@@ -12,9 +12,9 @@ using Backlog.Desktop.UI.Shell;
 using Backlog.SharedKernel;
 using Backlog.SharedKernel.Mcp;
 using Backlog.Modules.Inbox.Abstractions.Services;
-using Backlog.Modules.Tasks.Abstractions.Services;
-using Backlog.Modules.Tasks.Extensions;
-using Backlog.Modules.Tasks.Features.SyncLinkedTasks;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
+using Backlog.Modules.Work.Tasks.Extensions;
+using Backlog.Modules.Work.Tasks.Features.SyncLinkedTasks;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Infrastructure.GitHub;
@@ -142,7 +142,10 @@ builder.Services.AddDesktopComposition(new DesktopCompositionOptions
     AzureMapsSettings = _ => CreateLocalDevelopmentAzureMapsSettingsStore(builder.Environment.ContentRootPath),
     // The desktop head's own tools adapter, configured to read the catalog and run
     // nothing: a browser session operates the pane without touching the machine.
-    DevToolService = sp => DevToolService.CatalogOnly(sp.GetRequiredService<ITaskStore>()),
+    // Dev PCs' Machine keys the per-PC folder (local ADR 0073 §7).
+    DevToolService = sp => DevToolService.CatalogOnly(
+        sp.GetRequiredService<ITaskStore>(),
+        sp.GetRequiredService<Backlog.Modules.DevPc.Abstractions.IMachineRegistry>().Current),
     // Per worktree, like the other per-user files: a Brain folder picked in a
     // harness session is not the installed app's. No folder picker is registered,
     // so the card here is typed into rather than browsed.

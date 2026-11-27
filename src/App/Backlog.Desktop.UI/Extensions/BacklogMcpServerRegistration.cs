@@ -30,7 +30,7 @@ namespace Backlog.Desktop.UI.Extensions;
 /// hosts". This project is the only one both of them already reference that
 /// nothing on the <c>net11.0-android</c> path does: the mobile head reaches
 /// <c>ServiceDefaults</c>, <c>Backlog.Mobile.UI</c>,
-/// <c>Backlog.Infrastructure.Sync</c> and <c>Backlog.Modules.Tasks</c>, and
+/// <c>Backlog.Infrastructure.Sync</c> and <c>Backlog.Modules.Work.Tasks</c>, and
 /// none of those reaches back here.
 /// </para>
 /// <para>
@@ -176,7 +176,7 @@ public static class BacklogMcpServerRegistration
             // here at all: the SDK answers a binding failure with no reason.
             .WithRequestFilters(filters => filters.AddCallToolFilter(ToolArguments.Filter))
             // Last, so Windows Hello is asked only for a call every check above admitted: a
-            // tasks:admin tool waits here for the person (local ADR 0058 §6).
+            // work:admin tool waits here for the person (local ADR 0058 §6).
             .WithRequestFilters(filters => filters.AddCallToolFilter(McpStepUp.Filter))
             // After every check, so only a write that is about to run takes the checkpoint
             // an agent's mistake can be put back from.

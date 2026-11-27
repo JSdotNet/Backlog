@@ -3,8 +3,8 @@ using System.Globalization;
 using Backlog.Infrastructure.Sqlite.Inbox;
 using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Inbox.DomainModels;
-using Backlog.Modules.Tasks.Abstractions;
-using Backlog.Modules.Tasks.DomainModels;
+using Backlog.Modules.Work.Abstractions.Tasks;
+using Backlog.Modules.Work.Tasks.DomainModels;
 
 using Microsoft.Data.Sqlite;
 

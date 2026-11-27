@@ -2,7 +2,7 @@
 
 ```meta
 date: 2026-11-02
-related: [".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md#consequences", ".devbook/arc42/11-risks-and-technical-debt.md#technical-debt", ".devbook/domain/tasks/dependencies.md", ".devbook/domain/sessions/features.md#from-a-tasks-side-panel"]
+related: [".devbook/arc42/adr/0042-repository-management-owns-pull-request-state.md#consequences", ".devbook/arc42/11-risks-and-technical-debt.md#technical-debt", ".devbook/domain/work/dependencies.md", ".devbook/domain/sessions/features.md#from-a-tasks-side-panel"]
 severity: low
 ```
 
@@ -34,8 +34,8 @@ panel read one pull request through one contract, `IPullRequests`, and one cache
 The badge's read:
 
 - The port is `LinkedSession(State, Archived)` and `ILinkedSessionStates`
-  (`src/Modules/Tasks/Backlog.Modules.Tasks.Abstractions/Services/ILinkedSessionStates.cs:42,54`).
-- `TasksDesktopState` takes it (`src/Modules/Tasks/Backlog.Modules.Tasks.UI/TasksDesktopState.cs:112,287,314`)
+  (`src/Modules/Work/Backlog.Modules.Work.Abstractions/Tasks/Services/ILinkedSessionStates.cs:42,54`).
+- `TasksDesktopState` takes it (`src/Modules/Work/Backlog.Modules.Work.UI/Tasks/TasksDesktopState.cs:112,287,314`)
   and reads it for every linked session id (`:1294-1305`).
 - `LinkedSessionStates` answers it at timestamps depth, through
   `AgentSessionQuery.Newest.TimestampsOnly()`
@@ -45,7 +45,7 @@ The badge's read:
 The side panel's read:
 
 - `WorkInProgressReader` takes `IAgentSessionSource` as a constructor parameter
-  (`src/App/Backlog.Desktop.UI/Goals/WorkInProgressReader.cs:40-44`), and `From`
+  (`src/App/Backlog.Desktop.UI/ShellGoals/WorkInProgressReader.cs:40-44`), and `From`
   resolves it from the container (`:55-65`).
 - It reads every session at full depth through `sessions.GetSessionsAsync()` (`:188-198`).
 - `LinkedWorkSection.razor:99-108` builds `WorkLinksProjection` from the reader's
@@ -69,10 +69,10 @@ that ADR left it so, naming it as a follow-up.
 
 | Component | Role |
 | --- | --- |
-| `Backlog.Modules.Tasks.Abstractions` | Publishes `ILinkedSessionStates`. |
+| `Backlog.Modules.Work.Abstractions` | Publishes `ILinkedSessionStates`. |
 | `Backlog.Infrastructure.FileSystem/Tasks/LinkedSessionStates.cs` | Answers the port from the session record. |
-| `Backlog.Modules.Tasks.UI/TasksDesktopState.cs` | Reads the port for the task row's badge. |
-| `Backlog.Desktop.UI/Goals/` | `WorkInProgressReader`, `LinkedWorkSection.razor` and `WorkLinksProjection` read and draw the side panel. |
+| `Backlog.Modules.Work.UI/Tasks/TasksDesktopState.cs` | Reads the port for the task row's badge. |
+| `Backlog.Desktop.UI/ShellGoals/` | `WorkInProgressReader`, `LinkedWorkSection.razor` and `WorkLinksProjection` read and draw the side panel. |
 
 ## Impact
 
@@ -126,6 +126,6 @@ the repository owner accepts the two reads under option C and says so here.
 
 - Local ADR 0042, *Consequences* — the follow-up this record captures.
 - `.devbook/arc42/11-risks-and-technical-debt.md`, *Technical Debt* — row D6.
-- `.devbook/domain/tasks/dependencies.md` — Tasks' dependency on Sessions.
+- `.devbook/domain/work/dependencies.md` — Tasks' dependency on Sessions.
 - `.devbook/domain/sessions/features.md#from-a-tasks-side-panel` — what the side panel
   shows of a session.

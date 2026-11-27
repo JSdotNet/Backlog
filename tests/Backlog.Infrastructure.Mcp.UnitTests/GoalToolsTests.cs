@@ -1,7 +1,7 @@
-using Backlog.Modules.Progress.Abstractions;
-using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
-using Backlog.Modules.Progress.Abstractions.Services;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Goals.Abstractions;
+using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
+using Backlog.Modules.Goals.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.Time.Testing;
@@ -13,7 +13,7 @@ namespace Backlog.Infrastructure.Mcp.UnitTests;
 /// <summary>
 /// The goal tools: <c>list_goals</c>, <c>create_goal</c>, <c>update_goal</c>,
 /// <c>attach_to_goal</c>, <c>detach_from_goal</c> and <c>delete_goal</c>. Each hands its
-/// arguments to Progress's <see cref="IGoals"/> port, answers the goal as a session reads it,
+/// arguments to Goals' <see cref="IGoals"/> port, answers the goal as a session reads it,
 /// and turns a refusal into the failure a client sees with its code unaltered.
 /// </summary>
 public sealed class GoalToolsTests
@@ -142,7 +142,7 @@ public sealed class GoalToolsTests
     {
         var goals = new FakeGoals();
         var goal = goals.Seed("Launch", null, Due);
-        var standUp = new FakeStandUp { Refusal = Error.Unexpected("progress.read_failed", "The goals could not be read.") };
+        var standUp = new FakeStandUp { Refusal = Error.Unexpected("goals.read_failed", "The goals could not be read.") };
 
         var payload = await new GoalTools(goals, new FakeRepositoryDirectory(), standUp).ListAsync(Cancellation);
 
@@ -189,7 +189,7 @@ public sealed class GoalToolsTests
 
         var failure = await Assert.ThrowsAsync<McpException>(() => Tools(standUp).ReadIterationsAsync(length, Cancellation));
 
-        Assert.StartsWith("progress.iteration_length_unknown", failure.Message, StringComparison.Ordinal);
+        Assert.StartsWith("goals.iteration_length_unknown", failure.Message, StringComparison.Ordinal);
         Assert.Equal(0, standUp.Reads);
     }
 
@@ -198,11 +198,11 @@ public sealed class GoalToolsTests
     [InlineData("month")]
     public async Task A_refused_reading_reaches_the_client_with_its_code(string? length)
     {
-        var standUp = new FakeStandUp { Refusal = Error.Unexpected("progress.read_failed", "The goals could not be read.") };
+        var standUp = new FakeStandUp { Refusal = Error.Unexpected("goals.read_failed", "The goals could not be read.") };
 
         var failure = await Assert.ThrowsAsync<McpException>(() => Tools(standUp).ReadIterationsAsync(length, Cancellation));
 
-        Assert.StartsWith("progress.read_failed", failure.Message, StringComparison.Ordinal);
+        Assert.StartsWith("goals.read_failed", failure.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -282,7 +282,7 @@ public sealed class GoalToolsTests
 
         var failure = await Assert.ThrowsAsync<McpException>(() => Tools(goals).CreateAsync(" ", Due, null, cancellationToken: Cancellation));
 
-        Assert.StartsWith("progress.goal_without_title", failure.Message, StringComparison.Ordinal);
+        Assert.StartsWith("goals.goal_without_title", failure.Message, StringComparison.Ordinal);
         Assert.Empty(goals.Stored);
     }
 
@@ -338,8 +338,8 @@ public sealed class GoalToolsTests
     }
 
     [Theory]
-    [InlineData(" ", null, "progress.goal_without_title")]
-    [InlineData(null, "two\nlines", "progress.outcome_not_one_line")]
+    [InlineData(" ", null, "goals.goal_without_title")]
+    [InlineData(null, "two\nlines", "goals.outcome_not_one_line")]
     public async Task A_refused_update_reaches_the_client_with_its_code(string? title, string? outcome, string code)
     {
         var goals = new FakeGoals();
@@ -357,7 +357,7 @@ public sealed class GoalToolsTests
         var failure = await Assert.ThrowsAsync<McpException>(() =>
             Tools(new FakeGoals()).UpdateAsync(Guid.NewGuid(), title: "Anything", cancellationToken: Cancellation));
 
-        Assert.StartsWith("progress.goal_not_found", failure.Message, StringComparison.Ordinal);
+        Assert.StartsWith("goals.goal_not_found", failure.Message, StringComparison.Ordinal);
     }
 
     // --- attach_to_goal ----------------------------------------------------------
@@ -446,7 +446,7 @@ public sealed class GoalToolsTests
         var failure = await Assert.ThrowsAsync<McpException>(() =>
             Tools(goals).AttachAsync(goal, taskId: task, cancellationToken: Cancellation));
 
-        Assert.StartsWith("progress.item_in_other_goal", failure.Message, StringComparison.Ordinal);
+        Assert.StartsWith("goals.item_in_other_goal", failure.Message, StringComparison.Ordinal);
         Assert.Contains("Schuldregeling aansluiten", failure.Message, StringComparison.Ordinal);
         Assert.Single(goals.Find(other).Attachments);
     }
@@ -534,12 +534,12 @@ public sealed class GoalToolsTests
     {
         var failure = await Assert.ThrowsAsync<McpException>(() => Tools(new FakeGoals()).DeleteAsync(Guid.NewGuid(), cancellationToken: Cancellation));
 
-        Assert.StartsWith("progress.goal_not_found", failure.Message, StringComparison.Ordinal);
+        Assert.StartsWith("goals.goal_not_found", failure.Message, StringComparison.Ordinal);
     }
 }
 
 /// <summary>
-/// Progress's goal port over a list, holding the rules the tools rely on it for: a title,
+/// Goals' goal port over a list, holding the rules the tools rely on it for: a title,
 /// a one-line outcome, an item in at most one goal unless moved, and detaching what
 /// is not held changing nothing. It records the last edit and attach it was asked for.
 /// </summary>
@@ -628,7 +628,7 @@ internal sealed class FakeGoals : IGoals
 
         if (_goals.FirstOrDefault(goal => goal.Id != goalId && goal.Attachments.Any(a => a.Item == item)) is { } other)
         {
-            if (!moveFromOtherGoal) return Task.FromResult(Result.Failure<GoalDto>(ProgressErrors.ItemInOtherGoal(other.Title)));
+            if (!moveFromOtherGoal) return Task.FromResult(Result.Failure<GoalDto>(GoalsErrors.ItemInOtherGoal(other.Title)));
             Replace(other with { Attachments = [.. other.Attachments.Where(a => a.Item != item)] });
         }
 
@@ -649,7 +649,7 @@ internal sealed class FakeGoals : IGoals
     }
 
     private Result<GoalDto> Lookup(Guid goalId) =>
-        _goals.FirstOrDefault(goal => goal.Id == goalId) is { } goal ? goal : ProgressErrors.GoalNotFound(goalId);
+        _goals.FirstOrDefault(goal => goal.Id == goalId) is { } goal ? goal : GoalsErrors.GoalNotFound(goalId);
 
     private GoalDto Replace(GoalDto goal)
     {
@@ -658,15 +658,15 @@ internal sealed class FakeGoals : IGoals
     }
 
     private static Error? Refusal(SetGoalRequest request) =>
-        string.IsNullOrWhiteSpace(request.Title) ? ProgressErrors.GoalWithoutTitle()
-        : request.Outcome?.Contains('\n', StringComparison.Ordinal) == true ? ProgressErrors.OutcomeNotOneLine()
+        string.IsNullOrWhiteSpace(request.Title) ? GoalsErrors.GoalWithoutTitle()
+        : request.Outcome?.Contains('\n', StringComparison.Ordinal) == true ? GoalsErrors.OutcomeNotOneLine()
         : null;
 
     private static string? Blank(string? text) => string.IsNullOrWhiteSpace(text) ? null : text.Trim();
 }
 
 /// <summary>
-/// Progress's iteration reading, answering <see cref="Answer"/> over two fourteen-day windows
+/// Goals' iteration reading, answering <see cref="Answer"/> over two fourteen-day windows
 /// either side of the day it reads for, in the length it reads with: the person's
 /// <see cref="Setting"/> as of <see cref="HostToday"/> when no length is named, else the
 /// length and the day the caller gives. <see cref="Refusal"/> makes every read fail with it.

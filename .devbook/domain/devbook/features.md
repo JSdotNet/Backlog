@@ -42,7 +42,7 @@ header's scope and the task filter alone.
 
 ```meta
 type: feature
-related: [.devbook/domain/repository-management/features.md#repository-devbook-folder-settings, .devbook/domain/tasks/features.md#search-filter-and-organize]
+related: [.devbook/domain/repositories/features.md#repository-devbook-folder-settings, .devbook/domain/work/features.md#search-filter-and-organize]
 ```
 
 Read the devbook a repository already carries alongside its code, next to the
@@ -66,7 +66,7 @@ ADR 0022, amendment of 2026-10-15).
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/brain/features.md#brain-mode-of-the-devbook-pane, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
+related: [.devbook/domain/brain/features.md#brain-mode-of-the-devbook-pane, .devbook/arc42/adr/0027-the-brain-is-a-scope-beside-the-repositories.md, .devbook/domain/repositories/requirements.md#archiving-a-repository]
 ```
 
 Switch between areas, and between repositories when more than one is registered,
@@ -96,7 +96,7 @@ empty tab strip.
 ```meta
 type: sub-feature
 feature-flag: [.devbook/domain/devbook/context.md#devbook-editing, .devbook/domain/devbook/context.md#devbook-status]
-related: [.devbook/domain/devbook/requirements.md#rendered-devbook-documents, .devbook/domain/tasks/features.md#acceptance-from-scenario-parts, .devbook/domain/devbook/domain.md#subject-state, .devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md]
+related: [.devbook/domain/devbook/requirements.md#rendered-devbook-documents, .devbook/domain/work/features.md#acceptance-from-scenario-parts, .devbook/domain/devbook/domain.md#subject-state, .devbook/arc42/adr/0044-devbook-subject-state-lives-in-backlogs-own-store.md]
 ```
 
 Present each area's documents as readable content, not raw files: headings and
@@ -317,7 +317,7 @@ are imported once into remarks (local ADR 0011).
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/devbook/domain.md#sync-verdict, .devbook/domain/sessions/features.md#what-started-a-run-and-what-it-found, .devbook/domain/productivity/features.md#drift-at-a-glance, .devbook/domain/devbook/requirements.md#sync-verdicts-beside-a-chapter]
+related: [.devbook/domain/devbook/domain.md#sync-verdict, .devbook/domain/sessions/features.md#what-started-a-run-and-what-it-found, .devbook/domain/insights/features.md#drift-at-a-glance, .devbook/domain/devbook/requirements.md#sync-verdicts-beside-a-chapter]
 ```
 
 Show beside each chapter heading its [Sync Verdict](domain.md#sync-verdict): the
@@ -334,7 +334,7 @@ carries nothing.
 
 Each verdict also keeps the unit's sync direction as the sweep resolved it, and
 where it was inherited from. The dashboard's
-[Drift at a glance](../productivity/features.md#drift-at-a-glance) part reads the
+[Drift at a glance](../insights/features.md#drift-at-a-glance) part reads the
 same verdicts a unit at a time and groups them by that direction.
 
 ### A devbook that stays current
@@ -372,7 +372,7 @@ repository read from a branch without a clone is prepared too.
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/repository-management/features.md#repository-devbook-folder-settings, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
+related: [.devbook/domain/repositories/features.md#repository-devbook-folder-settings, .devbook/domain/repositories/requirements.md#archiving-a-repository]
 ```
 
 ```mermaid
@@ -407,8 +407,8 @@ The answer says how far behind the clone is. Three other states are not reconcil
 
 Whoever owns the clone decides what to do about those. A devbook kept outside a
 repository has no latest version and is not asked about, nor is that of an
-[archived repository](../repository-management/domain.md#archived-repository),
-which [is read-only](../repository-management/requirements.md#requirement-an-archived-repositorys-devbook-is-read-only).
+[archived repository](../repositories/domain.md#archived-repository),
+which [is read-only](../repositories/requirements.md#requirement-an-archived-repositorys-devbook-is-read-only).
 
 Updating happens only when somebody presses for it, because a pull touches a
 working tree somebody may be editing in.
@@ -417,7 +417,7 @@ working tree somebody may be editing in.
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/devbook/requirements.md#choosing-where-the-devbook-is-read-from, .devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md, .devbook/domain/repository-management/features.md#repository-devbook-folder-settings, .devbook/design/typography-and-layout.md#iconography]
+related: [.devbook/domain/devbook/requirements.md#choosing-where-the-devbook-is-read-from, .devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md, .devbook/domain/repositories/features.md#repository-devbook-folder-settings, .devbook/design/typography-and-layout.md#iconography]
 ```
 
 Read a repository's devbook from its local clone or any of its branches, chosen
@@ -1115,7 +1115,7 @@ switch. Until the switch is on, the Domain area reads as it always has.
 type: feature
 feature-flag: .devbook/domain/devbook/context.md#instruction-optimization
 depends-on: [.devbook/domain/devbook/features.md#repository-devbook-areas]
-related: [.devbook/domain/devbook/domain.md#instruction-review, .devbook/domain/repository-management/features.md#repository-devbook-folder-settings]
+related: [.devbook/domain/devbook/domain.md#instruction-review, .devbook/domain/repositories/features.md#repository-devbook-folder-settings]
 ```
 
 Review the working instructions as documents whose readers are mostly not people:
@@ -1239,7 +1239,7 @@ A figure with none is not shown.
 
 ```meta
 type: feature
-related: [.devbook/domain/brain/features.md#topic-and-tag-grouping, .devbook/domain/devbook/features.md#repository-devbook-areas, .devbook/domain/tasks/features.md#search-filter-and-organize, .devbook/arc42/08-crosscutting-concepts.md#devbook-database]
+related: [.devbook/domain/brain/features.md#topic-and-tag-grouping, .devbook/domain/devbook/features.md#repository-devbook-areas, .devbook/domain/work/features.md#search-filter-and-organize, .devbook/arc42/08-crosscutting-concepts.md#devbook-database]
 ```
 
 Find the chapter that answers a question across every area and every note at once.

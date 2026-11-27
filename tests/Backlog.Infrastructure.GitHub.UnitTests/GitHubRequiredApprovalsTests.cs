@@ -6,7 +6,7 @@ namespace Backlog.Infrastructure.GitHub.UnitTests;
 
 /// <summary>
 /// The approvals a pull request's base branch requires, on the Pull requests list's rows
-/// (<c>.devbook/domain/progress/features.md#pull-request-status</c>): read once per base
+/// (<c>.devbook/domain/goals/features.md#pull-request-status</c>): read once per base
 /// branch through <see cref="IGitHubClient.ReadRequiredApprovalsAsync"/> beside the list
 /// read, kept for <see cref="GitHubIntegration.RequiredApprovalsFreshFor"/>, and never
 /// a reason for the list to fail.

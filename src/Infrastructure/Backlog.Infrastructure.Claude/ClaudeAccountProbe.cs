@@ -153,7 +153,7 @@ public sealed class ClaudeAccountProbe(IClaudeTransport transport) : IClaudeAcco
             return new ClaudeAccountCheckStep(
                 ActorSubject,
                 ClaudeCheckOutcome.Failed,
-                $"Nobody in {organization} has the email {actor}. The dashboard would report nothing for it.");
+                $"Nobody in {organization} has the email {actor}. Insights would report nothing for it.");
         }
         catch (ClaudeException ex)
         {

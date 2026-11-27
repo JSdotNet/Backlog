@@ -1,6 +1,6 @@
 using Backlog.AzureFoundry.TestService;
 using Backlog.Infrastructure.AzureFoundry;
-using Backlog.Modules.Tasks.Abstractions;
+using Backlog.Modules.Work.Abstractions.Tasks;
 
 namespace Backlog.Infrastructure.AzureFoundry.UnitTests;
 

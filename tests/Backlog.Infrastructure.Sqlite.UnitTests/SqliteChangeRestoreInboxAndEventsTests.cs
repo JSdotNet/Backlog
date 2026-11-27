@@ -8,8 +8,8 @@ using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Inbox.DomainModels;
 using Backlog.Modules.Inbox.Features.RouteToBacklog;
-using Backlog.Modules.Tasks.Abstractions;
-using Backlog.Modules.Tasks.DomainModels;
+using Backlog.Modules.Work.Abstractions.Tasks;
+using Backlog.Modules.Work.Tasks.DomainModels;
 using Backlog.SharedKernel.Changes;
 using Backlog.SharedKernel.Results;
 

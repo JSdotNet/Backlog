@@ -60,17 +60,17 @@ and that context models no sessions.
 
 Pull requests are outside it too. A session or a delivery run often opens one, but
 whether it is ready, the stack it sits in and the commands that merge it are
-[Repository Management](../repository-management/context.md)'s. That includes the
-[pull requests pane](../repository-management/features.md#pull-request-readiness)
+[Repositories](../repositories/context.md)'s. That includes the
+[pull requests pane](../repositories/features.md#pull-request-readiness)
 and its merge and re-run acts.
 
 A session's detail panel shows, on each pull request the session produced, the
-[readiness verdict](../repository-management/domain.md#readiness-verdict) that
+[readiness verdict](../repositories/domain.md#readiness-verdict) that
 context publishes. The desktop shell composes that card, so this context holds only
-the pull request's number and references nothing of Repository Management. Local
+the pull request's number and references nothing of Repositories. Local
 [ADR 0042](../../arc42/adr/0042-repository-management-owns-pull-request-state.md#6-the-pull-requests-pane-and-the-session-card-read-the-contract)
-decides it. The shell composes the pane, which reads Repository Management's
-contract, and its flag is declared as `RepositoryManagementFeatures.PullRequests`.
+decides it. The shell composes the pane, which reads Repositories'
+contract, and its flag is declared as `RepositoriesFeatures.PullRequests`.
 
 ## Sessions area
 
@@ -121,3 +121,16 @@ It is off by default while the dispatchers are built
 ([Feature Enablement](../../arc42/08-crosscutting-concepts.md#feature-enablement)).
 The repository owner decides when it turns on. It is retired once the Manager skill
 has shipped and the feature leaves `DEV`.
+
+## Over MCP
+
+Agents reach this context through the [MCP channel](../../arc42/05-building-block-view.md#mcp-channel), `Backlog.Infrastructure.Mcp` (local ADRs 0012, 0073 §6).
+
+- `SessionTools`: `list_sessions`.
+- `SurfaceTools`: the delivery surface, `start_run`, `update_stage`, `set_run_context`, `record_prompt`, `get_run`, `list_runs`, `finish_run` and `open_dashboard`.
+- `UsageTools`: `list_run_usage`. [Insights](../insights/context.md#over-mcp) reads run usage; Sessions owns it.
+- `ScheduleTools`: `report_schedule_run` (local ADR 0051).
+- `LoopTools`: `check_in`.
+- `SessionRequestTools`: `claim_session_request`, `mark_session_request`, `list_session_requests`, `claim_delivery`, `mark_delivery` and `list_deliveries`, behind the [`session-requests`](#session-requests) flag (local ADRs 0038, 0041).
+
+Every group but `SessionRequestTools` is behind the [`sessions`](#sessions-area) flag. `TrackerTools`, a [Work](../work/context.md#over-mcp) group, composes the two contexts: its `link_session` tells this context's request queue that a session picked an entry up.

@@ -1,14 +1,14 @@
 # ADR 0007: Import reuses the entry text grammar; a plan is multi-task entry text
 
 ```meta
-related: [".devbook/domain/tasks/features.md#import", ".devbook/domain/tasks/domain.md#task", ".devbook/design/content-editing.md#scheduling-and-dependency-tokens", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md", ".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md"]
-c4: [backlog.desktop.tasks]
+related: [".devbook/domain/work/features.md#import", ".devbook/domain/work/domain.task.md#task", ".devbook/design/content-editing.md#scheduling-and-dependency-tokens", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md", ".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md"]
+c4: [backlog.desktop.work]
 c4-touches: [backlog.taskStore, backlog.cloud]
 ```
 
 ## Status
 
-Accepted and built. Written before Import (`.devbook/domain/tasks/features.md#import`)
+Accepted and built. Written before Import (`.devbook/domain/work/features.md#import`)
 existed, to fix the format and the persistence path before the feature slice was
 written, so the implementation had one decision to follow rather than one to
 make up as it went. Validated end to end in the desktop harness on 2026-09-24,
@@ -42,7 +42,7 @@ owns. An entry already has a title, a body, sigil and named metadata tokens, and
 between prompts" is `after:`, the dependency token `.devbook/design/content-editing.md`
 already defines; a plan's "setup step" or "reminder to update the knowledge
 docs" is a sub-item. Nothing about a plan needs a fact an entry cannot already
-hold — the earlier work on `.devbook/domain/tasks/domain.md#task` and
+hold — the earlier work on `.devbook/domain/work/domain.task.md#task` and
 `.devbook/design/content-editing.md#scheduling-and-dependency-tokens` this session
 already reached that conclusion at the domain and design layers: `import_plan_id`
 and `import_item_id` are entry provenance fields, not a second aggregate, and
@@ -134,10 +134,10 @@ already: "this token never registers a repository on its own."
 
 Import is the one caller that relaxes that. An unrecognized name triggers
 registration through Repository Management's existing registration capability
-(`.devbook/domain/repository-management/features.md#repository-registration`) before
+(`.devbook/domain/repositories/features.md#repository-registration`) before
 the entry naming it is created, so a plan can introduce a repository to the
 product just by mentioning it. This leniency belongs to Import specifically —
-`.devbook/domain/tasks/features.md#repository-resolution-on-import` already scopes it
+`.devbook/domain/work/features.md#repository-resolution-on-import` already scopes it
 that way — and is not a change to what `repo:` does everywhere else. Import
 triggers registration; it does not perform it, and gains no say over what a
 registered repository holds beyond asking for one to exist.
@@ -154,7 +154,7 @@ as this ADR describes.
 There is no separate "plan id" field or wrapper document. A plan's identity is
 whichever `#tag` every entry in the pasted document happens to share — an
 ordinary tag sigil, filed the same way an entry is
-[filed against a roadmap tag](../../domain/tasks/features.md#filing-a-task-against-a-roadmap-tag).
+[filed against a roadmap tag](../../domain/work/features.md#filing-a-task-against-a-roadmap-tag).
 `import_plan_id` is populated from that shared tag; `import_item_id` is
 populated from each entry's own `id:` token. Both are read off tokens the
 grammar already carries — nothing new is parsed to produce them.
@@ -172,7 +172,7 @@ to refuse the entries it describes.
 
 Bringing in a later version of an already-imported plan replaces that plan
 rather than adding to it, per
-`.devbook/domain/tasks/features.md#re-importing-an-updated-plan`. Before anything is
+`.devbook/domain/work/features.md#re-importing-an-updated-plan`. Before anything is
 written, Import clears the previous version: every stored entry whose
 `import_plan_id` is this plan's shared tag and whose status is `draft` or
 `ready` is deleted — tombstoned, which is what deletion is here (ADR 0003), so
@@ -190,7 +190,7 @@ parsed segment matched on `import_plan_id` (the shared tag) and `import_item_id`
   somebody has picked up is not deleted out from under them.
 - **Matched, `done` or `archived`** — leave untouched. A later plan version does
   not reopen finished work, the same principle `Occurrence Spawning`
-  (`.devbook/domain/tasks/domain.md#occurrence-spawning`) already applies to a
+  (`.devbook/domain/work/domain.md#occurrence-spawning`) already applies to a
   completed recurring entry: a completed thing stays the record of what was
   done.
 - **Unmatched** — create new: either a prompt this version introduces, or one
@@ -261,7 +261,7 @@ Positive:
   job is entirely its own orchestration on top.
 - A hand-typed entry and an imported one are indistinguishable once created —
   same table, same fields, same sub-item shape — which is exactly what
-  `.devbook/domain/tasks/features.md#import` states as the point ("Import builds
+  `.devbook/domain/work/features.md#import` states as the point ("Import builds
   nothing that entry creation does not already offer").
 - Re-import is keyed on two already-modelled fields, with no new index shape
   beyond what querying entries by tag/id already needs, and its correctness does
@@ -282,7 +282,7 @@ Negative:
 - A replaced entry is a new entry: the one it stood in for is tombstoned and the
   new one carries a new real id. An `after:` written elsewhere in the backlog
   against the old id therefore dangles — a weak reference the model already
-  tolerates (`.devbook/domain/tasks/domain.md#readiness`) — and any hand editing done to
+  tolerates (`.devbook/domain/work/domain.task.md#readiness`) — and any hand editing done to
   a not-yet-started imported entry is lost to the newer version. Both are
   accepted: an entry nobody has started holds nothing worth keeping over what
   the plan now says. Re-importing a large plan also writes one tombstone per
@@ -298,14 +298,14 @@ Neutral:
 - Import is described here as reusing `after:` for prompt ordering rather than
   inventing an import-specific relationship — a plan's dependency and an
   ordinary entry dependency are the same fact, read the same way by
-  `.devbook/domain/tasks/domain.md#readiness`. Nothing about "what's next in this
+  `.devbook/domain/work/domain.task.md#readiness`. Nothing about "what's next in this
   plan" is a plan-specific query; it is the existing readiness/repository
-  grouping `.devbook/domain/tasks/features.md#import` already points at.
+  grouping `.devbook/domain/work/features.md#import` already points at.
 - `repo:` auto-registration is scoped to Import by the feature, not by the
   token — the same `repo:` token used in ordinary editing stays strict
   everywhere else. A future feature wanting the same leniency would need its
   own stated exception, the same way Import's is stated in
-  `.devbook/domain/tasks/features.md#repository-resolution-on-import`, rather than
+  `.devbook/domain/work/features.md#repository-resolution-on-import`, rather than
   inheriting Import's behavior implicitly.
 
 ## History

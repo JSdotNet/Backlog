@@ -1273,7 +1273,7 @@ public sealed partial class GitHubSettingsStore
     /// <para>
     /// Local, and the whole list stays local rather than being split down the
     /// middle. <c>DevbookFolderSetting</c> is Devbook's published language
-    /// and the shared registry has to stay a Repository Management artifact; and
+    /// and the shared registry has to stay a Repositories artifact; and
     /// splitting one row across two files would make this a two-file write whose
     /// partial failure leaves an inconsistent row.
     /// </para>

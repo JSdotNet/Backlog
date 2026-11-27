@@ -6,7 +6,7 @@ namespace Backlog.Infrastructure.Sync;
 /// The kind tokens of documents this build no longer keeps but may still find on the task
 /// feed: a replica holds what older builds pushed, and nothing deletes it there.
 /// <para>
-/// <c>sprint-series</c> was Progress's whole sprint series, one document per series. Local
+/// <c>sprint-series</c> was Goals' whole sprint series, one document per series. Local
 /// ADR 0035 retires sprints, so a desktop reads such a document and drops it — counted as
 /// nothing to do, never written, and never mistaken for a task. The phone's
 /// <c>TaskFold</c> skips the same token; the literal is duplicated there for the reason

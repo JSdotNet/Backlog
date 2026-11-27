@@ -93,7 +93,7 @@ public sealed class FileMcpAccessRequestStore : IMcpAccessRequestStore
                 GrantId = grantId,
                 Kind = kind,
                 Name = name,
-                Scopes = [.. scopes],
+                Scopes = [.. McpScopes.Resolve(scopes)],
                 Executable = executable,
                 Folder = folder,
                 RequestedAt = _clock.GetUtcNow(),
@@ -177,7 +177,8 @@ public sealed class FileMcpAccessRequestStore : IMcpAccessRequestStore
         record.GrantId!,
         record.Kind,
         record.Name ?? string.Empty,
-        [.. record.Scopes ?? []],
+        // A request made under a scope's old name asks for it under the new one (local ADR 0073 §10).
+        [.. McpScopes.Resolve(record.Scopes ?? [])],
         record.Executable,
         record.Folder,
         record.RequestedAt,

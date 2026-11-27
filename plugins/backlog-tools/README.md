@@ -170,7 +170,7 @@ they import. **Install** below says which to install where.
 - **`weekly-review`** — the GTD weekly review of local ADR 0054 §8
   (`.devbook/arc42/adr/0054-clarify-outcomes-follow-gtd-and-each-item-has-one-home.md`), over the
   three homes: the Inbox, the Brain and the backlog. It reads them through the `backlog` MCP
-  server — `list_inbox_items` (unprocessed and deferred), `list_entries`, `get_roadmap` and
+  server — `list_inbox_items` (unprocessed and deferred), `list_entries`, `get_planned_work` and
   `get_plan_items`, `list_goals`, `list_brain_reviews`, and `read_knowledge_chapter` under
   `#brain` for each note's `tasks` and `roadmap` fields. The server says whether a Brain is set
   but never where it is, so the skill lists an area's notes from the folder given as

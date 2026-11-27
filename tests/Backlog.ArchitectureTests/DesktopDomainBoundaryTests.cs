@@ -20,13 +20,13 @@ namespace Backlog.ArchitectureTests;
 /// First, that the split is still the shape of the repository — a project per
 /// context and a Shell that is not one, and nothing quietly moved back inside
 /// another. Second, the finer grain: a reference is coarse, and the
-/// moment <c>Backlog.Modules.Tasks.UI</c> takes its one allowed reference on
-/// the Inbox the compiler will accept any Backlog-Management file naming any
+/// moment <c>Backlog.Modules.Work.UI</c> took a reference on the Inbox's
+/// published surface the compiler would accept any Work file naming any
 /// Inbox type. These rules read the source text instead, so a <c>using</c> is
 /// caught in the file that wrote it rather than at the reference it would
-/// eventually need. They read namespaces, which for Tasks and Devbook still say
-/// <c>Backlog.Desktop.UI.*</c> — see the <c>RootNamespace</c> comments in those
-/// csproj files — and for Inbox and the later ones say <c>Backlog.Modules.*.UI</c>, so each rule asks the project.
+/// eventually need. They read namespaces, which for Devbook still says
+/// <c>Backlog.Desktop.UI.*</c> — see the <c>RootNamespace</c> comment in its
+/// csproj — and for Inbox, Work and the later ones say <c>Backlog.Modules.*.UI</c>, so each rule asks the project.
 /// </para>
 /// <para>
 /// The contexts are read from <c>src/Modules</c> rather than listed here. The
@@ -49,6 +49,18 @@ public class DesktopDomainBoundaryTests
         .ToDictionary(
             project => project.Directory!.Parent!.Name,
             project => Repository.RelativePath(project.Directory!),
+            StringComparer.Ordinal);
+
+    /// <summary>Every UI project folder of each context: its screens and, for
+    /// Devbook, the pane's published surface (<c>Backlog.Modules.Devbook.Contracts.UI</c>,
+    /// local ADR 0073 §9), which is the same context's code and is read by the same
+    /// rules.</summary>
+    private static readonly Dictionary<string, string[]> ContextFolders = Repository.ProjectsUnder("src", "Modules")
+        .Where(Repository.IsUserInterface)
+        .GroupBy(project => project.Directory!.Parent!.Name, StringComparer.Ordinal)
+        .ToDictionary(
+            group => group.Key,
+            group => group.Select(project => Repository.RelativePath(project.Directory!)).Order(StringComparer.Ordinal).ToArray(),
             StringComparer.Ordinal);
 
     /// <summary>The namespace each context's types are declared in: its UI
@@ -94,8 +106,8 @@ public class DesktopDomainBoundaryTests
     /// <summary>
     /// The one context that names another in its source, with the relationship
     /// that lets it: the Brain's screens render on the Devbook pane, so Brain.UI
-    /// implements the pane's mode extension point and draws its notes with
-    /// Devbook's viewer. The reverse pair stays forbidden, and the Brain's own
+    /// implements the pane's mode extension point and edits its notes with the
+    /// pane's editor, both from the pane's published surface. The reverse pair stays forbidden, and the Brain's own
     /// <c>_Imports.razor</c> still names no Devbook namespace — each file that
     /// takes the edge says so itself.
     /// </summary>
@@ -137,19 +149,20 @@ public class DesktopDomainBoundaryTests
     /// The contexts are read from the module folders, and a reading that broke
     /// would leave every rule below iterating nothing — green for the wrong
     /// reason. These anchors are the contexts there are today: the three the
-    /// list used to name and the five it missed.
+    /// list used to name, the ones it missed, and Work, which Tasks and Roadmap
+    /// merged into (local ADR 0073 §1).
     /// </summary>
     [Fact]
     public void The_contexts_are_read_from_the_module_folders()
     {
-        foreach (var context in new[] { "Inbox", "Tasks", "Devbook", "Capture", "Dashboard", "DevPc", "Roadmap", "Sessions", "Brain", "Calendar" })
+        foreach (var context in new[] { "Inbox", "Work", "Devbook", "Capture", "Insights", "DevPc", "Sessions", "Brain", "Calendar" })
         {
             Assert.True(
                 ContextProjects.ContainsKey(context),
                 $"{context} has a UI project under src/Modules but is not one of the contexts these rules read.");
         }
 
-        Assert.Equal("Backlog.Desktop.UI.Tasks", ContextNamespaces["Tasks"]);
+        Assert.Equal("Backlog.Modules.Work.UI", ContextNamespaces["Work"]);
         Assert.Equal("Backlog.Modules.Inbox.UI", ContextNamespaces["Inbox"]);
         Assert.Equal("Backlog.Modules.Sessions.UI", ContextNamespaces["Sessions"]);
         Assert.Equal("Backlog.Modules.Brain.UI", ContextNamespaces["Brain"]);
@@ -171,7 +184,8 @@ public class DesktopDomainBoundaryTests
     {
         if (!ContextNamespaces[context].StartsWith("Backlog.Modules.", StringComparison.Ordinal)) return;
 
-        var offenders = Repository.SourceFilesUnder(new DirectoryInfo(Folder(ContextProjects[context])), ".razor")
+        var offenders = ContextFolders[context]
+            .SelectMany(folder => Repository.SourceFilesUnder(new DirectoryInfo(Folder(folder)), ".razor"))
             .SelectMany(file => File.ReadAllLines(file.FullName)
                 .Select((line, index) => (file, line, number: index + 1)))
             .Where(entry => Regex.IsMatch(entry.line, @"^\s*@using\s+Backlog\."))
@@ -245,7 +259,7 @@ public class DesktopDomainBoundaryTests
                 + "one puts it in the same compilation unit as the panes it wires together.");
         }
 
-        foreach (var (context, path) in ContextProjects)
+        foreach (var (context, path) in ContextFolders.SelectMany(entry => entry.Value.Select(folder => (entry.Key, folder))))
         {
             Assert.False(
                 Directory.Exists(Path.Combine(Folder(path), "Shell")),
@@ -349,30 +363,42 @@ public class DesktopDomainBoundaryTests
     [MemberData(nameof(Contexts))]
     public void A_contexts_own_razor_imports_name_no_other_context(string context)
     {
-        var imports = Path.Combine(Folder(ContextProjects[context]), "_Imports.razor");
-        Assert.True(File.Exists(imports), $"{ContextProjects[context]} should keep its own _Imports.razor.");
-
-        var text = File.ReadAllText(imports);
-
-        foreach (var other in ContextProjects.Keys.Where(name => name != context).Append("Shell"))
+        foreach (var folder in ContextFolders[context])
         {
-            Assert.DoesNotContain(AreaNamespaces[other], text, StringComparison.Ordinal);
+            var imports = Path.Combine(Folder(folder), "_Imports.razor");
+            Assert.True(File.Exists(imports), $"{folder} should keep its own _Imports.razor.");
+
+            var text = File.ReadAllText(imports);
+
+            foreach (var other in ContextProjects.Keys.Where(name => name != context).Append("Shell"))
+            {
+                Assert.DoesNotContain(AreaNamespaces[other], text, StringComparison.Ordinal);
+            }
         }
     }
 
+    /// <summary>Each context's screens: the <c>Backlog.Modules.&lt;Folder&gt;.UI</c>
+    /// project of its module folder, which names the context and its namespace. A
+    /// second UI project in the folder, such as Devbook's published pane surface
+    /// (<c>Backlog.Modules.Devbook.Contracts.UI</c>, local ADR 0073 §9), is the same
+    /// context's: <see cref="ContextFolders"/> holds it, and the rules read it too.</summary>
     private static IEnumerable<FileInfo> ModuleUiProjects() =>
-        Repository.ProjectsUnder("src", "Modules").Where(Repository.IsUserInterface);
+        Repository.ProjectsUnder("src", "Modules")
+            .Where(Repository.IsUserInterface)
+            .Where(project => project.Name.Equals(
+                $"Backlog.Modules.{project.Directory!.Parent!.Name}.UI.csproj", StringComparison.OrdinalIgnoreCase));
 
     private static string Folder(string relativePath) =>
         Path.Combine([Repository.Root.FullName, .. relativePath.Split('/')]);
 
     private static List<string> FilesNaming(string area, string namespaceName)
     {
-        var directory = new DirectoryInfo(Folder(Areas[area]));
-        if (!directory.Exists) return [];
+        var folders = ContextFolders.TryGetValue(area, out var contextFolders) ? contextFolders : [Areas[area]];
 
-        return [.. directory
-            .EnumerateFiles("*", SearchOption.AllDirectories)
+        return [.. folders
+            .Select(folder => new DirectoryInfo(Folder(folder)))
+            .Where(directory => directory.Exists)
+            .SelectMany(directory => directory.EnumerateFiles("*", SearchOption.AllDirectories))
             .Where(file => file.Extension is ".cs" or ".razor")
             // Each area is a project folder now rather than a folder inside one,
             // so it carries build output — and the generated Razor sources under

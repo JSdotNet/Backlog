@@ -22,17 +22,31 @@ public sealed class FileMcpAccessRequestStoreTests : IDisposable
     {
         var store = new FileMcpAccessRequestStore(FilePath, _clock);
 
-        var added = store.Add("g_aaaaaaaaaaaaaaaa", McpAccessRequestKind.Register, "Claude Code", ["tasks:read"], "claude.exe", @"D:\Repos\Backlog");
+        var added = store.Add("g_aaaaaaaaaaaaaaaa", McpAccessRequestKind.Register, "Claude Code", ["work:read"], "claude.exe", @"D:\Repos\Backlog");
 
         Assert.StartsWith(McpAccessRequest.IdPrefix, added.Id, StringComparison.Ordinal);
         var read = Assert.Single(new FileMcpAccessRequestStore(FilePath, _clock).List());
         Assert.Equal(added.Id, read.Id);
         Assert.True(read.IsOpen);
         Assert.Equal(McpAccessRequestKind.Register, read.Kind);
-        Assert.Equal(["tasks:read"], read.Scopes);
+        Assert.Equal(["work:read"], read.Scopes);
         Assert.Equal("claude.exe", read.Executable);
         Assert.Equal(@"D:\Repos\Backlog", read.Folder);
         Assert.Equal(Now, read.RequestedAt);
+    }
+
+    [Fact]
+    public void A_request_made_under_the_old_scope_names_asks_for_the_new_ones()
+    {
+        // A request a build before local ADR 0073 §10 wrote: the same record, the old names.
+        new FileMcpAccessRequestStore(FilePath, _clock).Add("g_aaaaaaaaaaaaaaaa", McpAccessRequestKind.Register, "Before the rename", ["work:read", "work:write"], null, null);
+        File.WriteAllText(FilePath, File.ReadAllText(FilePath).Replace("work:", "tasks:", StringComparison.Ordinal));
+        var store = new FileMcpAccessRequestStore(FilePath, _clock);
+
+        Assert.Equal(["work:read", "work:write"], Assert.Single(store.List()).Scopes);
+
+        var added = store.Add("g_bbbbbbbbbbbbbbbb", McpAccessRequestKind.MoreScopes, "Old helper", ["tasks:write"], null, null);
+        Assert.Equal(["work:write"], added.Scopes);
     }
 
     [Fact]
@@ -42,7 +56,7 @@ public sealed class FileMcpAccessRequestStoreTests : IDisposable
         var path = _root.Combine("missing", FileMcpAccessRequestStore.FileName);
         var store = new FileMcpAccessRequestStore(path, _clock);
 
-        var added = store.Add("g_aaaaaaaaaaaaaaaa", McpAccessRequestKind.Register, "Claude Code", ["tasks:read"], null, null);
+        var added = store.Add("g_aaaaaaaaaaaaaaaa", McpAccessRequestKind.Register, "Claude Code", ["work:read"], null, null);
 
         Assert.True(File.Exists(path));
         Assert.Equal(added.Id, Assert.Single(new FileMcpAccessRequestStore(path, _clock).List()).Id);
@@ -68,9 +82,9 @@ public sealed class FileMcpAccessRequestStoreTests : IDisposable
     public void A_decline_keeps_no_allowed_scopes()
     {
         var store = new FileMcpAccessRequestStore(FilePath, _clock);
-        var added = store.Add("g_aaaaaaaaaaaaaaaa", McpAccessRequestKind.Register, "Copilot", ["tasks:read"], null, null);
+        var added = store.Add("g_aaaaaaaaaaaaaaaa", McpAccessRequestKind.Register, "Copilot", ["work:read"], null, null);
 
-        var declined = store.Answer(added.Id, McpAccessRequestState.Declined, ["tasks:read"]);
+        var declined = store.Answer(added.Id, McpAccessRequestState.Declined, ["work:read"]);
 
         Assert.Empty(declined!.Allowed);
     }
@@ -82,7 +96,7 @@ public sealed class FileMcpAccessRequestStoreTests : IDisposable
         var raised = 0;
         store.Changed += () => raised++;
 
-        var added = store.Add("g_aaaaaaaaaaaaaaaa", McpAccessRequestKind.Register, "Copilot", ["tasks:read"], null, null);
+        var added = store.Add("g_aaaaaaaaaaaaaaaa", McpAccessRequestKind.Register, "Copilot", ["work:read"], null, null);
         store.Answer(added.Id, McpAccessRequestState.Declined, []);
 
         Assert.Equal(2, raised);
@@ -96,7 +110,7 @@ public sealed class FileMcpAccessRequestStoreTests : IDisposable
 
         Assert.Empty(store.List());
         Assert.Throws<UnreadableMcpAccessRequestFileException>(() =>
-            store.Add("g_aaaaaaaaaaaaaaaa", McpAccessRequestKind.Register, "Copilot", ["tasks:read"], null, null));
+            store.Add("g_aaaaaaaaaaaaaaaa", McpAccessRequestKind.Register, "Copilot", ["work:read"], null, null));
         Assert.Equal("{ \"requests\": [ ,", File.ReadAllText(FilePath));
     }
 

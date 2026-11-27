@@ -65,7 +65,7 @@ public static class McpTokenRetirement
     public static IReadOnlyList<string> DeliveryScopes { get; } = [.. DeliveryPreset.Union(DeliveryAdditions, StringComparer.Ordinal)];
 
     /// <summary>The Manager grant's scopes: the Manager role's preset, <c>sessions:dispatch</c>
-    /// with <c>tasks:read</c> and <c>tasks:write</c>. <c>agents:grant</c> is never granted at
+    /// with <c>work:read</c> and <c>work:write</c>. <c>agents:grant</c> is never granted at
     /// start: switching it on asks for Windows Hello (local ADR 0058 §5).</summary>
     public static IReadOnlyList<string> ManagerScopes { get; } = McpAgents.PresetOf("Manager")
         ?? throw new InvalidOperationException("McpAgents has no Manager role.");
