@@ -7,6 +7,7 @@
     The dot is decoration. The words carry the state on their own, because
     colour alone is not a meaning (accessibility.md#target-sizes-and-text).
 *@
+@inject IServiceProvider Services
 
 <span class="@ClassValue" role="status" aria-live="polite" data-sync-state="@StateToken" data-testid="@TestId" @attributes="AdditionalAttributes">
     <span class="sync-status__dot" aria-hidden="true"></span>
@@ -17,8 +18,8 @@
     [Parameter]
     public SyncStatusReading Reading { get; set; } = SyncStatusReading.NotPaired;
 
-    /// <summary>The moment "3m ago" is measured from. Null reads the clock, which
-    /// is what a host wants; a storybook or a test passes a fixed instant so the
+    /// <summary>The moment "3m ago" is measured from. Null reads the host's clock (app-defaults
+    /// ADR 0005), or the system's where none is registered, which is what a host wants; a storybook or a test passes a fixed instant so the
     /// line says the same thing every time it is drawn.</summary>
     [Parameter]
     public DateTimeOffset? Now { get; set; }
@@ -32,7 +33,7 @@
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
 
-    private string Text => Describe(Reading, Now ?? DateTimeOffset.UtcNow);
+    private string Text => Describe(Reading, Now ?? (Services.GetService<TimeProvider>() ?? TimeProvider.System).GetUtcNow());
 
     private string StateToken => Reading.Kind switch
     {

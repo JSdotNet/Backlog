@@ -797,7 +797,7 @@ public sealed partial class TaskReplicaMerge(
     {
         if (local is null || local.IsCompleted || local.DeletedAt is not null) return;
 
-        var successor = await OccurrenceSpawning.SpawnAsync(written, _tasks, cancellationToken).ConfigureAwait(false);
+        var successor = await OccurrenceSpawning.SpawnAsync(written, _tasks, _time, cancellationToken).ConfigureAwait(false);
 
         if (successor is not null)
         {

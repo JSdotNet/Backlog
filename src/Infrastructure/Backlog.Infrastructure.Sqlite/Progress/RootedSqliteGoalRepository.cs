@@ -9,7 +9,7 @@ namespace Backlog.Infrastructure.Sqlite.Progress;
 /// root is read per call and the underlying repository rebuilt only when it changes, so it
 /// follows the root the tasks follow to the same file.
 /// </summary>
-public sealed class RootedSqliteGoalRepository(Func<string> currentRootDirectory)
+public sealed class RootedSqliteGoalRepository(Func<string> currentRootDirectory, TimeProvider? clock = null)
     : IGoalRepository, IGoalReplicaStore
 {
     private readonly Func<string> _currentRootDirectory =
@@ -29,7 +29,7 @@ public sealed class RootedSqliteGoalRepository(Func<string> currentRootDirectory
             if (_repository is null || !string.Equals(_rootDirectory, root, StringComparison.OrdinalIgnoreCase))
             {
                 _rootDirectory = root;
-                _repository = new SqliteGoalRepository(root);
+                _repository = new SqliteGoalRepository(root, clock);
             }
 
             return _repository;

@@ -5,6 +5,7 @@ using Backlog.Modules.Sync.Api.Options;
 using Backlog.Modules.Sync.Api.Security;
 using Backlog.Modules.Sync.DomainModels;
 using Backlog.SharedKernel.Results;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Modules.Sync.Api.UnitTests;
 
@@ -23,6 +24,21 @@ public class SyncCursorCodecTests
         {
             SigningKey = signingKey ?? SyncServiceFactory.SigningKey,
         }.DecodeSigningKey()));
+
+    /// <summary>The issue time in the payload is read from the injected clock (app-defaults
+    /// ADR 0005), so a minted cursor carries a moment a test can name.</summary>
+    [Fact]
+    public void A_cursor_carries_the_moment_the_injected_clock_minted_it_at()
+    {
+        var minted = new DateTimeOffset(2026, 3, 4, 5, 6, 7, TimeSpan.Zero);
+        var codec = new HmacSyncCursorCodec(
+            SigningKeyRing.Fixed(new SyncTokenOptions { SigningKey = SyncServiceFactory.SigningKey }.DecodeSigningKey()),
+            new FakeTimeProvider(minted));
+
+        var payload = Encoding.UTF8.GetString(Base64Url.DecodeFromChars(codec.Mint(Mine, "c").Split('.')[1]));
+
+        Assert.Contains($"\"i\":{minted.ToUnixTimeSeconds()}", payload, StringComparison.Ordinal);
+    }
 
     [Fact]
     public void A_minted_cursor_comes_back_as_it_went_in()

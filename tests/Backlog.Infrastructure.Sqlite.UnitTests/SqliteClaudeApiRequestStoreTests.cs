@@ -3,6 +3,7 @@ using Backlog.Modules.Sessions.Abstractions;
 
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Infrastructure.Sqlite.UnitTests;
 
@@ -35,6 +36,24 @@ public sealed class SqliteClaudeApiRequestStoreTests : IDisposable
 
         Assert.Equal([request], await store.ListAsync(cancellationToken: Ct));
         Assert.Equal(Path.Combine(_root, "backlog.db"), store.DatabasePath);
+    }
+
+    /// <summary>When a batch arrived is read from the injected clock (app-defaults ADR 0005),
+    /// not taken from the event, which carries its own moment.</summary>
+    [Fact]
+    public async Task A_batch_is_stamped_received_from_the_injected_clock()
+    {
+        var received = Noon.AddMinutes(3);
+        var store = new SqliteClaudeApiRequestStore(_root, new FakeTimeProvider(received));
+
+        await store.AddAsync([Request("req_1")], Ct);
+
+        await using var connection = new SqliteConnection($"Data Source={store.DatabasePath}");
+        await connection.OpenAsync(Ct);
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT received_at FROM claude_api_requests;";
+        var stored = (string)(await command.ExecuteScalarAsync(Ct))!;
+        Assert.Equal(received, DateTimeOffset.Parse(stored, System.Globalization.CultureInfo.InvariantCulture));
     }
 
     [Fact]

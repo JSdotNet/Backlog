@@ -831,11 +831,20 @@ public static class AgentSessionGroups
     /// were reading, so machines sort by name and assistants sort in the order
     /// <see cref="AgentSessionKind"/> declares them.
     /// </para>
+    /// <para>
+    /// The moment and the zone <see cref="AgentSessionGrouping.When"/> reads come from
+    /// <paramref name="clock"/> (app-defaults ADR 0005): the system's when not given, which
+    /// suits every grouping that reads neither.
+    /// </para>
     /// </summary>
     public static IReadOnlyList<AgentSessionGroup> Of(
         IReadOnlyList<SessionRow> rows,
-        AgentSessionGrouping grouping) =>
-        Of(rows, grouping, DateTimeOffset.UtcNow, TimeZoneInfo.Local);
+        AgentSessionGrouping grouping,
+        TimeProvider? clock = null)
+    {
+        var time = clock ?? TimeProvider.System;
+        return Of(rows, grouping, time.GetUtcNow(), time.LocalTimeZone);
+    }
 
     /// <summary>
     /// The same sections, against a clock and a time zone — the two things

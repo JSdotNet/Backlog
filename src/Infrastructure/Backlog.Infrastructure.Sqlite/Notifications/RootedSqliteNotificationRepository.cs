@@ -8,7 +8,7 @@ namespace Backlog.Infrastructure.Sqlite.Notifications;
 /// <c>backlog.db</c> does: the root is asked per call, because somebody can move their backlog
 /// while the app is open and the database follows the folder.
 /// </summary>
-public sealed class RootedSqliteNotificationRepository(Func<string> currentRootDirectory) : INotificationRepository
+public sealed class RootedSqliteNotificationRepository(Func<string> currentRootDirectory, TimeProvider? clock = null) : INotificationRepository
 {
     private readonly Func<string> _currentRootDirectory =
         currentRootDirectory ?? throw new ArgumentNullException(nameof(currentRootDirectory));
@@ -30,7 +30,7 @@ public sealed class RootedSqliteNotificationRepository(Func<string> currentRootD
                 if (_repository is null || !string.Equals(_rootDirectory, root, StringComparison.OrdinalIgnoreCase))
                 {
                     _rootDirectory = root;
-                    _repository = new SqliteNotificationRepository(root);
+                    _repository = new SqliteNotificationRepository(root, clock);
                 }
 
                 return _repository;

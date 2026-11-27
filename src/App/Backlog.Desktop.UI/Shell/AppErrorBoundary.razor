@@ -5,6 +5,7 @@
 @inject NavigationManager Navigation
 @inject IAppUpdateService Updates
 @inject FeedbackReportChannel Reports
+@inject IServiceProvider Services
 
 @*
     What stands between a page that threw and the framework's fatal banner.
@@ -78,7 +79,8 @@ else
     protected override Task OnErrorAsync(Exception exception)
     {
         _location = Navigation.ToBaseRelativePath(Navigation.Uri) is { Length: > 0 } relative ? "/" + relative : "/";
-        _when = DateTimeOffset.UtcNow;
+        // The host's clock (app-defaults ADR 0005); a test container without one gets the system's.
+        _when = (Services.GetService<TimeProvider>() ?? TimeProvider.System).GetUtcNow();
 
         // Logged here because nothing else will: the renderer's own path prints
         // it to the WebView console and stops, and this boundary is what keeps

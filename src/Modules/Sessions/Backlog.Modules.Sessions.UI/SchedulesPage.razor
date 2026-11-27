@@ -3,6 +3,7 @@
 @using global::Backlog.UI.Components.Markdown
 @using Microsoft.JSInterop
 @inject IJSRuntime JS
+@inject IServiceProvider Services
 
 @*
     Schedules: every schedule this machine runs, with the state its latest run left it
@@ -359,9 +360,10 @@
     [Parameter]
     public string? ScopeLabel { get; set; }
 
-    /// <summary>When the readings were taken: what "since" and "next" are said against.</summary>
+    /// <summary>When the readings were taken: what "since" and "next" are said against. The
+    /// host's clock says when not given (app-defaults ADR 0005).</summary>
     [Parameter]
-    public DateTimeOffset Now { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset Now { get; set; }
 
     /// <summary>The zone times are shown in: this machine's.</summary>
     [Parameter]
@@ -457,6 +459,11 @@
         schedule.State is ScheduledRunState.Held
             ? $"Open the {Day(ScheduleOverview.Began(target.Run))} run"
             : "Open run";
+
+    protected override void OnInitialized()
+    {
+        if (Now == default) Now = (Services.GetService(typeof(TimeProvider)) as TimeProvider ?? TimeProvider.System).GetUtcNow();
+    }
 
     protected override void OnParametersSet()
     {

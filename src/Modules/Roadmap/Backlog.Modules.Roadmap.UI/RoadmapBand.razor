@@ -90,7 +90,7 @@
                                  Bars="@_view.Bars"
                                  Milestones="@_view.Milestones"
                                  Links="@_view.Links"
-                                 Today="@(Today ?? DateOnly.FromDateTime(DateTime.Today))"
+                                 Today="@TodayOrNow"
                                  Graduated="true"
                                  WeekStart="RoadmapPlanView.WeekStart"
                                  PlannedHoursOn="@PlannedOn"
@@ -168,7 +168,7 @@
                        Repositories="@Configured()"
                        ShowArchived="@(_showArchived?.Shown ?? false)"
                        DependencyOptions="@DependencyOptions()"
-                       Today="@(Today ?? DateOnly.FromDateTime(DateTime.Today))"
+                       Today="@TodayOrNow"
                        OnSave="SaveAsync"
                        OnDelete="DeleteAsync"
                        OnDependencyChanged="ChangeDependencyAsync"
@@ -192,7 +192,7 @@
                             Repositories="@Configured()"
                             ShowArchived="@(_showArchived?.Shown ?? false)"
                             DependencyOptions="@DependencyOptions()"
-                            Today="@(Today ?? DateOnly.FromDateTime(DateTime.Today))"
+                            Today="@TodayOrNow"
                             OnSave="SaveDateAsync"
                             OnDelete="DeleteDateAsync"
                             OnDependencyChanged="ChangeDependencyAsync" />
@@ -200,13 +200,13 @@
     <RoadmapDaysOffDialog Open="@_daysOffOpen"
                           OpenChanged="open => _daysOffOpen = open"
                           Week="@_week"
-                          Today="@(Today ?? DateOnly.FromDateTime(DateTime.Today))"
+                          Today="@TodayOrNow"
                           RestoreFocusToId="roadmap-band-days-off" />
 
     <RoadmapHoursReport Open="@_hoursOpen"
                         OpenChanged="open => _hoursOpen = open"
                         Date="@_hoursDate"
-                        Today="@(Today ?? DateOnly.FromDateTime(DateTime.Today))"
+                        Today="@TodayOrNow"
                         RestoreFocusToId="@($"roadmap-hours-{_hoursDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}")" />
 </section>
 
@@ -392,6 +392,10 @@
     [Parameter]
     public DateOnly? Today { get; set; }
 
+    /// <summary>The date the band treats as today: <see cref="Today"/> when given, else the
+    /// host's clock (app-defaults ADR 0005), or the system's where none is registered.</summary>
+    private DateOnly TodayOrNow => Today ?? RoadmapToday.From(Services);
+
     /// <summary>
     /// Asks the host to show an item's plan in the task list — its plan tag, scoped to
     /// the repositories of the bar it was opened from. The host owns the task list and
@@ -505,7 +509,7 @@
             // The projection's own pass, not a person's gesture (local ADR 0071 §3): it is
             // run outside every gesture's change set, so it names the system.
             using var change = ChangeContext.BeginIfNone(ChangeActor.System, "keeping the roadmap up with the work");
-            await Planning.KeepUpWithWorkAsync(Today ?? DateOnly.FromDateTime(DateTime.Today));
+            await Planning.KeepUpWithWorkAsync(TodayOrNow);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -524,7 +528,7 @@
         // With the hours switched off nothing shows them, so nothing reads them.
         if (!_loaded || !_view.HasAnythingToDraw || !_hoursShown) return;
 
-        var today = Today ?? DateOnly.FromDateTime(DateTime.Today);
+        var today = TodayOrNow;
         var range = (RoadmapWindow.GraduatedWeeksFrom(today, RoadmapPlanView.WeekStart), today);
         if (_actualAskedFor == range) return;
 
@@ -701,7 +705,7 @@
         _week = paces.Week;
 
         var forecast = new RoadmapForecast(
-            Today ?? DateOnly.FromDateTime(DateTime.Today),
+            TodayOrNow,
             paces);
 
         // An archived repository's band holds only its finished work in the drawn window
@@ -1288,7 +1292,7 @@
             }
 
             _error = null;
-            var completed = await AsPersonAsync("completing a roadmap item", () => Planning.CompleteItemAsync(itemId, Today ?? DateOnly.FromDateTime(DateTime.Today)));
+            var completed = await AsPersonAsync("completing a roadmap item", () => Planning.CompleteItemAsync(itemId, TodayOrNow));
             if (completed is Error error)
             {
                 _error = error.Message;
@@ -1309,7 +1313,7 @@
     /// <summary>Completes the item in the editor today, and closes it. A refusal keeps it
     /// open and says why.</summary>
     private Task CompleteAsync(Guid itemId) =>
-        FromEditorAsync("completing a roadmap item", () => Planning.CompleteItemAsync(itemId, Today ?? DateOnly.FromDateTime(DateTime.Today)));
+        FromEditorAsync("completing a roadmap item", () => Planning.CompleteItemAsync(itemId, TodayOrNow));
 
     /// <summary>Reopens the item in the editor, and closes it.</summary>
     private Task ReopenAsync(Guid itemId) => FromEditorAsync("reopening a roadmap item", () => Planning.ReopenItemAsync(itemId));

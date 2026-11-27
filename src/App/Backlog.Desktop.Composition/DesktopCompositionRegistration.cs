@@ -747,7 +747,8 @@ public static partial class DesktopCompositionRegistration
         services.AddSingleton<IDevbookSnapshotCache>(sp => new DevbookSnapshotCache(
             () => sp.GetRequiredService<WorkspaceSettingsStore>().DevbookCacheDirectory,
             sp.GetRequiredService<IGitHubTreeClient>(),
-            sp.GetRequiredService<IGitHubBranchCatalog>()));
+            sp.GetRequiredService<IGitHubBranchCatalog>(),
+            sp.GetService<TimeProvider>()));
 
         // The devbook database: built by the app into the same cache folder as the
         // snapshots, one per repository path, in the background when a repository

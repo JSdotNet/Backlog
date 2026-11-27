@@ -65,7 +65,7 @@ public static class GitHubRegistration
 
         services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         services.AddSingleton<IGitFileHistoryService, GitFileHistoryService>();
-        services.AddSingleton<IGitHubClient>(sp => new GitHubClient(sp.GetRequiredService<ResolvingGitHubTransport>()));
+        services.AddSingleton<IGitHubClient>(sp => new GitHubClient(sp.GetRequiredService<ResolvingGitHubTransport>(), sp.GetService<TimeProvider>()));
         services.AddSingleton<ICopilotUsageClient>(sp => new CopilotUsageClient(sp.GetRequiredService<ResolvingGitHubTransport>()));
 
         // The three clients the dashboard reads. Identity is shared by the other

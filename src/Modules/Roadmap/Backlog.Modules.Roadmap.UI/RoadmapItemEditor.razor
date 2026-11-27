@@ -22,6 +22,7 @@
 @using global::Backlog.UI.Components.Brain
 @using BrainNoteAddress = global::Backlog.SharedKernel.BrainNoteAddress
 @implements IDisposable
+@inject IServiceProvider Services
 
 <Modal Open="@Open"
        OpenChanged="OpenChanged"
@@ -479,9 +480,9 @@
     public IReadOnlyList<SelectorOption> DependencyOptions { get; set; } = [];
 
     /// <summary>What today is, for a new item's default window. A parameter so a test
-    /// does not have to agree with the clock.</summary>
+    /// does not have to agree with the clock; the host's clock says when not given.</summary>
     [Parameter]
-    public DateOnly Today { get; set; } = DateOnly.FromDateTime(DateTime.Today);
+    public DateOnly Today { get; set; }
 
     [Parameter]
     public EventCallback<RoadmapEditorSubmission> OnSave { get; set; }
@@ -721,6 +722,12 @@
     {
         _goalWatch?.Dispose();
         GC.SuppressFinalize(this);
+    }
+
+    protected override void OnInitialized()
+    {
+        // A host that passes no Today gets the one its clock says.
+        if (Today == default) Today = RoadmapToday.From(Services);
     }
 
     protected override void OnParametersSet()

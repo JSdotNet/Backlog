@@ -15,6 +15,7 @@
 *@
 @using global::Backlog.SharedKernel
 @inject IPlanningPace Paces
+@inject IServiceProvider Services
 
 <Modal Open="@Open"
        OpenChanged="OpenChanged"
@@ -112,9 +113,10 @@
     public WorkingHours Week { get; set; } = WorkingHours.Default;
 
     /// <summary>The first date still to come in the list: today counts as to come, so a
-    /// day off taken today is listed with the future ones.</summary>
+    /// day off taken today is listed with the future ones. The host's clock says when not
+    /// given.</summary>
     [Parameter]
-    public DateOnly Today { get; set; } = DateOnly.FromDateTime(DateTime.Today);
+    public DateOnly Today { get; set; }
 
     /// <summary>The id of the control focus goes back to when the dialog closes.</summary>
     [Parameter]
@@ -130,6 +132,12 @@
 
     /// <summary>What the list shows: the dates to come, then — once asked for — the past.</summary>
     private IReadOnlyList<DayOverride> Listed => _showPast ? [.. Upcoming, .. Past] : Upcoming;
+
+    protected override void OnInitialized()
+    {
+        // A host that passes no Today gets the one its clock says.
+        if (Today == default) Today = RoadmapToday.From(Services);
+    }
 
     protected override void OnParametersSet()
     {

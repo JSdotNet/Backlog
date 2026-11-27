@@ -25,10 +25,13 @@ namespace Backlog.Infrastructure.FileSystem;
 /// never finds yesterday's chapter under today's index.
 /// </para>
 /// </summary>
+/// <param name="time">The clock a refresh is stamped from (app-defaults ADR 0005); the
+/// system's when not given.</param>
 public sealed class DevbookSnapshotCache(
     Func<string> cacheRoot,
     IGitHubTreeClient trees,
-    IGitHubBranchCatalog branches) : IDevbookSnapshotCache
+    IGitHubBranchCatalog branches,
+    TimeProvider? time = null) : IDevbookSnapshotCache
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
 
@@ -47,6 +50,7 @@ public sealed class DevbookSnapshotCache(
     private readonly Func<string> _cacheRoot = cacheRoot ?? throw new ArgumentNullException(nameof(cacheRoot));
     private readonly IGitHubTreeClient _trees = trees ?? throw new ArgumentNullException(nameof(trees));
     private readonly IGitHubBranchCatalog _branches = branches ?? throw new ArgumentNullException(nameof(branches));
+    private readonly TimeProvider _time = time ?? TimeProvider.System;
 
     /// <summary>One writer per branch folder. Two panels asking for two areas of
     /// the same branch at once would otherwise both rewrite <c>fetched.json</c>
@@ -184,7 +188,7 @@ public sealed class DevbookSnapshotCache(
             writer.Release();
         }
 
-        var snapshot = new DevbookSnapshot(head.Branch, head.Sha, DateTimeOffset.UtcNow);
+        var snapshot = new DevbookSnapshot(head.Branch, head.Sha, _time.GetUtcNow());
 
         return new DevbookSnapshotResult(snapshot, true, false, $"Updated to the latest {head.Branch}.");
     }
@@ -334,7 +338,7 @@ public sealed class DevbookSnapshotCache(
         {
             Branch = head.Branch,
             Sha = head.Sha,
-            FetchedUtc = DateTimeOffset.UtcNow
+            FetchedUtc = _time.GetUtcNow()
         });
     }
 

@@ -5,6 +5,7 @@ using Backlog.Modules.Progress.DomainModels;
 
 using Backlog.SharedKernel.Results;
 using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Infrastructure.Sqlite.UnitTests;
 
@@ -56,6 +57,19 @@ public sealed class SqliteGoalRepositoryTests : IDisposable
         Assert.Empty(await _repository.ListAsync(Cancellation));
         Assert.Null(await _repository.GetAsync(Guid.NewGuid(), Cancellation));
         Assert.Empty(await _repository.ReadAllAsync(Cancellation));
+    }
+
+    /// <summary>A save is stamped from the injected clock (app-defaults ADR 0005).</summary>
+    [Fact]
+    public async Task A_save_stamps_the_goal_from_the_injected_clock()
+    {
+        var saved = new DateTimeOffset(2026, 10, 17, 9, 30, 0, TimeSpan.Zero);
+        var repository = new SqliteGoalRepository(_dir, new FakeTimeProvider(saved));
+        var goal = Goal();
+
+        await repository.SaveAsync(goal, Cancellation);
+
+        Assert.Equal(saved, (await repository.ReadAsync(goal.Id, Cancellation))!.UpdatedAt);
     }
 
     [Fact]

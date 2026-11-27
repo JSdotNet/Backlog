@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -95,6 +96,22 @@ public sealed class AppErrorBoundaryTests
         Assert.NotNull(host.Layout.Find("[data-testid='app-error-state']"));
     }
 
+    /// <summary>The report's "When" is the moment the page threw, read from the host's clock
+    /// (app-defaults ADR 0005), not the moment the report is written.</summary>
+    [Fact]
+    public void The_report_carries_the_moment_of_the_error_from_the_injected_clock()
+    {
+        var time = new FakeTimeProvider(new DateTimeOffset(2026, 3, 4, 5, 6, 7, TimeSpan.Zero));
+        using var host = Open(time: time);
+
+        host.Layout.Find("[data-testid='page-throw']").Click();
+        time.Advance(TimeSpan.FromHours(1));
+        host.Layout.Find("[data-testid='app-error-report']").Click();
+
+        var details = host.Layout.Find("[data-testid='feedback-details-input']").GetAttribute("value") ?? string.Empty;
+        Assert.Contains("- When: 2026-03-04 05:06:07 UTC", details);
+    }
+
     [Fact]
     public void Go_to_Home_leaves_the_failed_route_and_renders_the_page_again()
     {
@@ -110,9 +127,14 @@ public sealed class AppErrorBoundaryTests
         Assert.Empty(host.Layout.FindAll("[data-testid='app-error-state']"));
     }
 
-    private static LayoutHost Open(bool throwOnRender = false)
+    private static LayoutHost Open(bool throwOnRender = false, TimeProvider? time = null)
     {
         var context = new BunitContext();
+
+        if (time is not null)
+        {
+            context.Services.AddSingleton(time);
+        }
 
         // The feedback dialog moves focus into itself when it opens; nothing here
         // is about that.

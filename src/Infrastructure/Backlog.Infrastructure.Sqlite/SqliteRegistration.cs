@@ -86,7 +86,7 @@ public static class SqliteRegistration
             new SqliteDocumentJournal(() => rootDirectory(sp)));
 
         services.AddSingleton(sp =>
-            new RootedSqliteRoadmapPlanRepository(() => rootDirectory(sp)));
+            new RootedSqliteRoadmapPlanRepository(() => rootDirectory(sp), sp.GetService<TimeProvider>()));
         services.AddSingleton<IRoadmapPlanRepository>(sp => sp.GetRequiredService<RootedSqliteRoadmapPlanRepository>());
         services.AddSingleton<IRoadmapReplicaStore>(sp => sp.GetRequiredService<RootedSqliteRoadmapPlanRepository>());
 
@@ -95,14 +95,14 @@ public static class SqliteRegistration
         // retired progress_series table stays in the file unread: local ADR 0006 adds and
         // never drops (ADR 0035, Consequences).
         services.AddSingleton(sp =>
-            new RootedSqliteGoalRepository(() => rootDirectory(sp)));
+            new RootedSqliteGoalRepository(() => rootDirectory(sp), sp.GetService<TimeProvider>()));
         services.AddSingleton<IGoalRepository>(sp => sp.GetRequiredService<RootedSqliteGoalRepository>());
         services.AddSingleton<IGoalReplicaStore>(sp => sp.GetRequiredService<RootedSqliteGoalRepository>());
 
         // Progress's impediments (local ADR 0035): one row per impediment in
         // progress_impediments, the row also the `impediment` document that travels.
         services.AddSingleton(sp =>
-            new RootedSqliteImpedimentRepository(() => rootDirectory(sp)));
+            new RootedSqliteImpedimentRepository(() => rootDirectory(sp), sp.GetService<TimeProvider>()));
         services.AddSingleton<IImpedimentRepository>(sp => sp.GetRequiredService<RootedSqliteImpedimentRepository>());
         services.AddSingleton<IImpedimentReplicaStore>(sp => sp.GetRequiredService<RootedSqliteImpedimentRepository>());
 
@@ -114,7 +114,7 @@ public static class SqliteRegistration
         // The notifications this desktop owns (local ADR 0039 §3): one row per notification in
         // the notifications table, its accepted answer kept there until its handler takes it.
         services.AddSingleton<INotificationRepository>(sp =>
-            new RootedSqliteNotificationRepository(() => rootDirectory(sp)));
+            new RootedSqliteNotificationRepository(() => rootDirectory(sp), sp.GetService<TimeProvider>()));
 
         // Events' own documents (local ADR 0050 §2): one row per knowledge event in
         // events_knowledge_events and one per series in events_series, each its own table
@@ -133,7 +133,7 @@ public static class SqliteRegistration
         // 0024): the Sessions context's table, in the same file and following the
         // same root.
         services.AddSingleton<IClaudeApiRequestStore>(sp =>
-            new RootedSqliteClaudeApiRequestStore(() => rootDirectory(sp)));
+            new RootedSqliteClaudeApiRequestStore(() => rootDirectory(sp), sp.GetService<TimeProvider>()));
 
         // The rates the person entered in Settings, which price a run Claude Code
         // reported no cost for: the same context's table, in the same file.

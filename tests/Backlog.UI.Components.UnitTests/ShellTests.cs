@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.UI.Components.UnitTests;
 
@@ -205,5 +206,20 @@ public sealed class ShellTests
         Assert.Contains("sync-status--offline", region.ClassList);
         Assert.Equal("Offline — 1 waiting", line.Find(".sync-status__text").TextContent);
         Assert.Equal("true", line.Find(".sync-status__dot").GetAttribute("aria-hidden"));
+    }
+
+    /// <summary>With no <c>Now</c> given, "ago" is measured from the host's clock
+    /// (app-defaults ADR 0005), so a test pins it with a FakeTimeProvider.</summary>
+    [Fact]
+    public void Without_a_fixed_instant_the_line_measures_from_the_injected_clock()
+    {
+        using var context = new BunitContext();
+        var time = new FakeTimeProvider(new DateTimeOffset(2026, 9, 25, 9, 30, 0, TimeSpan.Zero));
+        context.Services.AddSingleton<TimeProvider>(time);
+
+        var line = context.Render<SyncStatusLine>(parameters => parameters
+            .Add(p => p.Reading, SyncStatusReading.Synced(time.GetUtcNow().AddMinutes(-3))));
+
+        Assert.Equal("Synced 3m ago", line.Find(".sync-status__text").TextContent);
     }
 }

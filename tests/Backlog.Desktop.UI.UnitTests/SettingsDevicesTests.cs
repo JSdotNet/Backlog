@@ -165,6 +165,27 @@ public sealed class SettingsDevicesTests
         Assert.Contains("Expires in", context.Component.Find("[data-testid='devices-code-expiry']").TextContent, StringComparison.Ordinal);
     }
 
+    /// <summary>The time a code has left is measured on the host's clock (app-defaults
+    /// ADR 0005). The service answers with a code that expires ten minutes from the real
+    /// now; a clock six and a half minutes ahead of it leaves three and a half, said as four.</summary>
+    [Fact]
+    public void The_time_a_code_has_left_is_measured_on_the_injected_clock()
+    {
+        using var context = RenderSettings(
+            syncEnabled: true,
+            paired: true,
+            time: new FakeTimeProvider(DateTimeOffset.UtcNow.AddMinutes(6.5)));
+
+        OpenDevicesTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='devices-generate-code']")));
+
+        context.Component.Find("[data-testid='devices-generate']").Click();
+
+        context.Component.WaitForAssertion(() =>
+            Assert.Equal("Expires in 4 minutes.", context.Component.Find("[data-testid='devices-code-expiry']").TextContent.Trim()));
+    }
+
     [Fact]
     public void Pairing_sends_the_code_normalized_and_stores_what_comes_back()
     {
@@ -1720,7 +1741,8 @@ public sealed class SettingsDevicesTests
         bool registerSection = true,
         IDeviceKeyStore? keys = null,
         bool keyBound = false,
-        IUserConsent? consent = null)
+        IUserConsent? consent = null,
+        TimeProvider? time = null)
     {
         var temp = new TemporaryDirectory("backlog-settings-devices-tests");
         var root = temp.Path;
@@ -1882,6 +1904,8 @@ public sealed class SettingsDevicesTests
         // The page itself, the way the shared desktop composition registers it:
         // the shell draws the Devices tab only because this section is here.
         if (registerSection) testContext.Services.AddSyncSettings();
+
+        if (time is not null) testContext.Services.AddSingleton(time);
 
         var component = testContext.Render<Settings>();
         return new SettingsRenderContext(

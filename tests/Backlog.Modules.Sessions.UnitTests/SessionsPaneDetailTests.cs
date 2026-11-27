@@ -20,6 +20,20 @@ public sealed class SessionsPaneDetailTests
 
     private static readonly string Worktree = DeliveryRunWorktrees.KeyOf(Folder)!;
 
+    /// <summary>How long ago a row was active is measured from the moment the list was
+    /// read, on the pane's injected clock (app-defaults ADR 0005).</summary>
+    [Fact]
+    public void A_rows_age_is_measured_on_the_injected_clock()
+    {
+        using var context = Context([Claude], []);
+        context.Services.AddSingleton<TimeProvider>(new FakeTimeProvider(Noon));
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() =>
+            Assert.Equal("3 minutes ago", pane.Find("[data-testid='sessions-last-activity']").TextContent.Trim()));
+    }
+
     [Fact]
     public void The_first_row_drawn_is_in_the_panel_until_another_is_pressed()
     {

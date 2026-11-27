@@ -60,15 +60,19 @@ public sealed class SqliteRoadmapPlanRepository : IRoadmapPlanRepository, IRoadm
     public const string PlanRowId = "plan";
 
     private readonly string _databasePath;
+    private readonly TimeProvider _clock;
 
     /// <summary>Creates a repository over the database in the given folder, or in the
     /// default per-user app-data folder (<c>%LOCALAPPDATA%\Backlog</c>) when null. The
     /// same root the tasks use, and the same file inside it.</summary>
-    public SqliteRoadmapPlanRepository(string? rootDir = null)
+    /// <param name="clock">The clock a write is stamped from (app-defaults ADR 0005); the
+    /// system's when not given.</param>
+    public SqliteRoadmapPlanRepository(string? rootDir = null, TimeProvider? clock = null)
     {
         var root = rootDir ?? SqliteTaskRepository.DefaultRoot;
 
         _databasePath = SqliteTaskRepository.DatabasePathFor(root);
+        _clock = clock ?? TimeProvider.System;
     }
 
     /// <summary>The database file this repository reads and writes — the same one
@@ -132,7 +136,7 @@ public sealed class SqliteRoadmapPlanRepository : IRoadmapPlanRepository, IRoadm
         // edit stamped with plain "now" would then read as older than the plan it was
         // made on — refused by the replica, and overwritten by that plan on the next
         // pull. One tick past it keeps the edit the later version.
-        var stamp = DateTimeOffset.UtcNow;
+        var stamp = _clock.GetUtcNow();
         if (await StampAsync(connection, cancellationToken).ConfigureAwait(false) is { } held)
         {
             if (keepStamp) stamp = held;

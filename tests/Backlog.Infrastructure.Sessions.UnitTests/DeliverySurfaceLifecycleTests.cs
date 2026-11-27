@@ -3,6 +3,8 @@ using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Infrastructure.Sessions;
 
+using Microsoft.Extensions.Time.Testing;
+
 namespace Backlog.Infrastructure.Sessions.UnitTests;
 
 /// <summary>
@@ -82,6 +84,20 @@ public sealed class DeliverySurfaceLifecycleTests : IDisposable
 
         var run = Assert.Single((await new DeliveryRunReader(_home, MachineId, Machine).ReadAsync(TestContext.Current.CancellationToken)).Runs);
         Assert.Equal(["session-a", "session-b"], run.SessionIds);
+    }
+
+    /// <summary>A run's stamps and the moment in its id come from the injected clock
+    /// (app-defaults ADR 0005), never the static one.</summary>
+    [Fact]
+    public async Task A_started_run_is_stamped_from_the_injected_clock()
+    {
+        var now = new DateTimeOffset(2026, 3, 4, 5, 6, 7, 890, TimeSpan.Zero);
+        var surface = new LocalDeliverySurfaceLifecycle(_home, MachineId, Machine, clock: new FakeTimeProvider(now));
+
+        var started = await surface.StartRunAsync(Worktree, "flow-code", "Run", Stages, cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal("2026-03-04T05:06:07.890Z", Document(started.RunId)["startedAt"]!.GetValue<string>());
+        Assert.StartsWith($"run-{Base36(now.ToUnixTimeMilliseconds())}-", started.RunId);
     }
 
     [Fact]
@@ -948,6 +964,16 @@ public sealed class DeliverySurfaceLifecycleTests : IDisposable
 
     private JsonObject StageOf(string runId, int index) =>
         (JsonObject)Document(runId)["stages"]![index]!;
+
+    /// <summary>The run id's base-36 moment, spelled out here so the test does not
+    /// borrow the writer's own helper.</summary>
+    private static string Base36(long value)
+    {
+        const string Digits = "0123456789abcdefghijklmnopqrstuvwxyz";
+        var text = string.Empty;
+        for (; value > 0; value /= 36) text = Digits[(int)(value % 36)] + text;
+        return text;
+    }
 
     private sealed class StubActivator(DeliverySurfaceActivation answer) : ISessionsSurfaceActivator
     {

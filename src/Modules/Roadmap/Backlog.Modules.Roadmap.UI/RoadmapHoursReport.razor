@@ -108,9 +108,10 @@
     [Parameter]
     public DateOnly Date { get; set; }
 
-    /// <summary>Today, which no week shown runs past and no step goes beyond.</summary>
+    /// <summary>Today, which no week shown runs past and no step goes beyond. The host's
+    /// clock says when not given.</summary>
     [Parameter]
-    public DateOnly Today { get; set; } = DateOnly.FromDateTime(DateTime.Today);
+    public DateOnly Today { get; set; }
 
     /// <summary>The day a week starts on, as the axis rules weeks.</summary>
     [Parameter]
@@ -137,6 +138,12 @@
     private string Heading =>
         $"Hours worked · W{ISOWeek.GetWeekOfYear(FirstDay.ToDateTime(TimeOnly.MinValue))}, "
         + $"{FirstDay.ToString("d MMM", CultureInfo.CurrentCulture)} – {FirstDay.AddDays(6).ToString("d MMM", CultureInfo.CurrentCulture)}";
+
+    protected override void OnInitialized()
+    {
+        // A host that passes no Today gets the one its clock says.
+        if (Today == default) Today = RoadmapToday.From(Services);
+    }
 
     protected override async Task OnParametersSetAsync()
     {

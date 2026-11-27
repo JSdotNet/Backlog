@@ -2235,9 +2235,9 @@
         Func<Task<DevToolActionResult>> run,
         DevToolInfo? tool = null)
     {
-        var startedAt = DateTimeOffset.Now;
+        var startedAt = Time.GetLocalNow();
         var result = await run();
-        var finishedAt = DateTimeOffset.Now;
+        var finishedAt = Time.GetLocalNow();
 
         IReadOnlyList<DevToolRunStep> steps = tool is null
             ? result.Steps

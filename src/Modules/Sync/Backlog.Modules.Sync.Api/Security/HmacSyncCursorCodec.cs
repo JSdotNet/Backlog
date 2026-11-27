@@ -32,8 +32,12 @@ namespace Backlog.Modules.Sync.Api.Security;
 /// somebody would eventually skip.
 /// </para>
 /// </summary>
-internal sealed class HmacSyncCursorCodec(SigningKeyRing keys) : ISyncCursorCodec
+/// <param name="time">The clock a cursor's issue time is read from (app-defaults ADR 0005);
+/// the host registers one, and a test that builds the codec directly may leave it out.</param>
+internal sealed class HmacSyncCursorCodec(SigningKeyRing keys, TimeProvider? time = null) : ISyncCursorCodec
 {
+    private readonly TimeProvider _time = time ?? TimeProvider.System;
+
     /// <summary>The only version this codec mints, and the only one it reads.
     /// A cursor from a future version is refused as malformed rather than
     /// guessed at.</summary>
@@ -57,7 +61,7 @@ internal sealed class HmacSyncCursorCodec(SigningKeyRing keys) : ISyncCursorCode
     public string Mint(OwnerId owner, string continuation)
     {
         var payload = JsonSerializer.SerializeToUtf8Bytes(
-            new CursorPayload(owner.ToString(), continuation, DateTimeOffset.UtcNow.ToUnixTimeSeconds()),
+            new CursorPayload(owner.ToString(), continuation, _time.GetUtcNow().ToUnixTimeSeconds()),
             PayloadFormat);
 
         return string.Concat(

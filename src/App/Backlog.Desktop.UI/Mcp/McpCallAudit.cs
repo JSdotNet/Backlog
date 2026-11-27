@@ -100,9 +100,12 @@ public static partial class McpCallAudit
             }
             finally
             {
+                // The host's clock (app-defaults ADR 0005); a container without one is a test's.
+                var time = request.Services?.GetService<TimeProvider>() ?? TimeProvider.System;
+
                 await WriteAsync(
                     log,
-                    new McpAuditRecord(DateTimeOffset.UtcNow, McpScopePolicies.CallerOf(request.User) ?? caller, tool, target, outcome, correlation),
+                    new McpAuditRecord(time.GetUtcNow(), McpScopePolicies.CallerOf(request.User) ?? caller, tool, target, outcome, correlation),
                     request.Services).ConfigureAwait(false);
             }
         };

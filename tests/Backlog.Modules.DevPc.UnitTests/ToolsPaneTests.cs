@@ -1,6 +1,7 @@
 ﻿using Backlog.Modules.DevPc.UI;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Modules.DevPc.UnitTests;
 
@@ -44,6 +45,25 @@ public sealed class ToolsPaneTests
         Assert.True(run.FinishedAt >= run.StartedAt);
         Assert.Equal([new DevToolRunStep("architecture", "1.0.0", "1.1.0", DevToolRunOutcome.Succeeded, run.Steps[0].Duration)], run.Steps);
         Assert.EndsWith("Done.", run.Transcript, StringComparison.Ordinal);
+    }
+
+    /// <summary>A run's start and finish are read from the injected clock (app-defaults
+    /// ADR 0005), so a pinned clock gives a pinned run.</summary>
+    [Fact]
+    public void A_run_is_stamped_from_the_injected_clock()
+    {
+        var now = new DateTimeOffset(2026, 10, 5, 9, 30, 0, TimeSpan.Zero);
+        var tools = FakeDevToolService.With(Tool(enabled: true, installed: true, "1.0.0", "1.1.0"));
+        using var context = Context(tools);
+        context.Services.AddSingleton<TimeProvider>(new FakeTimeProvider(now));
+        var pane = context.Render<ToolsPane>();
+
+        RowButton(pane, "Update").Click();
+
+        pane.WaitForAssertion(() => Assert.Single(tools.SavedRuns));
+        var run = tools.SavedRuns.Single();
+        Assert.Equal(now, run.StartedAt);
+        Assert.Equal(now, run.FinishedAt);
     }
 
     [Fact]

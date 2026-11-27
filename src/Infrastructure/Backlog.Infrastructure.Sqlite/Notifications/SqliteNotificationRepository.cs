@@ -23,14 +23,18 @@ namespace Backlog.Infrastructure.Sqlite.Notifications;
 public sealed class SqliteNotificationRepository : INotificationRepository
 {
     private readonly string _databasePath;
+    private readonly TimeProvider _clock;
 
     /// <summary>A repository over the database in the given folder, or in the default per-user
     /// app-data folder when null — the same file the tasks use.</summary>
-    public SqliteNotificationRepository(string? rootDir = null)
+    /// <param name="clock">The clock a write is stamped from (app-defaults ADR 0005); the
+    /// system's when not given.</param>
+    public SqliteNotificationRepository(string? rootDir = null, TimeProvider? clock = null)
     {
         var root = rootDir ?? SqliteTaskRepository.DefaultRoot;
 
         _databasePath = SqliteTaskRepository.DatabasePathFor(root);
+        _clock = clock ?? TimeProvider.System;
     }
 
     public string DatabasePath => _databasePath;
@@ -91,7 +95,7 @@ public sealed class SqliteNotificationRepository : INotificationRepository
         command.Parameters.AddWithValue("$state", notification.State.ToString());
         command.Parameters.AddWithValue("$awaits_delivery", notification.AwaitsDelivery ? 1 : 0);
         command.Parameters.AddWithValue("$created_at", Stamp(notification.CreatedAt));
-        command.Parameters.AddWithValue("$updated_at", Stamp(DateTimeOffset.UtcNow));
+        command.Parameters.AddWithValue("$updated_at", Stamp(_clock.GetUtcNow()));
         command.Parameters.AddWithValue("$document", document);
 
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);

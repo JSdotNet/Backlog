@@ -139,7 +139,7 @@ internal static partial class ValidationQuestions
                     Ok<Guid>(var notificationId) => new JsonObject
                     {
                         ["notificationId"] = notificationId.ToString("D"),
-                        ["askedAt"] = Stamp(DateTimeOffset.UtcNow),
+                        ["askedAt"] = Stamp((clock ?? TimeProvider.System).GetUtcNow()),
                         ["answered"] = false,
                         ["closed"] = false,
                         ["armed"] = false
@@ -206,7 +206,7 @@ internal static partial class ValidationQuestions
     /// moved past, changes nothing; one the desktop decided first only marks the question
     /// answered; Dismiss writes nothing on the approval and only marks the question dismissed.
     /// </summary>
-    internal static ValidationRecord Record(JsonObject run, NotificationAnswer answer, Guid? followUpEntryId = null)
+    internal static ValidationRecord Record(JsonObject run, NotificationAnswer answer, Guid? followUpEntryId = null, TimeProvider? clock = null)
     {
         if (!Waiting(run, answer, out var asked)) return ValidationRecord.Unchanged;
 
@@ -224,7 +224,7 @@ internal static partial class ValidationQuestions
 
             // When it was withdrawn, for whoever reads the run file; re-asking compares the
             // approval with askedAt instead, because a phone may deliver the dismiss late.
-            asked["dismissedAt"] = Stamp(DateTimeOffset.UtcNow);
+            asked["dismissedAt"] = Stamp((clock ?? TimeProvider.System).GetUtcNow());
             return ValidationRecord.Dismissed;
         }
 

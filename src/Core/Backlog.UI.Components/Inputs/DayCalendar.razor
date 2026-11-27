@@ -15,6 +15,7 @@
 *@
 
 @using System.Globalization
+@inject IServiceProvider Services
 <div class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
     <div class="day-calendar__header">
         <AppButton Variant="ButtonVariant.Ghost"
@@ -72,14 +73,17 @@
     private DateOnly _month;
     private DateOnly? _shown;
 
-    /// <summary>Any date in the month shown first. The calendar moves between months on
-    /// its own after that; a new value here moves it again.</summary>
+    /// <summary>Any date in the month shown first, today's when not given. The calendar
+    /// moves between months on its own after that; a new value here moves it again.</summary>
     [Parameter]
-    public DateOnly Month { get; set; } = DateOnly.FromDateTime(DateTime.Today);
+    public DateOnly? Month { get; set; }
 
-    /// <summary>The date drawn as today.</summary>
+    /// <summary>The date drawn as today; when not given, the host's clock says (app-defaults
+    /// ADR 0005), or the system's where none is registered, as in Storybook.</summary>
     [Parameter]
-    public DateOnly Today { get; set; } = DateOnly.FromDateTime(DateTime.Today);
+    public DateOnly? Today { get; set; }
+
+    private DateOnly _today;
 
     /// <summary>Whether a date is pressed. The calendar holds no selection of its own.</summary>
     [Parameter]
@@ -125,10 +129,13 @@
 
     protected override void OnParametersSet()
     {
-        if (_shown != Month)
+        _today = Today ?? DateOnly.FromDateTime((Services.GetService<TimeProvider>() ?? TimeProvider.System).GetLocalNow().DateTime);
+
+        var month = Month ?? _today;
+        if (_shown != month)
         {
-            _shown = Month;
-            _month = new DateOnly(Month.Year, Month.Month, 1);
+            _shown = month;
+            _month = new DateOnly(month.Year, month.Month, 1);
         }
     }
 
@@ -142,7 +149,7 @@
         var classes = new List<string>(3);
         if (selected) classes.Add("day-calendar__day--selected");
         if (IsMarked?.Invoke(date) == true) classes.Add("day-calendar__day--marked");
-        if (date == Today) classes.Add("day-calendar__day--today");
+        if (date == _today) classes.Add("day-calendar__day--today");
         return string.Join(' ', classes);
     }
 

@@ -279,7 +279,7 @@ public sealed class SqliteChangeRestore : IChangeRestore
             // tombstone is conditional on the stamp just checked.
             if (!table.CanTombstone || !Guid.TryParse(revision.Key.Id, out var goalId)) return false;
 
-            return await new SqliteGoalRepository(_rootDirectory)
+            return await new SqliteGoalRepository(_rootDirectory, _time)
                 .TombstoneAsync(goalId, held, cancellationToken).ConfigureAwait(false);
         }
 

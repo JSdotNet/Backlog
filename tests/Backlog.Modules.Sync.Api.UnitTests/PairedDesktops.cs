@@ -25,9 +25,14 @@ namespace Backlog.Modules.Sync.Api.UnitTests;
 /// </summary>
 internal sealed class PairedDesktops : IDisposable
 {
-    /// <summary>The day every desktop's clock reads. Stamps come off the wall clock, so
-    /// two writes in a row are still ordered.</summary>
+    /// <summary>The day every desktop's clock reads.</summary>
     public static readonly DateTimeOffset Morning = new(2026, 10, 17, 9, 0, 0, TimeSpan.Zero);
+
+    /// <summary>The one clock both desktops and their stores read (app-defaults ADR 0005).
+    /// Shared, and a millisecond on with every read, so two writes in a row — on either
+    /// desktop — are stamped in the order they were made, as the wall clock stamped them
+    /// before the stores took the injected clock.</summary>
+    private readonly FakeTimeProvider _clock = new(Morning) { AutoAdvanceAmount = TimeSpan.FromMilliseconds(1) };
 
     private readonly SyncServiceFactory _service = new();
     private readonly TemporaryDirectory _temp = new("desktop-sync");
@@ -52,9 +57,9 @@ internal sealed class PairedDesktops : IDisposable
         var laptop = (await paired.Content.ReadFromJsonAsync<DeviceRegistrationResponse>(Cancellation))!;
         bHttp.Bearing(await bHttp.DeviceToken(laptop));
 
-        var a = new Desktop(_temp.Combine("a"), aHttp,
+        var a = new Desktop(_temp.Combine("a"), aHttp, _clock,
             new DeviceCredential(registration.OwnerId, registration.DeviceId, "Study desktop", registration.Credential!));
-        var b = new Desktop(_temp.Combine("b"), bHttp,
+        var b = new Desktop(_temp.Combine("b"), bHttp, _clock,
             new DeviceCredential(laptop.OwnerId, laptop.DeviceId, "Laptop", laptop.Credential!));
         _desktops.Add(a);
         _desktops.Add(b);
@@ -79,13 +84,13 @@ internal sealed class PairedDesktops : IDisposable
         private readonly IServiceScope _screen;
         private readonly SqliteTaskRepository _tasks;
 
-        public Desktop(string root, HttpClient http, DeviceCredential credential)
+        public Desktop(string root, HttpClient http, TimeProvider clock, DeviceCredential credential)
         {
             Directory.CreateDirectory(root);
             _http = http;
 
             var services = new ServiceCollection();
-            services.AddSingleton<TimeProvider>(new FakeTimeProvider(Morning));
+            services.AddSingleton(clock);
             services.AddSingleton<IProgressTaskSource, NoTasks>();
             services.AddSqlite(_ => root);
             services.AddProgressModule();

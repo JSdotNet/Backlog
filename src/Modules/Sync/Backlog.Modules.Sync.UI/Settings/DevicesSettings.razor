@@ -925,11 +925,12 @@
     /// <summary>
     /// Whole minutes, rounded up. The number is read while somebody types eight
     /// characters on another device, so "expires in 4 minutes" is the useful
-    /// shape and a ticking second count is not.
+    /// shape and a ticking second count is not. Measured on the host's clock
+    /// (app-defaults ADR 0005), or the system's where none is registered.
     /// </summary>
-    private static string PairingCodeExpiry(PairingCodeResponse code)
+    private string PairingCodeExpiry(PairingCodeResponse code)
     {
-        var remaining = code.ExpiresAt - DateTimeOffset.UtcNow;
+        var remaining = code.ExpiresAt - (Services.GetService<TimeProvider>() ?? TimeProvider.System).GetUtcNow();
 
         if (remaining <= TimeSpan.Zero) return "This code has expired. Generate another one.";
 

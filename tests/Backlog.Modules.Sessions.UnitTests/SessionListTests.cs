@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Time.Testing;
+
 namespace Backlog.Modules.Sessions.UnitTests;
 
 /// <summary>
@@ -40,6 +42,20 @@ public sealed class SessionListTests
         var justAfterMidnight = new DateTimeOffset(2026, 10, 6, 23, 30, 0, TimeSpan.Zero);
 
         var group = Assert.Single(AgentSessionGroups.Of(Rows(Session("early", justAfterMidnight)), AgentSessionGrouping.When, Now, Zone));
+
+        Assert.Equal("Earlier today", group.Name);
+    }
+
+    /// <summary>Without a moment and a zone, the grouping reads both from the clock it is
+    /// handed (app-defaults ADR 0005).</summary>
+    [Fact]
+    public void By_when_without_a_moment_reads_the_given_clock()
+    {
+        var clock = new FakeTimeProvider(Now);
+        clock.SetLocalTimeZone(Zone);
+        var justAfterMidnight = new DateTimeOffset(2026, 10, 6, 23, 30, 0, TimeSpan.Zero);
+
+        var group = Assert.Single(AgentSessionGroups.Of(Rows(Session("early", justAfterMidnight)), AgentSessionGrouping.When, clock));
 
         Assert.Equal("Earlier today", group.Name);
     }

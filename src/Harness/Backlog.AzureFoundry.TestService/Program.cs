@@ -1,12 +1,18 @@
 using System.Text.Json;
 using Backlog.AzureFoundry.TestService;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// The clock the answers are stamped from (app-defaults ADR 0005), registered here rather
+// than left to whatever the web host happens to add.
+builder.Services.TryAddSingleton(TimeProvider.System);
+
 var app = builder.Build();
 
 app.MapGet("/", () => Results.Ok(new { service = "Backlog Azure Foundry local test service" }));
 
-app.MapPost("/openai/deployments/{deployment}/chat/completions", async (string deployment, AzureFoundryChatCompletionRequest request, CancellationToken cancellationToken) =>
+app.MapPost("/openai/deployments/{deployment}/chat/completions", async (string deployment, AzureFoundryChatCompletionRequest request, TimeProvider time, CancellationToken cancellationToken) =>
 {
     // A slow model on request - delay:15s in the question - so the desktop
     // client's timeout budget can be exercised from the browser.
@@ -19,7 +25,7 @@ app.MapPost("/openai/deployments/{deployment}/chat/completions", async (string d
     {
         id = $"local-{Guid.NewGuid():N}",
         @object = "chat.completion",
-        created = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+        created = time.GetUtcNow().ToUnixTimeSeconds(),
         model = deployment,
         choices = new[]
         {

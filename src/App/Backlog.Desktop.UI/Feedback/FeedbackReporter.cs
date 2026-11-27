@@ -20,8 +20,12 @@ namespace Backlog.Desktop.UI.Shell;
 /// Management injects for an entirely different reason.
 /// </para>
 /// </summary>
-public sealed class FeedbackReporter(GitHubIntegration gitHub)
+/// <param name="time">The clock the screenshot's file name is stamped from (app-defaults
+/// ADR 0005); optional because the tests build the reporter directly in many places.</param>
+public sealed class FeedbackReporter(GitHubIntegration gitHub, TimeProvider? time = null)
 {
+    private readonly TimeProvider _time = time ?? TimeProvider.System;
+
     private const string FeedbackOwner = "JSdotNet";
     private const string FeedbackRepository = "Backlog";
 
@@ -122,8 +126,8 @@ public sealed class FeedbackReporter(GitHubIntegration gitHub)
         """;
     }
 
-    private static string ScreenshotPath(string mediaType) =>
-        $"feedback-screenshots/{DateTimeOffset.UtcNow:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}{ExtensionFor(mediaType)}";
+    private string ScreenshotPath(string mediaType) =>
+        $"feedback-screenshots/{_time.GetUtcNow():yyyyMMdd-HHmmss}-{Guid.NewGuid():N}{ExtensionFor(mediaType)}";
 
     /// <summary>The extension for the media type the reader reports. It used to
     /// be a literal <c>.jpg</c>, which was true for as long as a screen capture

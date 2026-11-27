@@ -538,6 +538,24 @@ public sealed class ValidationQuestionTests : IDisposable
         Assert.Empty(_followUps.Requests);
     }
 
+    /// <summary>When the question went out and when it was withdrawn are read from the
+    /// injected clock (app-defaults ADR 0005), so re-asking compares real moments.</summary>
+    [Fact]
+    public async Task The_question_is_stamped_asked_and_dismissed_from_the_injected_clock()
+    {
+        var clock = new FakeTimeProvider(Noon);
+        var surface = Surface(clock: clock);
+        var run = await Start(surface);
+        await surface.UpdateStageAsync(Worktree, run, Gate, "in_progress", links: AppLink, cancellationToken: Cancellation);
+
+        clock.Advance(TimeSpan.FromHours(1));
+        await Answers(surface).HandleAnswerAsync(Answer(run, "dismiss", null), Cancellation);
+
+        var asked = (await File(run))["validationQuestion"]!.AsObject();
+        Assert.Equal("2026-10-22T12:00:00.000Z", asked["askedAt"]!.GetValue<string>());
+        Assert.Equal("2026-10-22T13:00:00.000Z", asked["dismissedAt"]!.GetValue<string>());
+    }
+
     [Fact]
     public async Task A_replayed_dismiss_leaves_the_run_unchanged()
     {

@@ -67,6 +67,7 @@ public static class OccurrenceSpawning
     public static async Task<TaskItem?> SpawnAsync(
         TaskItem completed,
         ITaskRepository tasks,
+        TimeProvider? clock = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(completed);
@@ -80,7 +81,7 @@ public static class OccurrenceSpawning
 
         if (existing is not null) return null;
 
-        var successor = RecurrencePolicy.NextOccurrence(completed);
+        var successor = RecurrencePolicy.NextOccurrence(completed, clock);
 
         // The successor is the system's change set, not the tick's (local ADR 0071
         // §2): taking back the tick a person made, or the page a sync applied, does

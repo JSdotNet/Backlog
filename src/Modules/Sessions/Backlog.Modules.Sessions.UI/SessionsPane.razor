@@ -1050,8 +1050,8 @@ else
 
     /// <summary>When the list was read, so "12 minutes ago" and the day a row is
     /// grouped under are measured against the reading rather than the render. Only
-    /// Refresh moves this.</summary>
-    private DateTimeOffset _readAt = DateTimeOffset.UtcNow;
+    /// Refresh moves this. Set from the pane's clock when it starts.</summary>
+    private DateTimeOffset _readAt;
 
     /// <summary>
     /// Which identity colour a repository wears, or null for one the host cannot
@@ -1146,7 +1146,7 @@ else
     private IReadOnlyDictionary<string, LoopSessionReading> _loops = new Dictionary<string, LoopSessionReading>(StringComparer.Ordinal);
 
     /// <summary>When the loops were read: what a check-in's age is measured against.</summary>
-    private DateTimeOffset _loopsReadAt = DateTimeOffset.UtcNow;
+    private DateTimeOffset _loopsReadAt;
 
     /// <summary>The dispatcher's room as the app measured it at the last refresh, against
     /// the default limits — each loop's card holds it against the limits that loop sent —
@@ -2146,7 +2146,7 @@ else
     private string? _schedulesError;
 
     /// <summary>When the schedules were last read: what the page says "since" against.</summary>
-    private DateTimeOffset _schedulesReadAt = DateTimeOffset.UtcNow;
+    private DateTimeOffset _schedulesReadAt;
 
     /// <summary>The element the list, once drawn again after the page, puts the focus on.</summary>
     private string? _focusAfterSchedules;
@@ -2427,6 +2427,10 @@ else
         _priceStore = Services.GetService<IModelPriceStore>();
         _records = Services.GetService<IAgentSessionRecordStore>();
         _clock = Services.GetService<TimeProvider>() ?? TimeProvider.System;
+
+        // The readings start at the pane's own now (app-defaults ADR 0005); a field
+        // initialiser runs before the clock is known, so they are set here.
+        _readAt = _loopsReadAt = _schedulesReadAt = _clock.GetUtcNow();
 
         // Before the first read, so a run written while it is out folds into a
         // follow-up rather than being missed. A host that composed no signal keeps
@@ -2709,7 +2713,7 @@ else
         await ReadPricesAsync();
         _rows = SessionRows.Of(_catalog.Sessions, _runs.Runs);
         _read = true;
-        _readAt = DateTimeOffset.UtcNow;
+        _readAt = _clock.GetUtcNow();
 
         // A row nobody pressed was only held still for the background reads; a full
         // read hands the panel back to the first row drawn.

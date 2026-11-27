@@ -16,7 +16,7 @@ namespace Backlog.Infrastructure.Sqlite.Roadmap;
 /// same root to the same file.
 /// </para>
 /// </summary>
-public sealed class RootedSqliteRoadmapPlanRepository(Func<string> currentRootDirectory)
+public sealed class RootedSqliteRoadmapPlanRepository(Func<string> currentRootDirectory, TimeProvider? clock = null)
     : IRoadmapPlanRepository, IRoadmapReplicaStore
 {
     private readonly Func<string> _currentRootDirectory =
@@ -38,7 +38,7 @@ public sealed class RootedSqliteRoadmapPlanRepository(Func<string> currentRootDi
                 || !string.Equals(_rootDirectory, root, StringComparison.OrdinalIgnoreCase))
             {
                 _rootDirectory = root;
-                _repository = new SqliteRoadmapPlanRepository(root);
+                _repository = new SqliteRoadmapPlanRepository(root, clock);
             }
 
             return _repository;

@@ -9,6 +9,7 @@ using Backlog.Modules.Tasks.DomainModels;
 
 using Backlog.SharedKernel.Results;
 using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Infrastructure.Sqlite.UnitTests;
 
@@ -57,6 +58,20 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
         // back up, one file for a sync product to conflict over instead of two, and
         // one place a workspace root actually points at.
         Assert.Equal(Path.Combine(_dir, "backlog.db"), _plans.DatabasePath);
+    }
+
+    /// <summary>A save is stamped from the injected clock (app-defaults ADR 0005).</summary>
+    [Fact]
+    public async Task ASaveIsStampedFromTheInjectedClock()
+    {
+        var saved = new DateTimeOffset(2026, 10, 5, 9, 30, 0, TimeSpan.Zero);
+        var plans = new SqliteRoadmapPlanRepository(_dir, new FakeTimeProvider(saved));
+        var plan = RoadmapPlan.Empty();
+        plan.AddItem("Anything", Window(5, 9));
+
+        await plans.SaveAsync(plan, TestContext.Current.CancellationToken);
+
+        Assert.Equal(saved, DateTimeOffset.Parse((await StoredUpdatedAtAsync())!, CultureInfo.InvariantCulture));
     }
 
     [Fact]

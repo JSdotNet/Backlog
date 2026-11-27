@@ -1,6 +1,8 @@
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI;
 using Bunit;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Time.Testing;
 using static Backlog.Modules.Sessions.UnitTests.ScheduleFixtures;
 
 namespace Backlog.Modules.Sessions.UnitTests;
@@ -75,6 +77,19 @@ public sealed class SchedulesPageTests
         context.JSInterop.Mode = JSRuntimeMode.Loose;
 
         return context;
+    }
+
+    /// <summary>A host that passes no moment gets the one its clock says (app-defaults
+    /// ADR 0005), so "since" and "next" are said against a pinned now in a test.</summary>
+    [Fact]
+    public void Without_a_moment_the_page_reads_the_injected_clock()
+    {
+        using var context = Context();
+        context.Services.AddSingleton<TimeProvider>(new FakeTimeProvider(Friday));
+
+        var page = context.Render<SchedulesPage>(parameters => parameters.Add(p => p.Schedules, All()));
+
+        Assert.Equal(Friday, page.Instance.Now);
     }
 
     [Fact]

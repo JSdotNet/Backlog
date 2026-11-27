@@ -4,6 +4,7 @@ using Backlog.Modules.Notifications.DomainModels;
 
 using Backlog.SharedKernel.Results;
 using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Infrastructure.Sqlite.UnitTests;
 
@@ -55,6 +56,24 @@ public sealed class SqliteNotificationRepositoryTests : IDisposable
 
     private static NotificationReply Reply(Notification question, string choice) =>
         new(Guid.NewGuid(), question.Id, Owner, Owner, [choice], null, Now);
+
+    /// <summary>A row's <c>updated_at</c> is the moment of the save, read from the injected
+    /// clock (app-defaults ADR 0005).</summary>
+    [Fact]
+    public async Task A_save_stamps_the_row_from_the_injected_clock()
+    {
+        var saved = Now.AddMinutes(7);
+        var repository = new SqliteNotificationRepository(_dir, new FakeTimeProvider(saved));
+
+        await repository.SaveAsync(Question(), Cancellation);
+
+        await using var connection = new SqliteConnection($"Data Source={repository.DatabasePath}");
+        await connection.OpenAsync(Cancellation);
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT updated_at FROM notifications;";
+        var stored = (string)(await command.ExecuteScalarAsync(Cancellation))!;
+        Assert.Equal(saved, DateTimeOffset.Parse(stored, System.Globalization.CultureInfo.InvariantCulture));
+    }
 
     [Fact]
     public async Task A_stored_notification_reads_back_unchanged()

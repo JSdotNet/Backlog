@@ -40,8 +40,12 @@ internal static class RecurrencePolicy
     /// <see cref="OccurrenceSpawning.SuccessorId"/> of the occurrence it follows, so
     /// every machine that spawns it spawns the same task.
     /// </para>
+    /// <para>
+    /// Its creation time is read from <paramref name="clock"/> (app-defaults ADR 0005), the
+    /// system's when not given.
+    /// </para>
     /// </summary>
-    public static TaskItem NextOccurrence(TaskItem completed)
+    public static TaskItem NextOccurrence(TaskItem completed, TimeProvider? clock = null)
     {
         ArgumentNullException.ThrowIfNull(completed);
         if (completed.Recurrence is null)
@@ -57,7 +61,7 @@ internal static class RecurrencePolicy
             completed.RepoIds,
             completed.Tags,
             sourceInboxId: null,
-            createdAt: DateTimeOffset.UtcNow,
+            createdAt: (clock ?? TimeProvider.System).GetUtcNow(),
             recurrenceSourceId: completed.Id);
 
         successor.SetArea(completed.Area);

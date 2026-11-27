@@ -5,6 +5,7 @@ using Backlog.Modules.Progress.DomainModels;
 
 using Backlog.SharedKernel.Results;
 using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Infrastructure.Sqlite.UnitTests;
 
@@ -119,6 +120,19 @@ public sealed class SqliteImpedimentRepositoryTests : IDisposable
         var read = await _repository.GetAsync(impediment.Id, Cancellation);
         Assert.Equal(ImpedimentState.Resolved, read!.State);
         Assert.Equal(Wed14.AddDays(1), read.ResolvedOn);
+    }
+
+    /// <summary>A save is stamped from the injected clock (app-defaults ADR 0005).</summary>
+    [Fact]
+    public async Task A_save_stamps_the_impediment_from_the_injected_clock()
+    {
+        var saved = new DateTimeOffset(2026, 10, 14, 9, 30, 0, TimeSpan.Zero);
+        var repository = new SqliteImpedimentRepository(_dir, new FakeTimeProvider(saved));
+        var impediment = Escalated();
+
+        await repository.SaveAsync(impediment, Cancellation);
+
+        Assert.Equal(saved, (await repository.ReadAsync(impediment.Id, Cancellation))!.UpdatedAt);
     }
 
     [Fact]

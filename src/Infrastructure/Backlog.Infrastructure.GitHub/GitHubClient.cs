@@ -281,8 +281,12 @@ public interface IGitHubClient
 /// resource paths are identical either way, so the choice of transport never
 /// leaks past this class.
 /// </summary>
-public sealed partial class GitHubClient(IGitHubTransport transport) : IGitHubClient
+/// <param name="time">The clock a snapshot's retrieval time is read from (app-defaults
+/// ADR 0005); optional because the tests build the client directly in many places.</param>
+public sealed partial class GitHubClient(IGitHubTransport transport, TimeProvider? time = null) : IGitHubClient
 {
+    private readonly TimeProvider _time = time ?? TimeProvider.System;
+
     public async Task<GitHubIssue> CreateIssueAsync(
         GitHubRepositoryRef repository,
         string title,
@@ -349,7 +353,7 @@ public sealed partial class GitHubClient(IGitHubTransport transport) : IGitHubCl
             pullRequests = [];
         }
 
-        return new GitHubIssueSnapshot(issue, pullRequests, DateTimeOffset.UtcNow);
+        return new GitHubIssueSnapshot(issue, pullRequests, _time.GetUtcNow());
     }
 
     public async Task<GitHubRepositoryState> GetRepositoryStateAsync(

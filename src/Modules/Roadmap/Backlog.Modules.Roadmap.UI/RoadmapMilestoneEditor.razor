@@ -9,6 +9,7 @@
     Like the item editor it edits a copy and reports it on save. The band dispatches,
     the module decides, and the dialog is told whether to close or to show why not.
 *@
+@inject IServiceProvider Services
 
 <Modal Open="@Open"
        OpenChanged="OpenChanged"
@@ -133,8 +134,10 @@
     [Parameter]
     public IReadOnlyList<SelectorOption> DependencyOptions { get; set; } = [];
 
+    /// <summary>What today is, for a new milestone's default date; the host's clock says
+    /// when not given.</summary>
     [Parameter]
-    public DateOnly Today { get; set; } = DateOnly.FromDateTime(DateTime.Today);
+    public DateOnly Today { get; set; }
 
     [Parameter]
     public EventCallback<RoadmapMilestoneSubmission> OnSave { get; set; }
@@ -157,6 +160,12 @@
 
     private IReadOnlyList<SelectorOption> RepositoryOptions =>
         PlannedRepositoryOptions.For(Repositories, ShowArchived, Milestone?.RepositoryAliases ?? []);
+
+    protected override void OnInitialized()
+    {
+        // A host that passes no Today gets the one its clock says.
+        if (Today == default) Today = RoadmapToday.From(Services);
+    }
 
     protected override void OnParametersSet()
     {

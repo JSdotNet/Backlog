@@ -31,14 +31,18 @@ namespace Backlog.Infrastructure.Sqlite.Progress;
 public sealed class SqliteGoalRepository : IGoalRepository, IGoalReplicaStore
 {
     private readonly string _databasePath;
+    private readonly TimeProvider _clock;
 
     /// <summary>A repository over the database in the given folder, or in the default
     /// per-user app-data folder when null — the same file the tasks use.</summary>
-    public SqliteGoalRepository(string? rootDir = null)
+    /// <param name="clock">The clock a write is stamped from (app-defaults ADR 0005); the
+    /// system's when not given.</param>
+    public SqliteGoalRepository(string? rootDir = null, TimeProvider? clock = null)
     {
         var root = rootDir ?? SqliteTaskRepository.DefaultRoot;
 
         _databasePath = SqliteTaskRepository.DatabasePathFor(root);
+        _clock = clock ?? TimeProvider.System;
     }
 
     public string DatabasePath => _databasePath;
@@ -242,9 +246,9 @@ public sealed class SqliteGoalRepository : IGoalRepository, IGoalReplicaStore
     /// <summary>Now, but never at or before the stamp the row already holds, for the
     /// reason the series gives: a copy from a device whose clock runs ahead must not make a
     /// later edit here read as older.</summary>
-    private static async Task<DateTimeOffset> NextStampAsync(SqliteConnection connection, Guid id, CancellationToken cancellationToken)
+    private async Task<DateTimeOffset> NextStampAsync(SqliteConnection connection, Guid id, CancellationToken cancellationToken)
     {
-        var stamp = DateTimeOffset.UtcNow;
+        var stamp = _clock.GetUtcNow();
 
         await using var command = connection.CreateCommand();
         command.CommandText = "SELECT updated_at FROM progress_goals WHERE id = $id;";

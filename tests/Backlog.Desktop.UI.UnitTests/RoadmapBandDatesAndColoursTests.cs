@@ -4,6 +4,9 @@ using Backlog.UI.Components.Roadmap;
 
 using Bunit;
 
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Time.Testing;
+
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
@@ -38,6 +41,33 @@ public class RoadmapBandDatesAndColoursTests : RoadmapBandHarness
         // And not the item editor, which asks for a window and a priority a date has no
         // use for.
         Assert.Empty(band.FindAll("[data-testid=\"roadmap-editor\"]"));
+    }
+
+    /// <summary>A band given no Today takes it from the host's clock (app-defaults ADR 0005),
+    /// and hands it to the dialogs it opens.</summary>
+    [Fact]
+    public void WithoutATodayTheBandAndItsDateEditorReadTheInjectedClock()
+    {
+        using var context = Context();
+        context.Services.AddSingleton<TimeProvider>(new FakeTimeProvider(new DateTimeOffset(2026, 10, 5, 12, 0, 0, TimeSpan.Zero)));
+        var band = context.Render<RoadmapBand>();
+
+        Open(band, "roadmap-band-add-date", "roadmap-milestone-editor");
+
+        Assert.Equal(new DateOnly(2026, 10, 5), DateEditor(band).Today);
+    }
+
+    /// <summary>A date editor rendered on its own, with no Today, falls back to the same
+    /// clock rather than the static one.</summary>
+    [Fact]
+    public void ADateEditorGivenNoTodayReadsTheInjectedClock()
+    {
+        using var context = Context();
+        context.Services.AddSingleton<TimeProvider>(new FakeTimeProvider(new DateTimeOffset(2026, 10, 5, 12, 0, 0, TimeSpan.Zero)));
+
+        var editor = context.Render<RoadmapMilestoneEditor>();
+
+        Assert.Equal(new DateOnly(2026, 10, 5), editor.Instance.Today);
     }
 
     [Fact]

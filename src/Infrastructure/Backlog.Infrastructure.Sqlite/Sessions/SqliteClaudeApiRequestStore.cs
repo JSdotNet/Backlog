@@ -32,14 +32,18 @@ public sealed class SqliteClaudeApiRequestStore : IClaudeApiRequestStore
         "cache_read_tokens, cache_creation_tokens, duration_ms, query_source, agent_name, skill_name, prompt_id";
 
     private readonly string _databasePath;
+    private readonly TimeProvider _clock;
 
     /// <summary>A store over the database in the given workspace folder — the same
     /// file <see cref="SqliteTaskRepository"/> uses.</summary>
-    public SqliteClaudeApiRequestStore(string rootDir)
+    /// <param name="clock">The clock a batch's <c>received_at</c> is read from (app-defaults
+    /// ADR 0005); the system's when not given.</param>
+    public SqliteClaudeApiRequestStore(string rootDir, TimeProvider? clock = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(rootDir);
 
         _databasePath = SqliteTaskRepository.DatabasePathFor(rootDir);
+        _clock = clock ?? TimeProvider.System;
     }
 
     /// <summary>The database file this store reads and writes.</summary>
@@ -66,7 +70,7 @@ public sealed class SqliteClaudeApiRequestStore : IClaudeApiRequestStore
                     $agent_name, $skill_name, $prompt_id, $received_at);
             """;
 
-        var receivedAt = DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture);
+        var receivedAt = _clock.GetUtcNow().ToString("O", CultureInfo.InvariantCulture);
         var added = 0;
 
         foreach (var request in requests)
@@ -186,7 +190,7 @@ public sealed class SqliteClaudeApiRequestStore : IClaudeApiRequestStore
 /// can move while the app is open — the arrangement
 /// <c>RootedSqliteInboxRepository</c> uses, over the same file.
 /// </summary>
-public sealed class RootedSqliteClaudeApiRequestStore(Func<string> currentRootDirectory) : IClaudeApiRequestStore
+public sealed class RootedSqliteClaudeApiRequestStore(Func<string> currentRootDirectory, TimeProvider? clock = null) : IClaudeApiRequestStore
 {
     private readonly Func<string> _currentRootDirectory =
         currentRootDirectory ?? throw new ArgumentNullException(nameof(currentRootDirectory));
@@ -209,7 +213,7 @@ public sealed class RootedSqliteClaudeApiRequestStore(Func<string> currentRootDi
                 if (_store is null || !string.Equals(_rootDirectory, root, StringComparison.OrdinalIgnoreCase))
                 {
                     _rootDirectory = root;
-                    _store = new SqliteClaudeApiRequestStore(root);
+                    _store = new SqliteClaudeApiRequestStore(root, clock);
                 }
 
                 return _store;

@@ -615,12 +615,12 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
     /// cannot say which repository it is about matches no chapter.
     /// </para>
     /// </summary>
-    private static IReadOnlyList<DevbookSyncVerdict> ChapterVerdicts(
+    private IReadOnlyList<DevbookSyncVerdict> ChapterVerdicts(
         string repository,
         string runId,
         IReadOnlyList<DeliverySyncUnitVerdict> verdicts)
     {
-        var recordedAt = DateTimeOffset.UtcNow;
+        var recordedAt = _clock.GetUtcNow();
         var filed = new List<DevbookSyncVerdict>();
 
         foreach (var unit in verdicts.Where(unit => !string.IsNullOrWhiteSpace(unit.Unit)))
@@ -679,7 +679,7 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
         var step = ValidationQuestions.Decide(run, answer);
         if (step.Kind is not ValidationAnswerKind.Record) return step;
 
-        var recorded = ValidationQuestions.Record(run, answer);
+        var recorded = ValidationQuestions.Record(run, answer, clock: _clock);
 
         if (recorded is not ValidationRecord.Unchanged)
         {
@@ -709,7 +709,7 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
 
         if (await _store.ReadAsync(worktree, runId, cancellationToken).ConfigureAwait(false) is not { } run) return ValidationRecord.Unchanged;
 
-        var recorded = ValidationQuestions.Record(run, answer, followUpEntryId);
+        var recorded = ValidationQuestions.Record(run, answer, followUpEntryId, _clock);
 
         if (recorded is not ValidationRecord.Unchanged)
         {
@@ -875,8 +875,8 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
     /// <summary>A run id in the shape both dashboards write: the word, the moment in
     /// base 36, and enough randomness that two runs started in the same millisecond
     /// are still two files.</summary>
-    private static string NewRunId() =>
-        $"run-{Base36(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())}-{Base36(Random.Shared.NextInt64(0, 2_176_782_336))}";
+    private string NewRunId() =>
+        $"run-{Base36(_clock.GetUtcNow().ToUnixTimeMilliseconds())}-{Base36(Random.Shared.NextInt64(0, 2_176_782_336))}";
 
     private static string Base36(long value)
     {
@@ -907,6 +907,6 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
 
     /// <summary>The stamp format every run file uses: UTC, to the millisecond, with
     /// the Z the JavaScript writers put there.</summary>
-    private static string Now() =>
-        DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ", CultureInfo.InvariantCulture);
+    private string Now() =>
+        _clock.GetUtcNow().ToString("yyyy-MM-ddTHH:mm:ss.fffZ", CultureInfo.InvariantCulture);
 }

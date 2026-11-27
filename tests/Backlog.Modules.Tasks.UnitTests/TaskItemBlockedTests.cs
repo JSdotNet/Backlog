@@ -4,6 +4,7 @@ using Backlog.Modules.Tasks.DomainModels;
 using Backlog.Modules.Tasks.Features.SaveTaskFromText;
 using Backlog.Modules.Tasks.Services;
 using Backlog.SharedKernel.Results;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Modules.Tasks.UnitTests;
 
@@ -107,6 +108,20 @@ public sealed class TaskItemBlockedTests
 
         Assert.Null(successor.BlockedSince);
         Assert.False(successor.IsBlocked);
+    }
+
+    /// <summary>The successor is created at the moment the clock it is handed says
+    /// (app-defaults ADR 0005), not the static one.</summary>
+    [Fact]
+    public void A_recurrence_successor_is_created_at_the_given_clocks_now()
+    {
+        var now = new DateTimeOffset(2026, 3, 4, 5, 6, 7, TimeSpan.Zero);
+        var completed = new TaskItem("Weekly review", string.Empty, EntryType.Task);
+        completed.SetRecurrence(new Recurrence(1, RecurrenceUnit.Week));
+
+        var successor = RecurrencePolicy.NextOccurrence(completed, new FakeTimeProvider(now));
+
+        Assert.Equal(now, successor.CreatedAt);
     }
 
     private static async Task<Guid> Save(InMemoryTaskRepository store, Guid? id, string rawText)

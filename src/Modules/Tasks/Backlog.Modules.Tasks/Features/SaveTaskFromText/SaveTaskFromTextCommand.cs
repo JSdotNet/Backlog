@@ -199,7 +199,7 @@ public sealed class SaveTaskFromTextCommandHandler(
         // or a tick the replica merge already spawned for — so a repeat gets one
         // next occurrence however often it is ticked.
         if (!wasCompleted && entry.IsCompleted
-            && await OccurrenceSpawning.SpawnAsync(entry, entries, cancellationToken) is { } successor)
+            && await OccurrenceSpawning.SpawnAsync(entry, entries, _clock, cancellationToken) is { } successor)
         {
             // Named in the result rather than left for the caller to notice. A
             // list that only ever refreshes the row it saved has no other way to

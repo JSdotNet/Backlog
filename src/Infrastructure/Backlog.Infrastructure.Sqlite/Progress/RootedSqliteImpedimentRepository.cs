@@ -9,7 +9,7 @@ namespace Backlog.Infrastructure.Sqlite.Progress;
 /// current root is read per call and the underlying repository rebuilt only when it
 /// changes — the arrangement <see cref="RootedSqliteGoalRepository"/> has.
 /// </summary>
-public sealed class RootedSqliteImpedimentRepository(Func<string> currentRootDirectory)
+public sealed class RootedSqliteImpedimentRepository(Func<string> currentRootDirectory, TimeProvider? clock = null)
     : IImpedimentRepository, IImpedimentReplicaStore
 {
     private readonly Func<string> _currentRootDirectory =
@@ -29,7 +29,7 @@ public sealed class RootedSqliteImpedimentRepository(Func<string> currentRootDir
             if (_repository is null || !string.Equals(_rootDirectory, root, StringComparison.OrdinalIgnoreCase))
             {
                 _rootDirectory = root;
-                _repository = new SqliteImpedimentRepository(root);
+                _repository = new SqliteImpedimentRepository(root, clock);
             }
 
             return _repository;

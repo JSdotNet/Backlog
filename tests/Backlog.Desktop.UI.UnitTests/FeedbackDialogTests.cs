@@ -1,6 +1,7 @@
 using Backlog.Infrastructure.GitHub;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Time.Testing;
 using Microsoft.JSInterop;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -158,6 +159,22 @@ public sealed class FeedbackDialogTests
     {
         var input = host.Dialog.Find("[data-testid='feedback-title-input']");
         await input.InputAsync(new() { Value = title });
+    }
+
+    /// <summary>The screenshot's file name carries the moment it was filed, read from the
+    /// injected clock (app-defaults ADR 0005), so two reports a second apart sort in order.</summary>
+    [Fact]
+    public async Task The_screenshot_path_is_stamped_with_the_injected_clock()
+    {
+        using var temp = new TemporaryDirectory("backlog-feedback-reporter");
+        var client = new RecordingGitHubClient();
+        var gitHub = new GitHubIntegration(new GitHubSettingsStore(temp.Combine("github.json")), client, new StubProbe());
+        var time = new FakeTimeProvider(new DateTimeOffset(2026, 3, 4, 5, 6, 7, TimeSpan.Zero));
+
+        await new FeedbackReporter(gitHub, time).ReportAsync("Broken view", null, Pasted(), cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.StartsWith("feedback-screenshots/20260304-050607-", client.UploadedPath);
+        Assert.EndsWith(".png", client.UploadedPath);
     }
 
     private static GitHubFeedbackScreenshot Pasted() =>

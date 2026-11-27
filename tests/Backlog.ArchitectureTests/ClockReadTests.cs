@@ -21,43 +21,22 @@ public partial class ClockReadTests
 {
     /// <summary>
     /// The files that still read <c>DateTime.Today</c> or <c>DateTimeOffset.Now</c> /
-    /// <c>UtcNow</c> directly, as of the rule landing. Moving one onto an injected
-    /// <see cref="TimeProvider"/> takes it off this list; nothing is ever added to it.
+    /// <c>UtcNow</c> directly, each with the reason it cannot reasonably take a
+    /// <see cref="TimeProvider"/> yet. Moving one onto an injected clock takes it off this
+    /// list; nothing is ever added to it.
     /// </summary>
     private static readonly string[] PredatesTheRule =
     [
-        "src/App/Backlog.Desktop.UI/Feedback/FeedbackReporter.cs",
-        "src/App/Backlog.Desktop.UI/Mcp/McpCallAudit.cs",
-        "src/App/Backlog.Desktop.UI/Shell/AppErrorBoundary.razor",
+        // An Android Service the OS builds, compiled only under the Android workload the slnf leaves out.
         "src/App/Backlog.Mobile/Platforms/Android/RecordingService.cs",
-        "src/Core/Backlog.UI.Components/Inputs/DayCalendar.razor",
-        "src/Core/Backlog.UI.Components/Shell/SyncStatusLine.razor",
-        "src/Harness/Backlog.AzureFoundry.TestService/Program.cs",
-        "src/Infrastructure/Backlog.Infrastructure.FileSystem/Workspace/DevbookSnapshotCache.cs",
-        "src/Infrastructure/Backlog.Infrastructure.GitHub/GitHubClient.cs",
-        "src/Infrastructure/Backlog.Infrastructure.Sessions/LocalDeliverySurfaceLifecycle.cs",
-        "src/Infrastructure/Backlog.Infrastructure.Sessions/ValidationQuestions.cs",
-        "src/Infrastructure/Backlog.Infrastructure.Sqlite/Notifications/SqliteNotificationRepository.cs",
-        "src/Infrastructure/Backlog.Infrastructure.Sqlite/Progress/SqliteGoalRepository.cs",
-        "src/Infrastructure/Backlog.Infrastructure.Sqlite/Progress/SqliteImpedimentRepository.cs",
-        "src/Infrastructure/Backlog.Infrastructure.Sqlite/Roadmap/SqliteRoadmapPlanRepository.cs",
-        "src/Infrastructure/Backlog.Infrastructure.Sqlite/Sessions/SqliteClaudeApiRequestStore.cs",
-        "src/Modules/DevPc/Backlog.Modules.DevPc.UI/ToolsPane.razor",
+        // Aggregate stamped by 3 Touch() calls; a clock through every mutator is a domain redesign.
         "src/Modules/Inbox/Backlog.Modules.Inbox/DomainModels/InboxGroup.cs",
+        // Aggregate stamped by 11 Touch() calls; a clock through every mutator is a domain redesign.
         "src/Modules/Inbox/Backlog.Modules.Inbox/DomainModels/InboxItem.cs",
+        // Aggregate stamped by 4 Touch() calls; a clock through every mutator is a domain redesign.
         "src/Modules/Inbox/Backlog.Modules.Inbox/DomainModels/InboxList.cs",
-        "src/Modules/Roadmap/Backlog.Modules.Roadmap.UI/RoadmapBand.razor",
-        "src/Modules/Roadmap/Backlog.Modules.Roadmap.UI/RoadmapDaysOffDialog.razor",
-        "src/Modules/Roadmap/Backlog.Modules.Roadmap.UI/RoadmapHoursReport.razor",
-        "src/Modules/Roadmap/Backlog.Modules.Roadmap.UI/RoadmapItemEditor.razor",
-        "src/Modules/Roadmap/Backlog.Modules.Roadmap.UI/RoadmapMilestoneEditor.razor",
-        "src/Modules/Sessions/Backlog.Modules.Sessions.Abstractions/Sessions.cs",
-        "src/Modules/Sessions/Backlog.Modules.Sessions.UI/SchedulesPage.razor",
-        "src/Modules/Sessions/Backlog.Modules.Sessions.UI/SessionsPane.razor",
-        "src/Modules/Sync/Backlog.Modules.Sync.Api/Security/HmacSyncCursorCodec.cs",
-        "src/Modules/Sync/Backlog.Modules.Sync.UI/Settings/DevicesSettings.razor",
+        // Aggregate stamped by 40 Touch() calls and ~250 test constructions: a domain redesign.
         "src/Modules/Tasks/Backlog.Modules.Tasks/DomainModels/TaskItem.cs",
-        "src/Modules/Tasks/Backlog.Modules.Tasks/Services/RecurrencePolicy.cs",
     ];
 
     [Fact]
