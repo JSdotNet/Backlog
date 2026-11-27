@@ -1,7 +1,7 @@
-using Backlog.Mobile.UI.Progress;
-using Backlog.Modules.Tasks.Abstractions;
+using Backlog.Mobile.UI.Goals;
+using Backlog.Modules.Work.Abstractions.Tasks;
 
-using MyDayRule = Backlog.Modules.Tasks.Abstractions.MyDay;
+using MyDayRule = Backlog.Modules.Work.Abstractions.Tasks.MyDay;
 
 namespace Backlog.Mobile.UI.Tasks;
 
@@ -29,7 +29,7 @@ public enum TodayPlanState
 
 /// <summary>
 /// One plan in today's My Day as the phone's Today tab draws it (local ADR 0072 §8;
-/// <c>.devbook/domain/tasks/features.md#my-day</c>): its name, how many of its entries are
+/// <c>.devbook/domain/work/features.md#my-day</c>): its name, how many of its entries are
 /// done, and its run state — one line, without its entries.
 /// <para>
 /// Pure: handed the plans on My Day, the tasks the phone holds and the day, it decides
@@ -148,16 +148,18 @@ public sealed record TodayPlanLine(string Name, int Done, int Total, TodayPlanSt
     /// <summary>
     /// Whether an open entry reads under Next, as the desktop's plan sections read it
     /// (<c>PlanSections.SectionOf</c> over <c>PlanEntryState.For</c>): a ready <c>task</c>
-    /// or <c>test</c> is left for you and reads under Next; any other entry marked blocked
-    /// is held for you and does too; one in progress does not; any other does only when it
-    /// is ready and waits on no open work — so an entry still waiting on another is not ready.
-    /// The phone holds no plan run or landing, so those states are not read here.
+    /// or <c>test</c> is left for you and reads under Next only while it waits on no open
+    /// work; any other entry marked blocked is held for you and does; one in progress does
+    /// not; any other does only when it is ready and waits on no open work. So an entry
+    /// still waiting on another is never ready, as the stand-up reads it too
+    /// (<c>.devbook/domain/tasks/domain.md#readiness</c>). The phone holds no plan run or
+    /// landing, so those states are not read here.
     /// </summary>
     private static bool ReadsAsNext(TaskViewRow row, Func<TaskViewRow, bool> waits)
     {
         var status = StatusOf(row);
 
-        if (TypeOf(row) is EntryType.Task or EntryType.Test) return status is EntryStatus.Ready;
+        if (TypeOf(row) is EntryType.Task or EntryType.Test) return status is EntryStatus.Ready && !waits(row);
         if (row.Task.BlockedSince is not null) return true;
 
         return status is EntryStatus.Ready && !waits(row);

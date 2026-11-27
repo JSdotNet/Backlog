@@ -1,0 +1,75 @@
+@*
+    Where the money went, by model, across every provider in one table.
+
+    One table rather than one per provider. The question here is which model costs
+    the most, and answering it across tables makes the reader do the merge by eye.
+    The provider travels in each row's detail column instead.
+
+    The share bar leads, beside the model, because "which model costs the most" is
+    the question; then input tokens, output tokens and the spend. The token columns
+    are populated for Claude and empty for the other two, and that is a fact about
+    the APIs rather than a gap: Anthropic reports tokens by direction beside its
+    cost, GitHub meters in AI credits, Azure meters in each meter's own unit. Putting
+    those under a heading that says tokens would place different units in one
+    column, so the cell stays unreported — MetricBreakdown draws that as an em dash,
+    which is a different statement from a zero. Input counts the cache reads and
+    writes, which is what a reader means by input. An Azure row is a meter rather than
+    a model — the model plus the direction of its tokens — because that is what the
+    bill names.
+*@
+@inherits InsightsPartBase<SpendByModelInsight>
+@inject ICostInsights Costs
+
+<PartFrame Title="Spend by model"
+           Note="Your own usage this month. Tokens are split into input and output where the provider splits them — Anthropic does; Copilot meters in AI credits and Azure AI Foundry in per-meter units, which are left out of the token columns rather than mixed into them, as is a total no provider split. Azure rows are billing meters: one model appears once per token direction."
+           Busy="IsLoading"
+           OnRefresh="RefreshAsync"
+           TestId="dashboard-spend-model">
+    <MetricBreakdown Rows="@Rows"
+                     Label="Spend by model this month"
+                     NameHeading="Model"
+                     TokensHeading="Tokens"
+                     CostHeading="Spend"
+                     ShareOf="MetricShareOf.Cost"
+                     ShareFirst="true"
+                     FormatCost="@(money => InsightsMoney.Format(money.Amount, money.Currency))"
+                     Status="Status"
+                     StatusMessage="@StatusMessage"
+                     TestId="dashboard-spend-model-table" />
+</PartFrame>
+
+@code {
+    protected override InsightsSources Sources => InsightsSources.Cost;
+
+    /// <summary>Spend narrows by nothing on the filter strip. See
+    /// <see cref="InsightsPartBase{T}.FollowsRepository"/>.</summary>
+    protected override bool FollowsRepository => false;
+
+    protected override bool FollowsWindow => false;
+
+    private IReadOnlyList<MetricRow> Rows =>
+        IsReady
+            ? [.. Value!.Rows.Select(row => new MetricRow(
+                row.Name,
+                // One token shape (entry 19, AC32): input and output, never a total
+                // beside them. A provider that reports only a total reads as not
+                // reported in both, rather than the table growing a third kind of column.
+                null,
+                row.Cost is null ? null : new MoneyAmount(row.Cost.Amount, row.Cost.Currency),
+                row.Detail)
+            {
+                InputTokens = row.InputTokens,
+                OutputTokens = row.OutputTokens
+            })]
+            : [];
+
+    protected override Task<InsightResult<SpendByModelInsight>> FetchAsync(CancellationToken cancellationToken) =>
+        Costs.GetByModelAsync(cancellationToken);
+
+    protected override bool IsEmpty(SpendByModelInsight value) => value.Rows.Count == 0;
+
+    protected override string EmptyMessage =>
+        "No spend to break down this month.";
+
+    protected override void InvalidateSource() => Costs.Invalidate();
+}

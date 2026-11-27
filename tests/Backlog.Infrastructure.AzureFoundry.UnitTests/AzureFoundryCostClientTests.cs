@@ -4,7 +4,7 @@ using System.Text.Json;
 using Azure.Core;
 using Azure.Identity;
 using Backlog.Infrastructure.AzureFoundry;
-using Backlog.Infrastructure.AzureFoundry.Dashboard;
+using Backlog.Infrastructure.AzureFoundry.Insights;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Infrastructure.AzureFoundry.UnitTests;

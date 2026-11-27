@@ -1,7 +1,7 @@
 @page "/tasks/{Id:guid}"
 @using System.Globalization
 @using Backlog.Mobile.UI.Tasks
-@using Backlog.Modules.Tasks.Abstractions
+@using Backlog.Modules.Work.Abstractions.Tasks
 @inject TaskViewProjection View
 @inject TaskEdits Edits
 @inject DeviceOutbox Outbox
@@ -11,7 +11,7 @@
 @*
     One task, opened from Today: what it is filed under, when it runs today and
     how big it is, its steps as a checklist, and its own text read-only
-    (.devbook/domain/tasks/features.md#my-day).
+    (.devbook/domain/work/features.md#my-day).
 
     The phone changes three things here and nothing else, all through TaskEdits:
     a step ticked or unticked, the task moved to tomorrow, and the task marked
@@ -119,7 +119,7 @@ else if (_looked)
     private void OnChanged() => _ = InvokeAsync(StateHasChanged);
 
     /// <summary>In today's My Day and not ticked off: the only task the phone
-    /// changes (.devbook/domain/tasks/features.md#my-day). With Clear My Day
+    /// changes (.devbook/domain/work/features.md#my-day). With Clear My Day
     /// overnight off that takes in a task carried over from an earlier day, so it
     /// can be finished or moved to tomorrow here (.devbook/arc42/adr/0032, §5).</summary>
     private bool IsEditable(TaskViewRow row) =>

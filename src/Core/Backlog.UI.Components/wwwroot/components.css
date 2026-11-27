@@ -7002,7 +7002,7 @@ button.task-panel__check:focus-visible {
    The status keeps its control: a StatusSelector is still the same select with
    the same name, so a press opens the same list. Only its paint goes — no fill,
    no border, no fixed column width, sentence case — and the ink says the state:
-   in progress the secondary text, ready the teal band, draft and archived the
+   in progress and ready the secondary text, draft and archived the
    disabled ink, blocked the error foreground, done the success foreground.
    Scoped one class deeper than the host's own `.entry-row__pickers .badge--status`
    so the quiet look wins wherever the row is drawn. */
@@ -7030,7 +7030,7 @@ button.task-panel__check:focus-visible {
 }
 
 .task-item--quiet :is(.task-item__actions, .task-item__head) :is(.badge--status-active, .badge--status-inprogress) { color: var(--color-text-secondary); }
-.task-item--quiet :is(.task-item__actions, .task-item__head) .badge--status-ready { color: var(--color-band-2); }
+.task-item--quiet :is(.task-item__actions, .task-item__head) .badge--status-ready { color: var(--color-text-secondary); }
 .task-item--quiet :is(.task-item__actions, .task-item__head) :is(.badge--status-draft, .badge--status-archived) { color: var(--color-text-disabled); }
 .task-item--quiet :is(.task-item__actions, .task-item__head) .badge--status-blocked,
 .task-item--quiet.task-item--blocked-flag :is(.task-item__actions, .task-item__head) .badge--status { color: var(--color-error-text); }
@@ -16437,6 +16437,35 @@ body.is-resizing-pane .split-pane--vertical > .split-pane__separator > .pane-res
     outline-offset: 1px;
 }
 
+/* The other parts of the traced work, in the bands the reader is not looking at.
+   A dashed frame drawn by the bar itself, outside the related ring the body's
+   outline draws, so a part that is also at an arrow's far end shows both rings
+   — and neither reads as the selection's box-shadow or the focus outline. */
+.roadmap-bar--sibling::after {
+    content: "";
+    position: absolute;
+    inset: calc(-1 * (var(--border-width-2) * 2 + 1px));
+    border: var(--border-width-2) dashed var(--color-primary);
+    border-radius: var(--border-radius-sm);
+    pointer-events: none;
+}
+
+/* The bar the trace is pinned on: a double ring, heavier than the related one,
+   so the reader finds where the trace starts after looking away. Its badge
+   reads pressed as well. */
+.roadmap-bar--pinned .roadmap-bar__body,
+.roadmap-milestone--pinned .roadmap-milestone__marker {
+    outline: var(--border-width-4) double var(--color-primary);
+    outline-offset: 1px;
+}
+
+/* Everything off the traced chain recedes, the way the untraced arrows do —
+   except what holds the focus, which must stay legible wherever it is. */
+.roadmap-bar--dimmed:not(:focus-within),
+.roadmap-milestone--dimmed:not(:focus-within) {
+    opacity: 0.4;
+}
+
 /* --- Rows ---------------------------------------------------------------- */
 
 .roadmap-timeline__row {
@@ -16518,20 +16547,90 @@ body.is-resizing-pane .split-pane--vertical > .split-pane__separator > .pane-res
     overflow: hidden;
 }
 
+/* The badge is a toggle laid over the body's end rather than inside it — a
+   button cannot hold another — so the body keeps room for it, and it moves
+   inward while the bar's action shows at the end. The body's padding covers the
+   badge's whole hit area, so a press beside the title still opens the bar. The
+   timeline leaves the badge off a bar too short for both (RoadmapTimelineBar's
+   BadgeRoomRem), which keeps it inside the bar it counts. */
+.roadmap-bar--has-badge .roadmap-bar__body {
+    padding-right: 2rem;
+}
+
 .roadmap-bar__badge {
-    flex: none;
+    position: absolute;
+    top: 50%;
+    right: 0.625rem;
+    z-index: 1;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     min-width: 1.05rem;
     height: 1.05rem;
     padding: 0 var(--spacing-2xs);
+    translate: 0 -50%;
+    border: var(--border-width) solid transparent;
     border-radius: var(--border-radius-full);
+    background: var(--color-background);
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-xs);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    cursor: pointer;
+}
+
+/*
+  The hit target, 24px square around the 1.05rem badge (WCAG 2.5.8), drawn bigger
+  than it looks as the action's is. 0.625rem in from the end, it stops short of the
+  end grip's 0.375rem inside the bar.
+*/
+.roadmap-bar__badge::before {
+    content: "";
+    position: absolute;
+    inset: -0.225rem;
+}
+
+.roadmap-bar__badge:hover {
+    border-color: var(--color-primary);
+}
+
+.roadmap-bar__badge:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--border-width);
+}
+
+.roadmap-bar__badge--pressed {
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+}
+
+/* Beside an action, far enough in that the two hit areas do not meet — and there
+   at rest too: the action fades in on hover, so a badge that only moved over then
+   would hand the place the pointer aimed at to the action under it. */
+.roadmap-bar--has-badge.roadmap-bar--has-action .roadmap-bar__body {
+    padding-right: 3.5rem;
+}
+
+.roadmap-bar--has-action .roadmap-bar__badge {
+    right: 2.1875rem;
+}
+
+/* Which part of a split piece of work the bar is. Squarer than the round badge
+   beside it, so "1/2" never reads as a count, and never shrunk: the title gives
+   way first. */
+.roadmap-bar__part {
+    position: relative;
+    flex: none;
+    padding: 0 var(--spacing-2xs);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
     background: var(--color-background);
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
     font-variant-numeric: tabular-nums;
-    line-height: 1;
+    line-height: 1.3;
+    white-space: nowrap;
 }
 
 /* Shade separates two bars in one band that would otherwise abut invisibly.
@@ -16965,7 +17064,6 @@ body.is-resizing-pane .split-pane--vertical > .split-pane__separator > .pane-res
 }
 
 .roadmap-bar__title,
-.roadmap-bar__badge,
 .roadmap-bar__unestimated {
     position: relative;
 }

@@ -9,15 +9,15 @@ using Backlog.SharedKernel.Mcp;
 using Backlog.Modules.Brain.Abstractions;
 using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
-using Backlog.Modules.Tasks.Abstractions.Services;
-using Backlog.Modules.Tasks.Features.SyncLinkedTasks;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
+using Backlog.Modules.Work.Tasks.Features.SyncLinkedTasks;
 using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.AzureMaps;
 using Backlog.Infrastructure.Brain;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.FileSystem;
-using Backlog.Infrastructure.FileSystem.Progress;
+using Backlog.Infrastructure.FileSystem.Goals;
 using Backlog.Infrastructure.FileSystem.Logging;
 using Backlog.Infrastructure.FileSystem.Tasks;
 using Backlog.Infrastructure.GitHub;
@@ -165,7 +165,9 @@ public static partial class MauiProgram
                 sp.GetRequiredService<IMcpEndpointSource>(),
                 sp.GetService<ILogger<DevToolService>>())
             {
-                QuestionHookScriptPath = AskBacklogHook.PathUnder(appData)
+                QuestionHookScriptPath = AskBacklogHook.PathUnder(appData),
+                // Dev PCs' Machine keys the per-PC folder (local ADR 0073 §7).
+                Machine = sp.GetRequiredService<IMachineRegistry>().Current
             },
             // Beside settings.json in the same per-user folder, and never in the
             // Brain folder itself (local ADR 0026).
@@ -220,8 +222,9 @@ public static partial class MauiProgram
             sp.GetRequiredService<IMcpAccessRequestStore>()));
         // Allow asks for Windows Hello (§6), and the desk that holds a request to its limits
         // opens the request window over these windows and raises its notification (ADR 0039).
-        // One confirmation holds five minutes for the person's own acts at the desk; an agent's
-        // tasks:admin call and a Refuse from the phone ask every time (VerifyEveryTimeAsync).
+        // One confirmation holds five minutes for minting a pairing code and revoking a device.
+        // Allow, agents:grant and widening the Unauthenticated row (§5), an agent's work:admin
+        // call and a Refuse replayed at the next start ask every time (VerifyEveryTimeAsync).
         builder.Services.TryAddSingleton<IUserConsent>(sp => new RememberedUserConsent(
             new WindowsHelloUserConsent(sp.GetRequiredService<ShellWindows>()),
             TimeProvider.System));

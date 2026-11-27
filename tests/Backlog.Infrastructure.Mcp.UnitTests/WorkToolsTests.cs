@@ -1,4 +1,4 @@
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 
 using ModelContextProtocol;
 
@@ -147,8 +147,8 @@ public class WorkToolsTests
         var entries = new FakeTaskItems(Entries.Entry(
             "In flight",
             repoIds: ["JSdotNet/Backlog"],
-            status: Modules.Tasks.Abstractions.EntryStatus.InProgress,
-            priority: Modules.Tasks.Abstractions.Priority.Critical));
+            status: Modules.Work.Abstractions.Tasks.EntryStatus.InProgress,
+            priority: Modules.Work.Abstractions.Tasks.Priority.Critical));
 
         var tools = new WorkTools(entries, new FakeRepositoryDirectory([Backlog]));
 

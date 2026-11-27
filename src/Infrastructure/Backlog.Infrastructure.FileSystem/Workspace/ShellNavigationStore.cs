@@ -109,7 +109,8 @@ public sealed class ShellNavigationStore : IRepositoryAliasKeyedStore
         {
             [WorkspaceSurfaceName] = null,
             ["Tools"] = "tools",
-            ["Dashboard"] = "dashboard",
+            ["Dashboard"] = InsightsId,
+            [RetiredDashboardId] = InsightsId,
             ["Sessions"] = "sessions",
             ["PullRequests"] = "pull-requests",
             [InboxName] = InboxId,
@@ -139,6 +140,12 @@ public sealed class ShellNavigationStore : IRepositoryAliasKeyedStore
     /// <summary>The Inbox's and the Devbook's surface ids (local ADR 0043 §2).</summary>
     private const string InboxId = "inbox";
     private const string DevbookId = "devbook";
+
+    /// <summary>The Insights surface's id, and the id it was stored under while the
+    /// module was named Dashboard (local ADR 0073 §10): a file written before the
+    /// rename reopens on Insights, and the next save writes the new id.</summary>
+    private const string InsightsId = "insights";
+    private const string RetiredDashboardId = "dashboard";
 
     /// <summary>The surface name the retired enum stored the Inbox under.</summary>
     private const string InboxName = "Inbox";
@@ -239,10 +246,11 @@ public sealed class ShellNavigationStore : IRepositoryAliasKeyedStore
     public string BoardColumns { get; private set; }
 
     /// <summary>
-    /// How the Tasks list was last grouped — the name of a <c>TaskListGrouping</c>
-    /// member, <c>Plans</c> or <c>Flat</c> (local ADR 0072 §1) — kept beside the Board's
-    /// columns for <see cref="BoardColumns"/>' reason. <see cref="DefaultTasksGrouping"/>
-    /// until changed, and left out of the file while it is.
+    /// How the main window's Tasks list was last grouped — the name of a
+    /// <c>TaskListGrouping</c> member, <c>Plans</c> or <c>Flat</c> (local ADR 0072 §1) —
+    /// kept beside the Board's columns for <see cref="BoardColumns"/>' reason. A popped-out
+    /// window opens on it and never writes it. <see cref="DefaultTasksGrouping"/> until
+    /// changed, and left out of the file while it is.
     /// </summary>
     public string TasksGrouping { get; private set; }
 

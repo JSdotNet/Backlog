@@ -5,7 +5,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 
 using Backlog.Infrastructure.SpecManager.Api;
-using Backlog.Modules.Tasks.Abstractions.Connectors;
+using Backlog.Modules.Work.Abstractions.Tasks.Connectors;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;

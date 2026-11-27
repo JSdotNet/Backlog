@@ -24,7 +24,7 @@ public class DevPcAdapterTests
     /// <summary>The only projects the adapter may see: the port it answers, the
     /// task store whose root the per-PC config resolves from, and nothing that
     /// renders a screen or hosts one.</summary>
-    private static readonly string[] AllowedReferences = [Abstractions, "Backlog.Modules.Tasks.Abstractions"];
+    private static readonly string[] AllowedReferences = [Abstractions, "Backlog.Modules.Work.Abstractions"];
 
     [Fact]
     public void The_tools_adapter_is_an_infrastructure_project_and_not_part_of_the_desktop_head()

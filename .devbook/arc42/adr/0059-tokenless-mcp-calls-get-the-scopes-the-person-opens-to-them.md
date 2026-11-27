@@ -97,7 +97,7 @@ The row offers the rest of ADR 0058 §4's table, `inbox:capture` included, since
 
 | Scope | Why never offered |
 | --- | --- |
-| `tasks:admin` | Deletes and bulk changes need a caller that answers for them. |
+| `work:admin` | Deletes and bulk changes need a caller that answers for them. |
 | `agents:grant` | A tokenless caller could grant itself, or anything, a real grant. |
 | `sessions:dispatch` | It starts sessions that run code; the Manager grant alone holds it. |
 | `devbook:decide` | No agent ever decides (ADR 0058 §7). |

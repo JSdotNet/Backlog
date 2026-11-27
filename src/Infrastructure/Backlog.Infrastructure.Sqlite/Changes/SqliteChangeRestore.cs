@@ -2,9 +2,9 @@ using System.Globalization;
 using System.Text.Json;
 using Backlog.Infrastructure.Sqlite.Events;
 using Backlog.Infrastructure.Sqlite.Inbox;
-using Backlog.Infrastructure.Sqlite.Progress;
+using Backlog.Infrastructure.Sqlite.Goals;
 using Backlog.Infrastructure.Sqlite.Roadmap;
-using Backlog.Modules.Tasks;
+using Backlog.Modules.Work.Tasks;
 using Backlog.SharedKernel.Changes;
 using Microsoft.Data.Sqlite;
 
@@ -24,9 +24,9 @@ namespace Backlog.Infrastructure.Sqlite.Changes;
 /// <b>Otherwise the prior document comes back, stamped now.</b> A task is rebuilt from
 /// its before-image and saved through <see cref="ITaskRepository"/> — the store the app
 /// writes through, so the pane and the sync hear it — after
-/// <see cref="Modules.Tasks.DomainModels.TaskItem.Supersede"/> stamps it later than the
+/// <see cref="Modules.Work.Tasks.DomainModels.TaskItem.Supersede"/> stamps it later than the
 /// version it replaces; a tombstoned task comes back through
-/// <see cref="Modules.Tasks.DomainModels.TaskItem.Restore"/>. A goal, an impediment or
+/// <see cref="Modules.Work.Tasks.DomainModels.TaskItem.Restore"/>. A goal, an impediment or
 /// the roadmap plan gets its prior stored document back verbatim, stamped past the one
 /// held. A document the change set created is tombstoned: a task, or a goal. An
 /// impediment and the roadmap plan have no tombstone, so one the change set created
@@ -84,9 +84,13 @@ public sealed class SqliteChangeRestore : IChangeRestore
     /// and the setup that journals it, so the restore's own write is journalled too.</summary>
     private static readonly IReadOnlyDictionary<string, DocumentTable> Tables = new Dictionary<string, DocumentTable>(StringComparer.Ordinal)
     {
-        ["goal"] = new("progress_goals", SqliteGoalRepository.Schema, SqliteGoalRepository.JournalSchema, HasCreatedAt: true, CanTombstone: true),
-        ["impediment"] = new("progress_impediments", SqliteImpedimentRepository.Schema, SqliteImpedimentRepository.JournalSchema, HasCreatedAt: true, CanTombstone: false),
-        ["roadmap-plan"] = new("roadmap_plan", SqliteRoadmapPlanRepository.Schema, SqliteRoadmapPlanRepository.JournalSchema, HasCreatedAt: false, CanTombstone: false),
+        ["goal"] = new("goals_goals", SqliteGoalRepository.Schema, SqliteGoalRepository.JournalSchema, HasCreatedAt: true, CanTombstone: true),
+        ["impediment"] = new("goals_impediments", SqliteImpedimentRepository.Schema, SqliteImpedimentRepository.JournalSchema, HasCreatedAt: true, CanTombstone: false),
+        [SqliteRoadmapPlanRepository.JournalKind] = new("work_plan", SqliteRoadmapPlanRepository.Schema, SqliteRoadmapPlanRepository.JournalSchema, HasCreatedAt: false, CanTombstone: false),
+
+        // A plan revision journalled before Tasks and Roadmap Planning merged into Work
+        // (local ADR 0073 §10) keeps its old kind, and restores into the renamed table.
+        [SqliteRoadmapPlanRepository.LegacyJournalKind] = new("work_plan", SqliteRoadmapPlanRepository.Schema, SqliteRoadmapPlanRepository.JournalSchema, HasCreatedAt: false, CanTombstone: false),
     };
 
     public async Task<RestorePlan?> PlanAsync(Guid changeSetId, CancellationToken cancellationToken = default)
@@ -227,7 +231,7 @@ public sealed class SqliteChangeRestore : IChangeRestore
             : priorDocument is not null ? RestoreAction.Revert : RestoreAction.Unsupported;
 
         var title = TitleOf(heldDocument) ?? TitleOf(priorDocument)
-            ?? (revision.Key.Kind == "roadmap-plan" ? "Roadmap plan" : revision.Key.Id);
+            ?? (revision.Key.Kind is SqliteRoadmapPlanRepository.JournalKind or SqliteRoadmapPlanRepository.LegacyJournalKind ? "Roadmap plan" : revision.Key.Id);
 
         return new RestoreStep(revision.Key, title, documentAction, conflict);
     }

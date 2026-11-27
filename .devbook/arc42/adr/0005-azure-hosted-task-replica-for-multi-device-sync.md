@@ -2,7 +2,7 @@
 
 ```meta
 date: 2026-11-24
-related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/07-deployment-view.md#provisioning-and-delivery", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/11-risks-and-technical-debt.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md", ".devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md", ".devbook/arc42/adr/guidelines/0013-authorization-zero-trust.md", ".devbook/arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md", ".devbook/domain/capture/domain.md#capture", ".devbook/domain/sessions/dependencies.md", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/tasks/domain.md#task", ".devbook/domain/tasks/domain.md#device"]
+related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/07-deployment-view.md#provisioning-and-delivery", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/11-risks-and-technical-debt.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md", ".devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md", ".devbook/arc42/adr/guidelines/0013-authorization-zero-trust.md", ".devbook/arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md", ".devbook/domain/capture/domain.md#capture", ".devbook/domain/sessions/dependencies.md", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/work/domain.task.md#task", ".devbook/domain/work/domain.md#device"]
 c4: [backlog.cloud, backlog.cloudDb]
 c4-touches: [backlog.taskStore, backlog.mobile, backlog.ide, backlog.desktop.sessions]
 ```
@@ -503,7 +503,7 @@ word the session produced.
 **Carrying the name does not collapse the id-and-name distinction this record
 argues elsewhere, and is not to be read as doing so.** A section is still keyed on
 the machine id, exactly as it is locally, because a name can be shared by two
-machines and changed on one — the reasons `.devbook/domain/tasks/domain.md#device` gives
+machines and changed on one — the reasons `.devbook/domain/work/domain.md#device` gives
 and the reasons **The database filename** below rejects `Environment.MachineName`
 as a device identity. The name travels only as the label on a section the id has
 already defined, refreshed from the operating system at the source like every other
@@ -665,7 +665,7 @@ a field that does not sync until this table says it does.
 ### Manual rank
 
 **A task's manual rank is synced aggregate state, and this record now says so.**
-`.devbook/domain/tasks/domain.md` names `order` and `area` together as the attributes that
+`.devbook/domain/work/domain.md` names `order` and `area` together as the attributes that
 "place it in the person's own working set rather than in any external system",
 both "freely re-settable" and carrying "no lifecycle invariant of their own". It
 withholds from `order` the disclaimer it gives `view`, the one attribute it does
@@ -1078,7 +1078,7 @@ Neutral:
 
 - The Task aggregate has gained `updated_at` and `deleted_at`. Both are
   infrastructure-shaped, and neither carries a lifecycle invariant, but they are
-  domain-visible enough to belong in `.devbook/domain/tasks/domain.md`.
+  domain-visible enough to belong in `.devbook/domain/work/domain.md`.
 - Soft delete changes what "delete" means locally: the row persists as a
   tombstone until it is reaped. How long the *cloud* keeps one is settled above at
   180 days of container TTL; how long the *local* database keeps one is a separate

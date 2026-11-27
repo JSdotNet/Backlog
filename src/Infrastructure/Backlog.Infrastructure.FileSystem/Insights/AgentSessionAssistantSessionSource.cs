@@ -1,0 +1,112 @@
+using Backlog.Modules.Insights.Abstractions.Insights;
+using Backlog.Modules.Insights.Abstractions.Services;
+using Backlog.Modules.Sessions.Abstractions;
+
+namespace Backlog.Infrastructure.FileSystem.Insights;
+
+/// <summary>
+/// The Dashboard's assistant-session facts, answered out of the Sessions context's own
+/// port.
+/// </summary>
+/// <remarks>
+/// <para>
+/// A cross-context join, and it lives here for the reason
+/// <c>ModuleBoundaryTests.A_module_ui_asks_only_its_own_modules_published_surface</c>
+/// gives in its own failure message: a screen renders one context and asks that
+/// context's module, so the Dashboard's pane may not reference Sessions' published
+/// surface — "put the join in an adapter that answers both modules' ports instead".
+/// This is that adapter, on the same precedent as the Roadmap ones next door. Nothing
+/// in either module can see it; each still asks only its own port.
+/// </para>
+/// <para>
+/// It is a mapping and nothing else. Every judgement it passes on is deferred to the
+/// context that owns it — <see cref="AgentSessionGroups.Label(AgentSessionKind)"/>
+/// decides what an assistant is called and the Sessions context decides what a horizon
+/// reading holds — because a second copy of either here is a second definition free to
+/// drift from the first. What the Dashboard does with the figures is the Dashboard's;
+/// what a session <em>is</em> stays Sessions'.
+/// </para>
+/// <para>
+/// Availability is always available. The failure this port could report is "the source
+/// cannot answer at all", and a local read of two folders always can: an agent that was
+/// never installed is a folder that is not there, which the catalog already reports as
+/// unreadable and the part already says out loud. Reporting a missing folder as an
+/// unavailable source would replace a part that says which half of the picture is
+/// missing with one that shows nothing.
+/// </para>
+/// </remarks>
+public sealed class AgentSessionAssistantSessionSource(IAgentSessionSource sessions) : IAssistantSessionSource
+{
+    public Task<InsightAvailability> GetAvailabilityAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult(InsightAvailability.Available);
+
+    /// <summary>
+    /// A horizon reading, never the inventory's. <see cref="AgentSessionQuery.Newest"/> is
+    /// the shape a list wants and the wrong one for a count: it stops at
+    /// <see cref="AgentSessionLimits.PerAgent"/> per agent, and a Dashboard that counted
+    /// it showed 200 sessions on every machine. Asked <see cref="AgentSessionQuery.Since"/>
+    /// the horizon instead, the catalog is everything inside it, and
+    /// <see cref="AgentSessionCatalog.Capped"/> only when a source could not reach that
+    /// far back — which is what the Dashboard's own flag means.
+    /// </summary>
+    public async Task<AssistantSessionReport> GetSessionsAsync(DateTimeOffset since, CancellationToken cancellationToken = default)
+    {
+        var catalog = await sessions
+            .GetSessionsAsync(AgentSessionQuery.Since(since), cancellationToken)
+            .ConfigureAwait(false);
+
+        return new AssistantSessionReport(
+            [.. catalog.Sessions.Select(Map)],
+            catalog.Unreadable,
+            catalog.Capped);
+    }
+
+    /// <summary>
+    /// One session, in the Dashboard's words. The Sessions context calls it an
+    /// Environment and the Dashboard calls it a Machine; the rename happens here, at
+    /// the seam, rather than either context giving up its own vocabulary.
+    /// </summary>
+    private static AssistantSession Map(AgentSession session) =>
+        new(
+            MachineId: session.EnvironmentId,
+            MachineName: session.Environment,
+            Assistant: AgentSessionGroups.Label(session.Kind),
+            StartedAt: session.StartedAt,
+            LastActivityAt: session.LastActivityAt)
+        {
+            // The agent's own identifier, carried across unchanged. It is what lets the
+            // Dashboard tell a session that left an activity record from one that left
+            // none, and an id rewritten here would be a join that silently matches
+            // nothing rather than one that fails.
+            Id = session.Id,
+
+            // The longest-sessions list names a session the way the Sessions pane does, so
+            // a reader finds it there by the same words: the desktop app's sidebar name
+            // where it gives one, else Sessions' own title, unchanged.
+            Title = session.DesktopTitle ?? (string.IsNullOrWhiteSpace(session.Title) ? null : session.Title),
+
+            // A turn is one prompt the person sent — that is how Sessions defines it,
+            // and the Dashboard says "prompts" because that is the word a reader has.
+            // Null crosses as null: the source already refuses to write 0 for a
+            // transcript with nothing to count, and the seam must not undo that.
+            Prompts = session.TurnCount,
+
+            // Recorded first, then the one Sessions placed the folder under. Both are
+            // Sessions' own answers; the seam picks between them and derives nothing.
+            // Without the second, every Claude session lands in the no-repository band.
+            Repository = string.IsNullOrWhiteSpace(session.Repository) ? session.ResolvedRepository : session.Repository,
+
+            // Null crosses as null for both — "could not say" is not "none".
+            PullRequests = session.PullRequests?
+                .Select(pr => new AssistantPullRequest(pr.Repository, pr.Number, pr.Url, pr.LinkedAt))
+                .ToList(),
+            ModelUsage = session.ModelUsage?
+                .Select(usage => new AssistantModelUsage(
+                    usage.Model,
+                    usage.InputTokens,
+                    usage.OutputTokens,
+                    usage.CacheCreationInputTokens,
+                    usage.CacheReadInputTokens))
+                .ToList()
+        };
+}

@@ -877,8 +877,8 @@
         "type": "Project",
         "dependencies": {
           "Azure.Identity": "[1.21.0, )",
-          "Backlog.Modules.Dashboard.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Inbox.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.Insights.Abstractions": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )",
           "Microsoft.Extensions.Http": "[11.0.0, )",
           "Microsoft.Extensions.Http.Resilience": "[11.0.1, )",
@@ -920,12 +920,11 @@
         "type": "Project",
         "dependencies": {
           "Backlog.Modules.Events": "[1.0.0, )",
+          "Backlog.Modules.Goals": "[1.0.0, )",
           "Backlog.Modules.Inbox": "[1.0.0, )",
           "Backlog.Modules.Notifications": "[1.0.0, )",
-          "Backlog.Modules.Progress": "[1.0.0, )",
-          "Backlog.Modules.Roadmap": "[1.0.0, )",
           "Backlog.Modules.Sessions.Abstractions": "[1.0.0, )",
-          "Backlog.Modules.Tasks": "[1.0.0, )",
+          "Backlog.Modules.Work": "[1.0.0, )",
           "Microsoft.Data.Sqlite": "[11.0.0, )"
         }
       },
@@ -934,13 +933,13 @@
         "dependencies": {
           "Backlog.Modules.Devbook.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Events.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.Goals.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Inbox.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Notifications.Abstractions": "[1.0.0, )",
-          "Backlog.Modules.Progress.Abstractions": "[1.0.0, )",
-          "Backlog.Modules.Roadmap.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Sessions.Abstractions": "[1.0.0, )",
           "Backlog.Modules.Sync.Abstractions": "[1.0.0, )",
-          "Backlog.Modules.Tasks": "[1.0.0, )",
+          "Backlog.Modules.Work": "[1.0.0, )",
+          "Backlog.Modules.Work.Abstractions": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )",
           "Microsoft.Extensions.Http": "[11.0.0, )",
           "Microsoft.Extensions.Http.Resilience": "[11.0.1, )",
@@ -968,12 +967,6 @@
           "SkiaSharp": "[4.153.1, )"
         }
       },
-      "backlog.modules.dashboard.abstractions": {
-        "type": "Project",
-        "dependencies": {
-          "Backlog.SharedKernel": "[1.0.0, )"
-        }
-      },
       "backlog.modules.devbook.abstractions": {
         "type": "Project",
         "dependencies": {
@@ -993,6 +986,19 @@
           "Backlog.SharedKernel": "[1.0.0, )"
         }
       },
+      "backlog.modules.goals": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.Modules.Goals.Abstractions": "[1.0.0, )",
+          "Backlog.SharedKernel": "[1.0.0, )"
+        }
+      },
+      "backlog.modules.goals.abstractions": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.SharedKernel": "[1.0.0, )"
+        }
+      },
       "backlog.modules.inbox": {
         "type": "Project",
         "dependencies": {
@@ -1006,6 +1012,12 @@
           "Backlog.SharedKernel": "[1.0.0, )"
         }
       },
+      "backlog.modules.insights.abstractions": {
+        "type": "Project",
+        "dependencies": {
+          "Backlog.SharedKernel": "[1.0.0, )"
+        }
+      },
       "backlog.modules.notifications": {
         "type": "Project",
         "dependencies": {
@@ -1014,32 +1026,6 @@
         }
       },
       "backlog.modules.notifications.abstractions": {
-        "type": "Project",
-        "dependencies": {
-          "Backlog.SharedKernel": "[1.0.0, )"
-        }
-      },
-      "backlog.modules.progress": {
-        "type": "Project",
-        "dependencies": {
-          "Backlog.Modules.Progress.Abstractions": "[1.0.0, )",
-          "Backlog.SharedKernel": "[1.0.0, )"
-        }
-      },
-      "backlog.modules.progress.abstractions": {
-        "type": "Project",
-        "dependencies": {
-          "Backlog.SharedKernel": "[1.0.0, )"
-        }
-      },
-      "backlog.modules.roadmap": {
-        "type": "Project",
-        "dependencies": {
-          "Backlog.Modules.Roadmap.Abstractions": "[1.0.0, )",
-          "Backlog.SharedKernel": "[1.0.0, )"
-        }
-      },
-      "backlog.modules.roadmap.abstractions": {
         "type": "Project",
         "dependencies": {
           "Backlog.SharedKernel": "[1.0.0, )"
@@ -1083,14 +1069,14 @@
           "Scalar.AspNetCore": "[3.2.1, )"
         }
       },
-      "backlog.modules.tasks": {
+      "backlog.modules.work": {
         "type": "Project",
         "dependencies": {
-          "Backlog.Modules.Tasks.Abstractions": "[1.0.0, )",
+          "Backlog.Modules.Work.Abstractions": "[1.0.0, )",
           "Backlog.SharedKernel": "[1.0.0, )"
         }
       },
-      "backlog.modules.tasks.abstractions": {
+      "backlog.modules.work.abstractions": {
         "type": "Project",
         "dependencies": {
           "Backlog.SharedKernel": "[1.0.0, )"

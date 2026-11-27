@@ -1,7 +1,9 @@
 @implements IDisposable
-@* The Devbook viewer, editor and remark store a note is read and written
-   through: the declared edge onto the Devbook pane (local ADR 0040 §2). *@
+@* The Devbook editor and remark store a note is written through: the declared
+   edge onto the Devbook pane's published surface (local ADR 0040 §2, ADR 0073 §9).
+   The viewer is the shared DevbookMarkdownView, over the kernel's chapter model. *@
 @using global::Backlog.Desktop.UI.Devbook
+@using global::Backlog.SharedKernel.Devbook
 @inject IServiceProvider Services
 @using Microsoft.JSInterop
 @inject IJSRuntime JS

@@ -1,8 +1,8 @@
 using Backlog.Modules.Notifications.Abstractions;
-using Backlog.Modules.Tasks.Abstractions;
-using Backlog.Modules.Tasks.Abstractions.Services;
-using Backlog.Modules.Tasks;
-using Backlog.Modules.Tasks.DomainModels;
+using Backlog.Modules.Work.Abstractions.Tasks;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
+using Backlog.Modules.Work.Tasks;
+using Backlog.Modules.Work.Tasks.DomainModels;
 using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;

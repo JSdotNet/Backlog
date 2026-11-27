@@ -1,11 +1,11 @@
 extern alias DesktopHarness;
 
 using Backlog.Infrastructure.Mcp;
-using Backlog.Modules.Progress.Abstractions;
-using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
-using Backlog.Modules.Progress.Abstractions.Services;
-using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Goals.Abstractions;
+using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
+using Backlog.Modules.Goals.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.SharedKernel;
 using Backlog.SharedKernel.Results;
 
@@ -16,9 +16,9 @@ namespace Backlog.HostComposition.UnitTests;
 
 /// <summary>
 /// A task's blocked mark is a Tasks-only mark, in the desktop harness's own composition
-/// (<c>.devbook/domain/progress/requirements.md#requirement-a-tasks-blocked-mark-changes-no-impediment</c>):
+/// (<c>.devbook/domain/goals/requirements.md#requirement-a-tasks-blocked-mark-changes-no-impediment</c>):
 /// a <c>set_blocked</c> call and a <c>blocked:</c> token added or removed are task writes
-/// that raise, move and change no impediment over real <c>progress_impediments</c> rows.
+/// that raise, move and change no impediment over real <c>goals_impediments</c> rows.
 /// </summary>
 public sealed class BlockedMarkRaisesNoImpedimentTests
 {

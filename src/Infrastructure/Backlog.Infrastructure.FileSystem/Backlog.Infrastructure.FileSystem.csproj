@@ -27,18 +27,19 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Modules\Tasks\Backlog.Modules.Tasks\Backlog.Modules.Tasks.csproj" />
-    <!-- The cross-context joins under Roadmap/ - the plan's tags offered to the
-         task tag picker, and a roadmap item's rollup of the entries and knowledge
-         chapters it gathers. Storage is no longer among them: the plan itself
-         moved to Backlog.Infrastructure.Sqlite. An adapter referencing a module
-         implementation is the normal direction; the module never sees this
+    <!-- Work, for the joins with the world outside it under Roadmap/ - a roadmap
+         item's rollup of the entries, knowledge chapters and Brain notes it gathers,
+         the pace file and the actual hours. Where the task and the plan meet is no
+         longer here: both are Work, and the module composes those joins itself
+         (AddWorkJoins, local ADR 0073 §1). Storage is not among them either: the
+         plan itself moved to Backlog.Infrastructure.Sqlite. An adapter referencing a
+         module implementation is the normal direction; the module never sees this
          project. -->
-    <ProjectReference Include="..\..\Modules\Roadmap\Backlog.Modules.Roadmap\Backlog.Modules.Roadmap.csproj" />
-    <!-- The cross-context join under Progress/ - the tasks goals name, read
-         through Tasks' published ITaskItems to answer Progress's IProgressTaskSource.
-         The published surface only on the Progress side (local ADR 0028). -->
-    <ProjectReference Include="..\..\Modules\Progress\Backlog.Modules.Progress.Abstractions\Backlog.Modules.Progress.Abstractions.csproj" />
+    <ProjectReference Include="..\..\Modules\Work\Backlog.Modules.Work\Backlog.Modules.Work.csproj" />
+    <!-- The cross-context join under Goals/ - the tasks goals name, read
+         through Tasks' published ITaskItems to answer Goals' IGoalsTaskSource.
+         The published surface only on the Goals side (local ADR 0028). -->
+    <ProjectReference Include="..\..\Modules\Goals\Backlog.Modules.Goals.Abstractions\Backlog.Modules.Goals.Abstractions.csproj" />
     <!-- The cross-context join under Inbox/ - an inbox item routed to the backlog
          becomes entries, composed in Tasks' grammar from the Inbox's published
          request shape. The published surface only: the adapter answers the Inbox's
@@ -64,7 +65,7 @@
          published surfaces and no implementation: the adapter is the only thing in
          the product allowed to see both, which is precisely why the join is here
          rather than as a reference between the two module UIs. -->
-    <ProjectReference Include="..\..\Modules\Dashboard\Backlog.Modules.Dashboard.Abstractions\Backlog.Modules.Dashboard.Abstractions.csproj" />
+    <ProjectReference Include="..\..\Modules\Insights\Backlog.Modules.Insights.Abstractions\Backlog.Modules.Insights.Abstractions.csproj" />
     <ProjectReference Include="..\..\Modules\Sessions\Backlog.Modules.Sessions.Abstractions\Backlog.Modules.Sessions.Abstractions.csproj" />
     <!-- The capture-sources settings file under Workspace/ answers Capture's
          ICaptureSourceSettings port. The published surface only: the store
@@ -74,10 +75,10 @@
          workspace store carries along when the root moves. The published
          surface only, and only that one constant. -->
     <ProjectReference Include="..\..\Modules\DevPc\Backlog.Modules.DevPc.Abstractions\Backlog.Modules.DevPc.Abstractions.csproj" />
-    <!-- The settled-fact store under Workspace/ answers Repository Management's
+    <!-- The settled-fact store under Workspace/ answers Repositories'
          ISettledPullRequestStore: merged pull requests remembered across a restart,
          in app storage (local ADR 0042). The published surface only. -->
-    <ProjectReference Include="..\..\Modules\RepositoryManagement\Backlog.Modules.RepositoryManagement.Abstractions\Backlog.Modules.RepositoryManagement.Abstractions.csproj" />
+    <ProjectReference Include="..\..\Modules\Repositories\Backlog.Modules.Repositories.Abstractions\Backlog.Modules.Repositories.Abstractions.csproj" />
     <ProjectReference Include="..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
     <!-- The workspace adapters under Workspace/ answer two module ports over one
          settings file: Tasks' ITaskStore and Devbook's

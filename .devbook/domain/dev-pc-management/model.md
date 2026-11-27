@@ -22,7 +22,7 @@ classDiagram
     class Machine {
         <<entity>>
         +MachineId machine_id
-        +String machine_name
+        +String name
         +String os
         +String os_version
         +String ip_local
@@ -92,8 +92,8 @@ classDiagram
 
 - `MachineRegistry` is the single aggregate root, a global singleton. `Machine`
   is its owned entity, and everything else is an immutable value object.
-- `TeamToolsBaseline` is a local copy of versions consumed from Technology Stack.
-  Compliance is computed against it, not against a live foreign aggregate.
+- `TeamToolsBaseline` is the versions the tool catalog declares. Compliance is
+  computed against it.
 - Queued and executed updates are deliberately split
   (`PendingUpdate` → `UpdateRecord`), as the
   [Tool update lifecycle](features.md#remote-tool-updates) shows.

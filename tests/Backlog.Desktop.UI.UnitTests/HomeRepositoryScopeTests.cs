@@ -5,11 +5,11 @@ using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.GitHub;
 using AngleSharp.Dom;
 
-using Backlog.Modules.Dashboard.UI;
+using Backlog.Modules.Insights.UI;
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Notifications.UI;
 using Backlog.Modules.Sessions.UI;
-using Backlog.Desktop.UI.Tasks;
+using Backlog.Modules.Work.UI.Tasks;
 using Bunit;
 using System.Runtime.CompilerServices;
 using Microsoft.AspNetCore.Components.Sections;
@@ -274,23 +274,23 @@ public sealed class HomeRepositoryScopeTests
         Chips(component)[1].Click();
         Chips(component)[0].Click(new MouseEventArgs { CtrlKey = true });
 
-        component.WaitForElement("[data-testid='dashboard-toggle-button']").Click();
+        component.WaitForElement("[data-testid='insights-toggle-button']").Click();
 
         component.WaitForAssertion(() =>
         {
             Assert.NotEmpty(component.FindAll("[data-testid='dashboard-panel']"));
-            Assert.Equal(["docs", "backlog"], component.FindComponent<DashboardPane>().Instance.RepositoryAliases);
+            Assert.Equal(["docs", "backlog"], component.FindComponent<InsightsPane>().Instance.RepositoryAliases);
         });
 
         // The chips stay live on the dashboard, and a press there reaches it.
         Chips(component)[0].Click();
         component.WaitForAssertion(() =>
-            Assert.Equal(["backlog"], component.FindComponent<DashboardPane>().Instance.RepositoryAliases));
+            Assert.Equal(["backlog"], component.FindComponent<InsightsPane>().Instance.RepositoryAliases));
 
         // Cleared: an empty scope, which the pane reads as all repositories.
         Chips(component)[0].Click();
         component.WaitForAssertion(() =>
-            Assert.Empty(component.FindComponent<DashboardPane>().Instance.RepositoryAliases));
+            Assert.Empty(component.FindComponent<InsightsPane>().Instance.RepositoryAliases));
     }
 
     /// <summary>
@@ -305,7 +305,7 @@ public sealed class HomeRepositoryScopeTests
         var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
 
         Chips(component)[0].Click();
-        component.WaitForElement("[data-testid='dashboard-toggle-button']").Click();
+        component.WaitForElement("[data-testid='insights-toggle-button']").Click();
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='dashboard-panel']")));
 
         Assert.Contains("Ctrl+click", Chips(component)[1].GetAttribute("title"), StringComparison.Ordinal);
@@ -2041,8 +2041,8 @@ public sealed class HomeRepositoryScopeTests
         context.Services.AddSingleton<DevbookSourceSelection>();
         context.Services.AddSingleton(new DevbookCopilotCli(new UnavailableCopilotCliLauncher()));
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
-        // The dashboard takeover, with no provider behind it — see DashboardTestHost.
-        _ = context.Services.AddUnavailableDashboard("backlog", "backlog-ide");
+        // The dashboard takeover, with no provider behind it — see InsightsTestHost.
+        _ = context.Services.AddUnavailableInsights("backlog", "backlog-ide");
         context.Services.AddScoped(sp => new DomainDevbookStore(sp.GetRequiredService<IDevbookFolderSource>()));
         context.Services.AddScoped(sp => TasksTestHost.StateFor(
             sp.GetRequiredService<WorkspaceSettingsStore>(),

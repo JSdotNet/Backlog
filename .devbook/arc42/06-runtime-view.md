@@ -253,7 +253,7 @@ sequenceDiagram
 ## Mobile My Day and Task Push
 
 ```meta
-related: [".devbook/arc42/05-building-block-view.md#mobile-app", ".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/domain/tasks/features.md#my-day", ".devbook/domain/tasks/domain.md#agenda-time", ".devbook/domain/tasks/domain.md#completed", ".devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md", ".devbook/arc42/adr/0072-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md"]
+related: [".devbook/arc42/05-building-block-view.md#mobile-app", ".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/domain/work/features.md#my-day", ".devbook/domain/work/domain.task.md#agenda-time", ".devbook/domain/work/domain.md#completed", ".devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md", ".devbook/arc42/adr/0072-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md"]
 ```
 
 The phone's Today tab is My Day and nothing else. It reads the owner's task feed, not a My Day endpoint, and keeps only a projection of it. All four writes go through the device outbox:
@@ -319,10 +319,10 @@ sequenceDiagram
   - a `DeletedAt` hides the row, which is kept so page order never changes the result;
   - a non-task document never becomes a row: a `capture` is the Inbox's (ADR 0009), a `note` folds into its own view (ADR 0025).
 - **Preferences are kept, not folded.** A `my-day-preferences` document is taken out of the page, the later `UpdatedAt` wins, and it is saved in the same transaction. The phone never writes it and reads `clearsOvernight: true` until one arrives (ADR 0032).
-- **The roadmap plan is kept the same way.** A `roadmap-plan` document is taken out of the page whole, the later `UpdatedAt` wins, and it is saved in the same transaction. The phone reads only each item's `tag` and `myDayOn` off it and never writes it (local ADR 0072 §8). A file from a build without its table pulls the feed from the start once.
-- **My Day is arithmetic**, as `.devbook/domain/tasks/domain.md#my-day` defines it. With Clear My Day overnight on, the list is the rows whose `in_my_day_on` is the phone's local date and whose status is not `archived`. With it off, an unfinished row with an earlier date stays. A row with `completed_on` today is in Done today. The phone applies the desktop's rule (ADR 0032 §5).
+- **The roadmap plan is kept the same way.** A `roadmap-plan` document — or a `work-plan` one, its kind since local ADR 0073 §10 — is taken out of the page whole, the later `UpdatedAt` wins, and it is saved in the same transaction. The phone reads only each item's `tag` and `myDayOn` off it and never writes it (local ADR 0072 §8). A file from a build without its table pulls the feed from the start once; a file that kept it as `roadmap_plan` renames it to `work_plan` and keeps its cursor.
+- **My Day is arithmetic**, as `.devbook/domain/work/domain.md#my-day` defines it. With Clear My Day overnight on, the list is the rows whose `in_my_day_on` is the phone's local date and whose status is not `archived`. With it off, an unfinished row with an earlier date stays. A row with `completed_on` today is in Done today. The phone applies the desktop's rule (ADR 0032 §5).
 - **A plan is in by the same rule.** Its stamp is the `myDayOn` of the items carrying its tag, matched by the roadmap's slug; it is finished on the day its last entry was ticked. Each plan in is one line above the task groups: name, done of total and run state, never its entries. The phone has no session queue, so the run state reads off the entries alone: In progress, Blocked, the ready count, Draft or Done.
-- **Other rows group by agenda time** against the phone's clock into Now, Agenda and Anytime today (`.devbook/domain/tasks/features.md#my-day`); a carried row has none and sits in Anytime today.
+- **Other rows group by agenda time** against the phone's clock into Now, Agenda and Anytime today (`.devbook/domain/work/features.md#my-day`); a carried row has none and sits in Anytime today.
 - **A rejected cursor starts over.** `sync.cursor_malformed` or `sync.cursor_expired` drops the cursor and pulls from the beginning; kept rows fold to the same result. Any other failure keeps the list with one line saying why.
 - **Adding is a push.** The phone builds a `TaskChange` with a `Guid.CreateVersion7()` id and the typed title. It sets type `task`, status `draft` and priority `medium`, with `CreatedAt` now and `InMyDayOn` today. It is queued as outbox kind `task` and posted to `POST /api/sync/tasks` with a capture's order, backoff and waiting marker. A retry sends the same id, and the whole-document upsert makes it idempotent (ADR 0005).
 - **At once, then replaced.** The `task_view` row is written at queue time with server stamp 0, marked waiting. The pull after delivery brings back the replica's copy, which replaces it.
@@ -360,7 +360,7 @@ sequenceDiagram
 
 - **The phone never spawns an occurrence.** The desktop's merge runs Occurrence Spawning, as the desktop's own tick does. The successor is a desktop write that the next sync pushes and the phone pulls.
 - **Nothing spawns twice.** A re-pull changes nothing, because the merge refuses a version it holds. A task that arrives already ticked, never seen before, spawns nothing. Two desktops derive the same successor id, so the replica keeps one document. A desktop holding the successor, live or deleted, spawns nothing.
-- **An untick leaves the successor**, as the desktop's own untick does (`.devbook/domain/tasks/domain.md#occurrence-spawning`).
+- **An untick leaves the successor**, as the desktop's own untick does (`.devbook/domain/work/domain.md#occurrence-spawning`).
 
 ## Sync Item Lifecycle
 
@@ -456,24 +456,25 @@ sequenceDiagram
     Note over Copilot,API: Local-first path only, no credential forwarding through Cloud Service
 ```
 
-## Repository Baseline Scan and Health Signal
+## Repository Baseline Scan and Health Read
 
 ```meta
-related: [".devbook/arc42/05-building-block-view.md#desktop-app", ".devbook/arc42/08-crosscutting-concepts.md#shared-data-types"]
+related: [".devbook/arc42/05-building-block-view.md#desktop-app", ".devbook/arc42/08-crosscutting-concepts.md#shared-data-types", ".devbook/domain/repositories/domain.md#repository-scan", ".devbook/domain/insights/features.md#what-needs-you"]
 ```
 
-> Not built. No scheduler, package-registry scan or `ProgressSignal` exists in the
-> code; the diagram is the intended flow.
+> Not built. No scheduler, package-registry scan or health score exists in the
+> code; the diagram is the intended flow. Repositories publishes no signal:
+> Insights reads the health it records (local ADR 0073 §2).
 
 ```mermaid
 sequenceDiagram
     participant Scheduler as Desktop Scheduler
-    participant RepoMgmt as Repository Management
+    participant RepoMgmt as Repositories
     participant RepoRegistry as Repository Registry
     participant Pkg as Package Registries
-    participant TechStack as Technology Stack
+    participant Devbook as Devbook reader
     participant Index as Local JSON Index
-    participant Monitoring as Monitoring Service
+    participant Insights as Insights
 
     Scheduler->>RepoMgmt: Start dependency scan
     RepoMgmt->>RepoRegistry: Load registered repos and manifests
@@ -481,11 +482,13 @@ sequenceDiagram
         RepoMgmt->>Pkg: Query latest package metadata
         Pkg-->>RepoMgmt: Current versions / advisories
     end
-    RepoMgmt->>TechStack: Compare discovered versions to baselines
-    TechStack-->>RepoMgmt: Drift and policy evaluation
-    RepoMgmt->>Index: Persist repository health snapshot
-    RepoMgmt->>Monitoring: Emit ProgressSignal(s)
-    Monitoring-->>Scheduler: Dashboard/alert state updated
+    RepoMgmt->>Devbook: Read the repository's tech/ ratings and versions
+    Devbook-->>RepoMgmt: Ratings and approved versions
+    RepoMgmt->>RepoMgmt: Flag drift and hold or retired technology
+    RepoMgmt->>Index: Persist Health Score Snapshot
+    Insights->>RepoMgmt: Read each registered repository's health, archived skipped
+    RepoMgmt-->>Insights: Health score and breakdown
+    Insights->>Insights: Raise low-health repositories under What needs you
 ```
 
 ## Remote PC Wake and Status Update
@@ -505,7 +508,7 @@ sequenceDiagram
     participant Cloud as Cloud Service
     participant Registry as Machine Registry
     participant Target as Remote Desktop Agent
-    participant Monitoring as Monitoring Service
+    participant Insights as Insights
 
     ME->>Desktop: Wake remote machine
     Desktop->>DevPC: wake(machine_id)
@@ -519,8 +522,8 @@ sequenceDiagram
     Target->>Cloud: POST /pc/heartbeat
     Cloud->>Registry: Update status=online
     Cloud-->>DevPC: pc.wake-result / status update
-    DevPC->>Monitoring: Emit machine-online signal
-    Monitoring-->>ME: Machine visible as online
+    DevPC->>Insights: Emit machine-online signal
+    Insights-->>ME: Machine visible as online
 ```
 
 ## Mobile Note Sync

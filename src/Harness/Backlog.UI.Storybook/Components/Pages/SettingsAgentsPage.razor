@@ -7,7 +7,7 @@
            Guidelines="@Rules">
 
     <Story Name="A list of agents"
-           Description="One row per agent that can reach Backlog. The line under the name says its role, where it came from and when it was last used; the chips are its scopes, so the row says what the agent may do without opening it. A scope that reaches furthest, agents:grant or tasks:admin, wears the alert tone.
+           Description="One row per agent that can reach Backlog. The line under the name says its role, where it came from and when it was last used; the chips are its scopes, so the row says what the agent may do without opening it. A scope that reaches furthest, agents:grant or work:admin, wears the alert tone.
 
 Edit scopes opens the agent's switches under its row and reads Done while they are open; one row is open at a time. Each switch stores at once, so there is no Save button. Revoke asks first, in the row's own place: the second Revoke acts, Keep puts the row back.
 
@@ -204,8 +204,8 @@ The host binds the question, so one row asks at a time: asking on one row puts t
 
     private static readonly IReadOnlyList<AgentScopeOption> Options =
     [
-        new("tasks:read", "Find and read items, goals, the roadmap"),
-        new("tasks:write", "Create, comment, transition, block"),
+        new("work:read", "Find and read items, goals, the roadmap"),
+        new("work:write", "Create, comment, transition, block"),
         new("devbook:read", "Chapters, notes, states"),
         new("devbook:write", "Post and resolve notes, set to draft"),
         new("notify:ask", "Ask you a question, tell you something"),
@@ -215,35 +215,35 @@ The host binds the question, so one row asks at a time: asking on one row puts t
         new("devbook:decide", "Never without a token: approve and accept happen in the app", Locked: true)
     ];
 
-    private static readonly IReadOnlyList<string> Highlighted = ["agents:grant", "tasks:admin"];
+    private static readonly IReadOnlyList<string> Highlighted = ["agents:grant", "work:admin"];
 
     private sealed record SampleAgent(string Id, string Name, string Meta, IReadOnlyList<string> Scopes, string? GrantedBy = null);
 
     private List<SampleAgent> _agents =
     [
-        new("g_delivery", "Backlog delivery", "Role: Delivery flow · added in Settings · last used 4 min ago", ["tasks:read", "tasks:write", "devbook:read", "notify:ask", "runs:write"]),
-        new("g_personal", "Personal assistant", "Role: Read-only + capture · added in Settings · last used yesterday", ["tasks:read", "devbook:read", "inbox:capture"]),
-        new("g_manager", "Manager session", "Role: Custom · created by setup · last used 1 min ago", ["tasks:read", "tasks:write", "agents:grant"]),
-        new("g_worker", "Worker · Copilot", "Granted by Manager session · expires in 6 days · last used 3 min ago", ["tasks:read", "tasks:write"], "g_manager")
+        new("g_delivery", "Backlog delivery", "Role: Delivery flow · added in Settings · last used 4 min ago", ["work:read", "work:write", "devbook:read", "notify:ask", "runs:write"]),
+        new("g_personal", "Personal assistant", "Role: Read-only + capture · added in Settings · last used yesterday", ["work:read", "devbook:read", "inbox:capture"]),
+        new("g_manager", "Manager session", "Role: Custom · created by setup · last used 1 min ago", ["work:read", "work:write", "agents:grant"]),
+        new("g_worker", "Worker · Copilot", "Granted by Manager session · expires in 6 days · last used 3 min ago", ["work:read", "work:write"], "g_manager")
     ];
 
     private string? _editing;
 
-    private List<string> _selected = ["tasks:read", "devbook:read"];
+    private List<string> _selected = ["work:read", "devbook:read"];
 
     private int _done;
 
     private static readonly IReadOnlyList<AgentScopeOption> RequestOptions =
     [
-        new("tasks:read", "Find and read items, goals, the roadmap"),
-        new("tasks:write", "Create, comment, transition, block"),
+        new("work:read", "Find and read items, goals, the roadmap"),
+        new("work:write", "Create, comment, transition, block"),
         new("devbook:read", "Chapters, notes, states"),
         new("agents:grant", "Grant other agents a subset of its own scopes; Windows Hello to switch on")
     ];
 
-    private List<string> _requestSelected = ["tasks:read", "tasks:write", "devbook:read"];
+    private List<string> _requestSelected = ["work:read", "work:write", "devbook:read"];
 
-    private List<string> _windowSelected = ["tasks:read", "tasks:write", "devbook:read"];
+    private List<string> _windowSelected = ["work:read", "work:write", "devbook:read"];
 
     private bool _requestTrimming;
 
@@ -294,9 +294,9 @@ The host binds the question, so one row asks at a time: asking on one row puts t
 
     private static readonly IReadOnlyList<AgentScopeOption> UnauthenticatedOptions =
     [
-        new("tasks:read", "Find and read items, goals, the roadmap"),
-        new("tasks:write", "Create, comment, transition, block"),
-        new("tasks:admin", "Never without a token: deletes and bulk changes need a grant", Locked: true),
+        new("work:read", "Find and read items, goals, the roadmap"),
+        new("work:write", "Create, comment, transition, block"),
+        new("work:admin", "Never without a token: deletes and bulk changes need a grant", Locked: true),
         new("devbook:read", "Chapters, notes, states"),
         new("devbook:write", "Post and resolve notes, set to draft"),
         new("devbook:decide", "Never without a token: approve and accept happen in the app", Locked: true),

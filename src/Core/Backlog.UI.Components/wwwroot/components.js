@@ -7022,21 +7022,29 @@
             // gestures are different but the reader's "no, put it back" is the
             // same key, and a drag that could only be cancelled by dropping it
             // somewhere would have no way out at all.
+            //
+            // Listened for while the event is still being captured, and stopped once
+            // used: an Escape that ended a gesture is spent, so it must not go on to
+            // the chart, where an Escape with nothing grabbed lets a pinned trace go.
             const onKeyDown = (event) => {
-                if (link.active && event.key === 'Escape') {
+                if (event.key !== 'Escape') return;
+
+                if (link.active) {
                     endLink();
-                    return;
-                }
-
-                if (draw.pending && event.key === 'Escape') {
+                } else if (draw.pending) {
+                    // A press that never became a draw — or one whose release was lost —
+                    // is ended, but its Escape was not spent on anything the person saw.
+                    const shown = draw.active;
                     endDraw();
+                    if (!shown) return;
+                } else if (drag.active) {
+                    reset();
+                    reference.invokeMethodAsync('DragCancel');
+                } else {
                     return;
                 }
 
-                if (!drag.active || event.key !== 'Escape') return;
-
-                reset();
-                reference.invokeMethodAsync('DragCancel');
+                event.stopPropagation();
             };
 
             // Space on a bar is always a grab or a drop, never a click. Blazor's
@@ -7081,7 +7089,7 @@
             element.addEventListener('pointercancel', onPointerCancel);
             element.addEventListener('keydown', onSpace);
             element.addEventListener('keyup', onSpace);
-            document.addEventListener('keydown', onKeyDown);
+            document.addEventListener('keydown', onKeyDown, true);
 
             /*
                 How wide the scroller is, told to .NET in rem whenever it changes, so
@@ -7153,7 +7161,7 @@
                 element.removeEventListener('pointercancel', onPointerCancel);
                 element.removeEventListener('keydown', onSpace);
                 element.removeEventListener('keyup', onSpace);
-                document.removeEventListener('keydown', onKeyDown);
+                document.removeEventListener('keydown', onKeyDown, true);
             });
         },
 

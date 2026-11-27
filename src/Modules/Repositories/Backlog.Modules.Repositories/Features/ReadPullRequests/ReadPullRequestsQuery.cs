@@ -1,0 +1,19 @@
+using Backlog.Modules.Repositories.Abstractions.DataTransferObjects;
+using Backlog.Modules.Repositories.Services;
+using Backlog.SharedKernel.Handlers;
+
+namespace Backlog.Modules.Repositories.Features.ReadPullRequests;
+
+/// <summary>The pull requests these references name, in any state, no older than
+/// <paramref name="MaxAge"/> where they are not settled.</summary>
+internal sealed record ReadPullRequestsQuery(IReadOnlyCollection<PullRequestReference> PullRequests, TimeSpan MaxAge);
+
+/// <summary>Reads pull requests by number through the one cache (local ADR 0042 §3).</summary>
+internal sealed class ReadPullRequestsQueryHandler(PullRequestCache cache) : IQueryHandler<ReadPullRequestsQuery, PullRequestListing>
+{
+    public Task<PullRequestListing> Handle(ReadPullRequestsQuery query, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        return cache.ReadAsync(query.PullRequests, query.MaxAge, cancellationToken);
+    }
+}

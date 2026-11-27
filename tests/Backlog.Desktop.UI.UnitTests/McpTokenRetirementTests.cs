@@ -272,11 +272,11 @@ public sealed class McpTokenRetirementTests : IDisposable
     public void A_delivery_grant_the_person_changed_or_revoked_is_not_topped_up()
     {
         var made = MigratedBeforeTheAdditions();
-        var edited = Grants().SetScopes(made.Delivery, [McpScopes.TasksRead])!;
+        var edited = Grants().SetScopes(made.Delivery, [McpScopes.WorkRead])!;
 
         _ = McpTokenRetirement.EnsureGrants(Settings(), Grants());
 
-        Assert.Equal([McpScopes.TasksRead], Grants().Find(made.Delivery)!.Scopes);
+        Assert.Equal([McpScopes.WorkRead], Grants().Find(made.Delivery)!.Scopes);
         Assert.Equal(edited.Version, Grants().Find(made.Delivery)!.Version);
 
         _ = Grants().SetScopes(made.Delivery, McpTokenRetirement.DeliveryPreset);
@@ -347,7 +347,7 @@ public sealed class McpTokenRetirementTests : IDisposable
     }
 
     /// <summary>The Manager grant holds the Manager role's preset — <c>sessions:dispatch</c>,
-    /// <c>tasks:read</c>, <c>tasks:write</c> — and never <c>agents:grant</c>, which only a
+    /// <c>work:read</c>, <c>work:write</c> — and never <c>agents:grant</c>, which only a
     /// Windows Hello check may switch on.</summary>
     [Fact]
     public void The_manager_grant_dispatches_sessions_and_nothing_more()
@@ -357,7 +357,7 @@ public sealed class McpTokenRetirementTests : IDisposable
         var made = McpTokenRetirement.EnsureGrants(Settings(Upgraded), grants);
 
         var scopes = grants.Find(made.Manager!)!.Scopes.ToHashSet();
-        Assert.Equal(new HashSet<string> { McpScopes.SessionsDispatch, McpScopes.TasksRead, McpScopes.TasksWrite }, scopes);
+        Assert.Equal(new HashSet<string> { McpScopes.SessionsDispatch, McpScopes.WorkRead, McpScopes.WorkWrite }, scopes);
         Assert.DoesNotContain(McpScopes.AgentsGrant, scopes);
         Assert.Equal(made.Manager, Settings().McpServerGrants!.Manager);
 

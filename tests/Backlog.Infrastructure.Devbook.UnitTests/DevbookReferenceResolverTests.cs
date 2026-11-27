@@ -1,6 +1,6 @@
 using Backlog.Infrastructure.Devbook.Scenarios;
 using Backlog.Modules.Devbook.Abstractions;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 
 namespace Backlog.Infrastructure.Devbook.UnitTests;
 

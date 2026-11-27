@@ -1,5 +1,5 @@
 using Backlog.Infrastructure.SpecManager.Api;
-using Backlog.Modules.Tasks.Abstractions.Connectors;
+using Backlog.Modules.Work.Abstractions.Tasks.Connectors;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;

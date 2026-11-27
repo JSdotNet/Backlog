@@ -1,6 +1,6 @@
 using System.Text.Json;
-using Backlog.Modules.Dashboard.Abstractions.Insights;
-using Backlog.Modules.Dashboard.Abstractions.Services;
+using Backlog.Modules.Insights.Abstractions.Insights;
+using Backlog.Modules.Insights.Abstractions.Services;
 
 namespace Backlog.Infrastructure.FileSystem;
 

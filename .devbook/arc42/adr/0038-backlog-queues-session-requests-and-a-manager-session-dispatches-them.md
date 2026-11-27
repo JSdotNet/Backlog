@@ -1,8 +1,8 @@
 # ADR 0038: Backlog queues session requests and a Manager session dispatches them
 
 ```meta
-date: 2026-11-23
-related: [".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0024-claude-code-telemetry-arrives-on-the-mcp-listener.md", ".devbook/arc42/08-crosscutting-concepts.md#feature-enablement", ".devbook/domain/sessions/context.md#session-requests", ".devbook/domain/sessions/domain.md#session-request-queue", ".devbook/domain/sessions/domain.md#session-request", ".devbook/domain/sessions/features.md#start-a-session-from-an-entry", ".devbook/domain/tasks/features.md#copy-as-a-runnable-paste", ".devbook/domain/tasks/features.md#filing-a-follow-up-after-an-entry", ".devbook/domain/notifications/requirements.md#asking-from-the-contexts", ".devbook/design/interaction-guidelines.md#drag-and-drop-reordering"]
+date: 2026-11-26
+related: [".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/arc42/adr/0024-claude-code-telemetry-arrives-on-the-mcp-listener.md", ".devbook/arc42/08-crosscutting-concepts.md#feature-enablement", ".devbook/domain/sessions/context.md#session-requests", ".devbook/domain/sessions/domain.md#session-request-queue", ".devbook/domain/sessions/domain.md#session-request", ".devbook/domain/sessions/features.md#start-a-session-from-an-entry", ".devbook/domain/work/features.md#copy-as-a-runnable-paste", ".devbook/domain/work/features.md#filing-a-follow-up-after-an-entry", ".devbook/domain/notifications/requirements.md#asking-from-the-contexts", ".devbook/design/interaction-guidelines.md#drag-and-drop-reordering"]
 ```
 
 A click on an entry in the desktop app creates a **session request**: a Backlog record
@@ -22,7 +22,7 @@ Accepted, 2026-11-02, at the Personal Validation gate of the flow-spec run
 `run-mvzp51dk-5wwl1p`, which made the second amendment. Proposed 2026-10-22 by the
 flow-spec run `run-mviose3i-v0k24o` that drafted it, the `record-decision` item of the
 `session-dispatch` plan, run unattended. Amended on 2026-10-27, 2026-11-02, 2026-11-11,
-2026-11-18 and 2026-11-23 ([History](#history)).
+2026-11-18, 2026-11-23 and 2026-11-26 ([History](#history)).
 
 Built and merged in PR #1491 on 2026-10-26: the request record and its queue table, the
 wait route, the dispatcher tools, the Start session and Start plan session actions, and
@@ -39,7 +39,7 @@ the way ADR 0024 added `/v1/logs`, and changes none of ADR 0012's decisions.
 
 **A person wants a button that starts the work.** An entry already knows its
 repository, and the GitHub settings on this machine know that repository's clone
-folder. [Copy as a runnable paste](../../domain/tasks/features.md#copy-as-a-runnable-paste)
+folder. [Copy as a runnable paste](../../domain/work/features.md#copy-as-a-runnable-paste)
 already puts the one line on the clipboard that runs an entry safely:
 `/backlog-tools:run-plan-item entry `<id>`:`. The skill checks the entry is still
 outstanding, moves it to In progress and calls `link_session`. What is missing is the
@@ -93,9 +93,10 @@ the plan tag, the repository as `owner/name`, that repository's clone folder on 
 machine, and nothing else. No title, body or note of the entry is copied into it.
 
 Only a click in the app creates one. No MCP tool, import, sync or capture creates a
-request, so nothing that writes entry text can start a session. The one session the
-Manager starts without a request is a fixer for a bot's red pull request (§6), whose
-brief no text from the pull request reaches.
+request, so nothing that writes entry text can start a session. The Manager starts two
+kinds of session without a request. One is a fixer for a bot's red pull request (§6),
+whose brief no text from the pull request reaches. The other is the cross-repository
+hand-off of a plan session it started itself (§7), whose prompt has one fixed shape.
 
 **No entry text ever becomes a brief.** The dispatcher builds the brief from the
 request's kind and id alone (§2). The new session reads the entry through
@@ -106,7 +107,7 @@ Validation question a run asks
 ([Asking from the contexts](../../domain/notifications/requirements.md#asking-from-the-contexts))
 can be answered **Approve + follow-up** on any paired device. That answer files one
 ready prompt entry in the gated entry's plan and repository, `after:` the gated entry
-([Tasks](../../domain/tasks/features.md#filing-a-follow-up-after-an-entry)). An `execute-plan` session running that plan
+([Tasks](../../domain/work/features.md#filing-a-follow-up-after-an-entry)). An `execute-plan` session running that plan
 re-reads the plan after each entry lands and dispatches it like any ready entry. The answer never creates a session request, so
 only a click still creates one. The accepted trust is that a paired device already
 approves the gate, so it may also queue the next step behind it. `run-plan-item` still
@@ -197,7 +198,15 @@ person closed it. Such a request read Started with nothing to end it. The person
 cancel a Started request from the session queue, and it is Cancelled like any other.
 Cancelling stops no session. A `link_session` that comes later links nothing, because
 only a Started request is linked. A Claimed request still offers no Cancel in the app,
-because a dispatcher is starting its session right then. Requests still never expire.
+because a dispatcher is starting its session right then. *(Superseded 2026-11-26 by the
+amendment below: a Claimed request offers Cancel too.)* Requests still never expire.
+
+**Amended 2026-11-26: a Claimed request can be cancelled too.** The person could not take
+back a claim whose session never starts. The session queue, the column docked
+beside the Tasks list and its popover in a narrow window, now offers Cancel on a Claimed
+request, as the state diagram's `Claimed --> Cancelled` already allows. Cancelling stops
+no session already started, and a later `link_session` links nothing. The owner decided
+this on 2026-11-26.
 
 **Amended 2026-11-18: a finished request leaves the queue.** The person can finish the
 work a request names without its session: mark the entry Done in the app, or every entry
@@ -316,6 +325,61 @@ for a request. The app counts no fixer among the dispatched sessions, so the Man
 its running fixers to the count itself. Merging stays with the repository's own rules,
 such as an auto-merge workflow for a green dependency bump.
 
+### 7. The Manager starts the hand-off of a plan session it started
+
+```meta
+```
+
+```mermaid
+sequenceDiagram
+  participant Mgr as Manager session
+  participant CD as Claude Desktop
+  participant A as Plan session, repository A
+  participant B as Plan session, repository B
+  Mgr->>CD: start_session(plan request's brief)
+  CD->>A: starts
+  A->>CD: start_session in B's main checkout
+  CD-->>A: refused
+  A-->>Mgr: report with one handoff line
+  Mgr->>Mgr: check the line
+  Mgr->>CD: start_session(B's clone folder, the line's prompt)
+  CD->>B: starts
+  Mgr->>Mgr: read the plan's items, report progress
+```
+
+**Added 2026-11-26.** A plan session (`execute-plan`) hands each entry of another
+repository to a session there, which runs the same plan
+([execute-plan's handoff](../../../plugins/backlog-tools/skills/execute-plan/assets/handoff.md)).
+It tries `start_session` in that repository's main checkout first. Claude Desktop refuses
+every session start on the turns of a session another session started, so a plan session
+the Manager started is always refused. It then writes one fixed line in its report:
+
+```text
+handoff <owner/repo> <absolute clone folder> /backlog-tools:execute-plan +<tag> <landing>
+```
+
+The Manager reads the reports of the plan sessions it started itself, and of no other
+session. It starts each hand-off line once, on its next turn that the host lets start a
+session. The start is `user_asked`, in the line's folder, in its own worktree, with the
+line's prompt verbatim. The Manager refuses a line when:
+
+- its prompt does not have the fixed `execute-plan` shape;
+- its `+<tag>` is not the plan the Manager started that session for — a plan session reads
+  untrusted entry text, so a well-formed line for another plan is refused;
+- its folder is not a known clone of that repository on this machine: a main checkout whose
+  `origin` remote is `<owner/repo>`;
+- it already started that line.
+
+The hand-off creates no session request, adds no MCP tool and needs no new grant: the
+app's queue and local ADR 0058 are unchanged. The Manager then follows the plan across
+its repositories read-only, through `get_plan_items`, and reports each repository's
+progress. A paused queue starts no hand-off, and the Manager adds its hand-off sessions
+to the dispatched count itself, as it does its fixers.
+
+The accepted trust is that the Manager built the plan session's brief from a click (§2),
+and the hand-off's prompt is that same fixed brief for another repository. No entry text
+reaches it beyond the plan tag and the landing mode.
+
 ## Consequences
 
 ```meta
@@ -328,6 +392,8 @@ Positive:
 - **A request survives a missing dispatcher.** The app can show it on the entry as
   waiting, with a Cancel action, until a Manager runs.
 - **Any MCP-capable agent can dispatch.** The route and the tools name no agent.
+- **A plan crosses repositories without the person copying a prompt.** The Manager starts
+  the other repository's plan session and reports the plan's progress in each repository.
 
 Negative:
 
@@ -349,6 +415,12 @@ Negative:
 - **The two-fixer limit reads session titles.** A fixer the person retitles, or one past
   the 100 newest sessions, no longer counts, so a pull request red for long can get a
   third.
+- **A hand-off waits for a turn that may start a session.** Claude Desktop refuses
+  `start_session` on any turn a Monitor event or a wake-up drives. Only a turn the person
+  typed, or a `<side-sessions-event>` turn right after one, may start a session. A
+  hand-off reported while the Manager only waits therefore starts at the person's next
+  turn there. Lifting that limit needs a dispatcher that launches a CLI session, which
+  [Rejected](#rejected) keeps for later.
 
 Neutral:
 
@@ -375,6 +447,10 @@ Neutral:
   changed. A Manager may still keep one as a slow heartbeat.
 - **Requests that expire.** A request made while no dispatcher runs would be lost
   without the person knowing. Cancelling is explicit.
+- **A plan session queues its hand-off as a session request.** It needs an MCP tool
+  that creates a request, against §1, and a new scope in the delivery grant of local
+  ADR 0058. The Manager already started the plan session, so it can read the hand-off
+  from that session's report instead.
 
 ## History
 
@@ -383,6 +459,8 @@ Neutral:
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-26 | §3 amended: the session queue offers Cancel on a Claimed request too, as the state diagram allows. It stops no session already started, and a later `link_session` links nothing. It replaces the 2026-11-18 sentence that a Claimed request offers no Cancel. Built in PR #2089. | The owner wanted a claim whose session never starts to be taken back. |
+| 2026-11-26 | §7 added, §1 amended: the Manager starts, once each, the hand-off line a plan session it started writes in its report, in that repository's known clone folder with the fixed `execute-plan` prompt, and follows the plan's progress read-only. No session request, tool or grant is added. | A plan session another session started cannot start sessions, so its hand-off waited for the person to copy a printed prompt. |
 | 2026-11-23 | §6 added, §1 amended: after the queue, the Manager starts one fixer session per bot-opened pull request on the repository's own branch whose settled checks fail and that no session watches, at most two per pull request, with a fixed brief from repository, number and head commit. | Dependency bumps sat open for days on one red check, and no session owned them. |
 | 2026-11-18 | §2 amended: the plan brief is `/backlog-tools:execute-plan +<tag> branch`, and `execute-plan` always runs unattended, with no attended mode, gate relay or per-entry landing; §1 now says the plan's `execute-plan` session dispatches a follow-up entry. Built in PR #1846. | A dispatched plan session stopped on questions nobody answers, and a dispatched plan lands its entries on the plan's integration branch. |
 | 2026-11-18 | §3 amended: the person can cancel a Started request, so a request whose session never called `link_session` leaves the queue. It stops no session, and a later `link_session` links nothing. Requests still never expire. Built in the same pull request. | Started rows whose session never linked sat in the session queue for days with nothing to clear them. |

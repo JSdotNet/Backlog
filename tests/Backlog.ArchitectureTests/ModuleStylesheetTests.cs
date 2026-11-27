@@ -57,8 +57,8 @@ public class ModuleStylesheetTests
             ]),
         new(
             "Roadmap",
-            "src/Modules/Roadmap/Backlog.Modules.Roadmap.UI/wwwroot/roadmap.css",
-            "_content/Backlog.Modules.Roadmap.UI/roadmap.css",
+            "src/Modules/Work/Backlog.Modules.Work.UI/wwwroot/roadmap.css",
+            "_content/Backlog.Modules.Work.UI/roadmap.css",
             [".roadmap-band", ".roadmap-pace", ".roadmap-editor", ".roadmap-days-off", ".roadmap-hours", ".roadmap-order", ".roadmap-gathered"],
             // The timeline is the library's; these two reach into it only where a
             // band carries the module's pace control.
@@ -75,9 +75,9 @@ public class ModuleStylesheetTests
                 "src/Harness/Backlog.Desktop.WebHarness/Components/App.razor"
             ]),
         new(
-            "Dashboard",
-            "src/Modules/Dashboard/Backlog.Modules.Dashboard.UI/wwwroot/dashboard.css",
-            "_content/Backlog.Modules.Dashboard.UI/dashboard.css",
+            "Insights",
+            "src/Modules/Insights/Backlog.Modules.Insights.UI/wwwroot/dashboard.css",
+            "_content/Backlog.Modules.Insights.UI/dashboard.css",
             [".dashboard-"],
             [],
             // The takeover the panel fills is the shell's (Home.razor).
@@ -251,11 +251,11 @@ public class ModuleStylesheetTests
     [InlineData("Roadmap", ".roadmap-timeline__group-content:has(> .roadmap-pace)", "overflow: visible")]
     [InlineData("Roadmap", ".roadmap-timeline__group--slotted:has(.roadmap-pace__hint) .roadmap-timeline__group-name", "margin-right: 1.25rem")]
     [InlineData("Roadmap", ".roadmap-band__shelf .roadmap-shelf__list", "grid-template-columns: minmax(0, 1fr)")]
-    [InlineData("Dashboard", ".dashboard-panel__title", "font-size: var(--font-size-lg); margin: 0")]
-    [InlineData("Dashboard", ".dashboard-tabs__strip > .tabs__list", "flex: 1 0 auto; flex-wrap: nowrap; min-width: 0")]
-    [InlineData("Dashboard", ".dashboard-timeline__scroll", "min-width: 0; overflow-x: auto")]
-    [InlineData("Dashboard", ".dashboard-timeline__grid", "min-width: calc(var(--dashboard-timeline-label) + var(--dashboard-timeline-weeks, 1) * var(--dashboard-timeline-week)); position: relative")]
-    [InlineData("Dashboard", ".dashboard-timeline__fill", "background: var(--dashboard-timeline-tone); display: block; height: 100%")]
+    [InlineData("Insights", ".dashboard-panel__title", "font-size: var(--font-size-lg); margin: 0")]
+    [InlineData("Insights", ".dashboard-tabs__strip > .tabs__list", "flex: 1 0 auto; flex-wrap: nowrap; min-width: 0")]
+    [InlineData("Insights", ".dashboard-timeline__scroll", "min-width: 0; overflow-x: auto")]
+    [InlineData("Insights", ".dashboard-timeline__grid", "min-width: calc(var(--dashboard-timeline-label) + var(--dashboard-timeline-weeks, 1) * var(--dashboard-timeline-week)); position: relative")]
+    [InlineData("Insights", ".dashboard-timeline__fill", "background: var(--dashboard-timeline-tone); display: block; height: 100%")]
     [InlineData("DevPc", ".tools-panel__header-actions", "align-items: center; display: flex; flex: 0 1 auto; flex-wrap: wrap; gap: var(--spacing-xs) var(--spacing-sm); justify-content: flex-end; min-width: 0")]
     [InlineData("DevPc", ".tools-panel__content", "display: grid; gap: var(--spacing-md); min-width: 0")]
     [InlineData("DevPc", ".tools-panel__side", "border-top: var(--border-width) solid color-mix(in srgb, var(--color-primary) 22%, transparent); min-width: 0; padding-top: var(--spacing-sm)")]
@@ -295,10 +295,10 @@ public class ModuleStylesheetTests
     [Fact]
     public void The_dashboard_narrow_card_step_moves_with_its_timeline()
     {
-        var css = File.ReadAllText(Path.Combine(Repository.Root.FullName, Find("Dashboard").File));
+        var css = File.ReadAllText(Path.Combine(Repository.Root.FullName, Find("Insights").File));
         var narrow = Regex.Match(css, @"@container \(max-width: 36rem\) \{(?<body>[^{}]*\{[^{}]*\}\s*)\}");
 
-        Assert.True(narrow.Success, $"{Find("Dashboard").File} has no @container (max-width: 36rem) block.");
+        Assert.True(narrow.Success, $"{Find("Insights").File} has no @container (max-width: 36rem) block.");
         Assert.Equal(
             "--dashboard-timeline-label: 8.5rem",
             Canonical(CssRules.Effective(narrow.Groups["body"].Value, ".dashboard-timeline__scroll")));

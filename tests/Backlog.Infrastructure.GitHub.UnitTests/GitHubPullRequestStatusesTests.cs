@@ -1,12 +1,12 @@
 using Backlog.Infrastructure.GitHub;
-using Backlog.Infrastructure.GitHub.RepositoryManagement;
-using Backlog.Modules.RepositoryManagement.Abstractions;
-using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects;
+using Backlog.Infrastructure.GitHub.Repositories;
+using Backlog.Modules.Repositories.Abstractions;
+using Backlog.Modules.Repositories.Abstractions.DataTransferObjects;
 
 namespace Backlog.Infrastructure.GitHub.UnitTests;
 
 /// <summary>
-/// GitHub's pull request records mapped to Repository Management's status and back
+/// GitHub's pull request records mapped to Repositories' status and back
 /// (local ADR 0042). The way back is what the pane's acts still send GitHub through
 /// until the module's commands take them over, so every field an act reads must survive
 /// the round trip — the merge acts' <see cref="GitHubOpenPullRequest.ToStatus"/>, the

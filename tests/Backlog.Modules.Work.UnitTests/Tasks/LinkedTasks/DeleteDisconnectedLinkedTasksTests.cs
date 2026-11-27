@@ -1,0 +1,293 @@
+using Backlog.Modules.Work.Abstractions.Tasks;
+using Backlog.Modules.Work.Abstractions.Tasks.Connectors;
+using Backlog.Modules.Work.Tasks.DomainModels;
+using Backlog.Modules.Work.Tasks.Features.DeleteDisconnectedLinkedTasks;
+using Backlog.Modules.Work.Tasks.Features.DeleteTask;
+using Backlog.Modules.Work.Tasks.Features.SyncLinkedTasks;
+using Backlog.SharedKernel.Results;
+
+namespace Backlog.Modules.Work.Tasks.UnitTests.LinkedTasks;
+
+/// <summary>
+/// The linked tasks a disconnected source left behind (ADR 0020, §5): which sources
+/// are listed, and deleting one source's tasks. What is worth holding: only a pair
+/// with no connected target is listed, its count covers every status, a pair
+/// connected again is refused rather than emptied, the delete is a tombstone that
+/// touches nothing else and marks each task as deleted with its source, and the
+/// sync brings those back once the source is connected again — but not a task
+/// deleted on its own.
+/// </summary>
+public sealed class DeleteDisconnectedLinkedTasksTests
+{
+    private const string Repo = "JSdotNet/Backlog";
+    private const string OtherRepo = "JSdotNet/Other";
+    private static readonly DateTimeOffset Now = new(2026, 10, 5, 9, 0, 0, TimeSpan.Zero);
+
+    private readonly InMemoryTaskRepository _tasks = new();
+    private readonly InMemoryConnectedTargets _targets = new();
+
+    // --- Listing ----------------------------------------------------------------
+
+    [Fact]
+    public async Task A_source_with_tasks_and_no_connected_target_is_listed_with_every_status_counted()
+    {
+        Seed(Linked("I_1", status: EntryStatus.Ready));
+        Seed(Linked("I_2", status: EntryStatus.Done));
+        Seed(Linked("I_3", status: EntryStatus.Archived));
+
+        var source = Assert.Single(await ListAsync());
+
+        Assert.Equal(new DisconnectedSource(StubTaskConnector.Id, Repo, TaskCount: 3, DependentCount: 0), source);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task A_connected_target_is_never_listed_whether_or_not_it_syncs(bool enabled)
+    {
+        Seed(Linked("I_1"));
+        _targets.Save(new ConnectedTarget(StubTaskConnector.Id, "jsdotnet/backlog", enabled));
+
+        Assert.Empty(await ListAsync());
+    }
+
+    [Fact]
+    public async Task Targets_are_grouped_without_regard_to_case_but_connectors_are_told_apart_exactly()
+    {
+        Seed(Linked("I_1", target: "jsdotnet/backlog"));
+        var latest = Seed(Linked("I_2", target: Repo));
+        latest.SetDependsOn([]);
+        Seed(Linked("I_3", connectorId: "Stub"));
+
+        var sources = await ListAsync();
+
+        Assert.Equal(
+            [
+                new DisconnectedSource("Stub", Repo, 1, 0),
+                new DisconnectedSource(StubTaskConnector.Id, Repo, 2, 0),
+            ],
+            sources);
+    }
+
+    [Fact]
+    public async Task Local_tasks_and_deleted_ones_are_not_counted_and_a_source_with_only_deleted_tasks_is_not_listed()
+    {
+        Seed(Local("Write the release notes"));
+        Seed(Linked("I_1"));
+        Seed(Linked("I_2")).MarkDeleted();
+        Seed(Linked("I_3", target: OtherRepo)).MarkDeleted();
+
+        var source = Assert.Single(await ListAsync());
+
+        Assert.Equal(Repo, source.Target);
+        Assert.Equal(1, source.TaskCount);
+    }
+
+    /// <summary>What the confirmation warns about: a task outside the source that
+    /// waits on one of its tasks shows as blocked on a missing task afterwards. A
+    /// task of the source waiting on another of its own is deleted with it, and a
+    /// deleted task waits on nothing.</summary>
+    [Fact]
+    public async Task Tasks_outside_the_source_that_wait_on_its_tasks_are_counted_as_dependents()
+    {
+        var first = Seed(Linked("I_1"));
+        var second = Seed(Linked("I_2"));
+        second.SetDependsOn([first.Id.ToString()]);
+
+        Seed(Local("Waits on one")).SetDependsOn([first.Id.ToString()]);
+        Seed(Local("Waits on both")).SetDependsOn([first.Id.ToString(), second.Id.ToString()]);
+        Seed(Local("Waits on something else")).SetDependsOn([Guid.NewGuid().ToString()]);
+        var deleted = Seed(Local("Deleted, waiting"));
+        deleted.SetDependsOn([first.Id.ToString()]);
+        deleted.MarkDeleted();
+
+        var source = Assert.Single(await ListAsync());
+
+        Assert.Equal(2, source.DependentCount);
+    }
+
+    /// <summary>A finished task waits on nothing — the chain never reads a Done or
+    /// Archived task's dependencies — so it is no dependent to warn about. A task of
+    /// the source that is itself Done is still one a live task can wait on.</summary>
+    [Fact]
+    public async Task Done_and_archived_tasks_that_wait_on_the_source_are_not_counted_as_dependents()
+    {
+        var first = Seed(Linked("I_1", status: EntryStatus.Done));
+
+        Seed(Local("Still open")).SetDependsOn([first.Id.ToString()]);
+        Seed(Local("Finished", EntryStatus.Done)).SetDependsOn([first.Id.ToString()]);
+        Seed(Local("Put away", EntryStatus.Archived)).SetDependsOn([first.Id.ToString()]);
+
+        var source = Assert.Single(await ListAsync());
+
+        Assert.Equal(1, source.DependentCount);
+    }
+
+    // --- Deleting ---------------------------------------------------------------
+
+    [Fact]
+    public async Task Deleting_a_source_tombstones_every_one_of_its_tasks_and_nothing_else()
+    {
+        var ready = Seed(Linked("I_1", status: EntryStatus.Ready));
+        var done = Seed(Linked("I_2", status: EntryStatus.Done, target: "jsdotnet/backlog"));
+        var archived = Seed(Linked("I_3", status: EntryStatus.Archived));
+        var otherSource = Seed(Linked("I_4", target: OtherRepo));
+        var local = Seed(Local("Write the release notes"));
+        local.SetDependsOn([ready.Id.ToString()]);
+        var connected = Seed(Linked("I_5", connectorId: "connected"));
+        _targets.Save(new ConnectedTarget("connected", Repo));
+
+        var result = await DeleteAsync(StubTaskConnector.Id, Repo);
+
+        var ok = Assert.IsType<Ok<int>>(result.Value);
+        Assert.Equal(3, ok.Value);
+        Assert.All([ready, done, archived], task => Assert.NotNull(task.DeletedAt));
+        Assert.All([otherSource, local, connected], task => Assert.Null(task.DeletedAt));
+
+        // What tells the sync these went with their source, and may come back with it.
+        Assert.All([ready, done, archived], task => Assert.True(task.SourceRef!.HasFlag(LinkedTaskFlags.DeletedWithSource)));
+        Assert.All([otherSource, connected], task => Assert.False(task.SourceRef!.HasFlag(LinkedTaskFlags.DeletedWithSource)));
+
+        // The dependent is left as it was: the same as deleting one task by hand.
+        Assert.Equal([ready.Id.ToString()], local.DependsOn);
+        Assert.Equal(3, _tasks.Writes);
+    }
+
+    [Fact]
+    public async Task A_source_connected_again_before_the_delete_runs_is_refused_and_nothing_is_deleted()
+    {
+        var task = Seed(Linked("I_1"));
+        _targets.Save(new ConnectedTarget(StubTaskConnector.Id, "jsdotnet/backlog"));
+
+        var result = await DeleteAsync(StubTaskConnector.Id, Repo);
+
+        var error = Assert.IsType<Error>(result.Value);
+        Assert.Equal(DeleteDisconnectedLinkedTasksCommand.StillConnectedCode, error.Code);
+        Assert.Contains(Repo, error.Message, StringComparison.Ordinal);
+        Assert.Null(task.DeletedAt);
+        Assert.Equal(0, _tasks.Writes);
+    }
+
+    [Theory]
+    [InlineData("", Repo)]
+    [InlineData(StubTaskConnector.Id, " ")]
+    public async Task A_blank_connector_or_target_is_refused(string connectorId, string target)
+    {
+        Seed(Linked("I_1"));
+
+        var result = await DeleteAsync(connectorId, target);
+
+        Assert.IsType<Error>(result.Value);
+        Assert.Equal(0, _tasks.Writes);
+    }
+
+    /// <summary>The tombstone still keeps another machine from bringing the tasks
+    /// back, but it no longer outlives the source: connecting the source again and
+    /// syncing it brings back every task deleted with it, live, stamped past the
+    /// tombstone so the restore wins on every copy, and with the source's word on
+    /// it again.</summary>
+    [Fact]
+    public async Task Connecting_the_source_again_brings_the_deleted_tasks_back()
+    {
+        var connector = new StubTaskConnector();
+        connector.Items.Add(Item("I_1"));
+        connector.Items.Add(Item("I_2"));
+        _targets.Save(new ConnectedTarget(StubTaskConnector.Id, Repo));
+        var first = await SyncAsync(connector);
+        Assert.Equal(2, first.Created);
+
+        _targets.Remove(StubTaskConnector.Id, Repo);
+        Assert.Equal(2, Assert.IsType<Ok<int>>((await DeleteAsync(StubTaskConnector.Id, Repo)).Value).Value);
+        var tombstonedAt = _tasks.Entries.Values.ToDictionary(task => task.Id, task => task.UpdatedAt);
+
+        connector.Items[0] = connector.Items[0] with { Title = "Renamed at the source" };
+        _targets.Save(new ConnectedTarget(StubTaskConnector.Id, Repo));
+        var again = await SyncAsync(connector);
+
+        Assert.Equal((0, 2, 0), (again.Created, again.Restored, again.SkippedTombstoned));
+        var restored = await _tasks.ListAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(2, restored.Count);
+        Assert.All(restored, task =>
+        {
+            Assert.Null(task.DeletedAt);
+            Assert.True(task.UpdatedAt > tombstonedAt[task.Id]);
+            Assert.False(task.SourceRef!.HasFlag(LinkedTaskFlags.DeletedWithSource));
+        });
+        Assert.Equal("Renamed at the source", _tasks.Entries[LinkedTaskIds.For(StubTaskConnector.Id, "I_1")].Title);
+    }
+
+    /// <summary>A task the sync brought back is the person's again: deleting it on
+    /// its own is a single delete, and the sync after that leaves it deleted.</summary>
+    [Fact]
+    public async Task A_task_brought_back_and_then_deleted_on_its_own_stays_deleted()
+    {
+        var connector = new StubTaskConnector();
+        connector.Items.Add(Item("I_1"));
+        _targets.Save(new ConnectedTarget(StubTaskConnector.Id, Repo));
+        await SyncAsync(connector);
+        _targets.Remove(StubTaskConnector.Id, Repo);
+        await DeleteAsync(StubTaskConnector.Id, Repo);
+        _targets.Save(new ConnectedTarget(StubTaskConnector.Id, Repo));
+        Assert.Equal(1, (await SyncAsync(connector)).Restored);
+
+        var id = LinkedTaskIds.For(StubTaskConnector.Id, "I_1");
+        await new DeleteTaskCommandHandler(_tasks).Handle(new DeleteTaskCommand(id), TestContext.Current.CancellationToken);
+        var again = await SyncAsync(connector);
+
+        Assert.Equal((0, 1), (again.Restored, again.SkippedTombstoned));
+        Assert.NotNull(_tasks.Entries[id].DeletedAt);
+    }
+
+    // --- Helpers ----------------------------------------------------------------
+
+    private async Task<IReadOnlyList<DisconnectedSource>> ListAsync() =>
+        await new ListDisconnectedSourcesQueryHandler(_tasks, _targets)
+            .Handle(new ListDisconnectedSourcesQuery(), TestContext.Current.CancellationToken);
+
+    private async Task<Result<int>> DeleteAsync(string connectorId, string target) =>
+        await new DeleteDisconnectedLinkedTasksCommandHandler(_tasks, _targets)
+            .Handle(new DeleteDisconnectedLinkedTasksCommand(connectorId, target), TestContext.Current.CancellationToken);
+
+    private async Task<LinkedTaskSyncSummary> SyncAsync(StubTaskConnector connector)
+    {
+        var result = await new SyncLinkedTasksCommandHandler([connector], _tasks, _targets, new ManualTimeProvider(Now))
+            .Handle(new SyncLinkedTasksCommand(StubTaskConnector.Id, Repo), TestContext.Current.CancellationToken);
+
+        var ok = Assert.IsType<Ok<LinkedTaskSyncSummary>>(result.Value);
+        return ok.Value;
+    }
+
+    private TaskItem Seed(TaskItem task)
+    {
+        _tasks.Entries[task.Id] = task;
+        return task;
+    }
+
+    private static TaskItem Local(string title, EntryStatus status = EntryStatus.Ready) =>
+        new(Guid.NewGuid(), title, string.Empty, EntryType.Task, status, Priority.Medium, null, null, null, Now);
+
+    private static TaskItem Linked(
+        string externalId,
+        EntryStatus status = EntryStatus.Ready,
+        string connectorId = StubTaskConnector.Id,
+        string target = Repo)
+    {
+        var task = new TaskItem(
+            LinkedTaskIds.For(connectorId, externalId), $"Item {externalId}", string.Empty, EntryType.Task, status, Priority.Medium, null, null, null, Now);
+        task.SetSourceRef(new SourceRef(connectorId, target, externalId, $"https://example.test/{externalId}", $"#{externalId}", null, "open", Now));
+        return task;
+    }
+
+    private static SourceItem Item(string externalId) =>
+        new(
+            externalId,
+            $"#{externalId}",
+            $"Item {externalId}",
+            $"https://example.test/{externalId}",
+            $"Body of {externalId}",
+            NormalisedSourceState.Open,
+            "open",
+            Assignee: null,
+            UpdatedAt: Now.AddDays(-1),
+            Labels: []);
+}

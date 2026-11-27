@@ -1,0 +1,213 @@
+using Backlog.Modules.Work.Abstractions.Plans.DataTransferObjects;
+using Backlog.SharedKernel.Results;
+
+namespace Backlog.Modules.Work.Abstractions.Plans.Services;
+
+/// <summary>
+/// Everything a host may do to the plan, in one port.
+/// <para>
+/// The use cases themselves are feature slices with their own handlers (ADR
+/// 0009); this is the service contract ADR 0005 asks a module to publish, and it
+/// is a plain delegation to those handlers — the same shape as
+/// <c>IBacklogEntries</c>. A screen that reads the plan and reschedules on it
+/// would otherwise take a handler per gesture.
+/// </para>
+/// <para>
+/// Note what is not here: no plan object, no repository, and no way to set a
+/// field. Every method is something a person does to a plan, and each one comes
+/// back as a <see cref="Result"/> when it can fail for a reason worth showing —
+/// a cycle, an unknown node, dates that do not make a window.
+/// </para>
+/// </summary>
+public interface IRoadmapPlanning
+{
+    /// <summary>
+    /// Raised after any change to the plan was stored, whichever caller made it.
+    /// <para>
+    /// Heard across scopes: the roadmap band holds the port from its screen's scope,
+    /// while Tasks' Import reaches Roadmap through an adapter resolved in its own, and a
+    /// change the band did not ask for still has to redraw it. A refused change stored
+    /// nothing and raises nothing. It may arrive on any thread.
+    /// </para>
+    /// </summary>
+    event Action? Changed;
+
+    /// <summary>The whole plan, with its contradictions worked out.</summary>
+    Task<RoadmapPlanDto> GetPlanAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Adds a piece of planned work. Fails when it has no title or when
+    /// the dates do not make a window.</summary>
+    Task<Result<RoadmapItemDto>> AddItemAsync(
+        string title,
+        DateOnly start,
+        DateOnly end,
+        PlanningPriority priority = PlanningPriority.Medium,
+        IReadOnlyList<string>? repositoryAliases = null,
+        string? lane = null,
+        Guid? taskId = null,
+        string? notes = null,
+        string? tag = null,
+        IReadOnlyList<string>? knowledgeRefs = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Writes an edited item back — title, window, priority, repositories, lane, link
+    /// and notes, all of them, every time.
+    /// <para>
+    /// Every field is sent even when it did not change, because a partial update
+    /// cannot say the difference between "leave this alone" and "clear this", and the
+    /// field that loses that argument is whichever one somebody just emptied on
+    /// purpose. Dependencies are not here: they are the one thing that can be refused
+    /// for a reason outside the item, so they keep their own operations.
+    /// </para>
+    /// </summary>
+    Task<Result<RoadmapItemDto>> UpdateItemAsync(
+        Guid itemId,
+        string title,
+        DateOnly start,
+        DateOnly end,
+        PlanningPriority priority,
+        IReadOnlyList<string>? repositoryAliases = null,
+        string? lane = null,
+        Guid? taskId = null,
+        string? notes = null,
+        string? tag = null,
+        IReadOnlyList<string>? knowledgeRefs = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Moves an item in time, and optionally to another lane. Both days
+    /// are inclusive.</summary>
+    Task<Result<RoadmapItemDto>> RescheduleItemAsync(
+        Guid itemId,
+        DateOnly start,
+        DateOnly end,
+        string? lane = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Fixes where an item ends, keeping its start. This is how a person overrides the
+    /// forecast end of started work: the pinned end is drawn instead of the forecast
+    /// until <see cref="UnpinItemEndAsync"/>. Fails when the end is before the start.
+    /// </summary>
+    Task<Result<RoadmapItemDto>> PinItemEndAsync(
+        Guid itemId,
+        DateOnly end,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Lets the forecast decide where started work ends again.</summary>
+    Task<Result<RoadmapItemDto>> UnpinItemEndAsync(
+        Guid itemId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Records <paramref name="on"/> as the day an item's work was done, for work no task
+    /// carries. Completing a completed item moves the day. Gathered tasks outrank it
+    /// wherever the plan is read (<see cref="RoadmapItemCompletion"/>), so the caller offers
+    /// it only for an item that gathers none. Fails for an unknown item.
+    /// </summary>
+    Task<Result<RoadmapItemDto>> CompleteItemAsync(
+        Guid itemId,
+        DateOnly on,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Puts the plan <paramref name="tag"/> names on the My Day of <paramref name="on"/>,
+    /// or takes it off with null (local ADR 0072 §8): every item carrying the tag takes the
+    /// date. A tag no item carries gets its item, titled by the tag and placed on that day;
+    /// taking such a tag off creates nothing. Answers the items now carrying the date.
+    /// </summary>
+    /// <param name="tag">The plan tag, its <c>+</c> optional.</param>
+    Task<Result<IReadOnlyList<RoadmapItemDto>>> PutPlanOnMyDayAsync(
+        string tag,
+        DateOnly? on,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Opens an item completed by hand again. Fails for an unknown item.</summary>
+    Task<Result<RoadmapItemDto>> ReopenItemAsync(
+        Guid itemId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Changes the plan's own priority for an item. Never touches a
+    /// linked backlog entry.</summary>
+    Task<Result<RoadmapItemDto>> PrioritiseItemAsync(
+        Guid itemId,
+        PlanningPriority priority,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Removes an item, and every dependency that pointed at it.</summary>
+    Task<Result> RemoveItemAsync(Guid itemId, CancellationToken cancellationToken = default);
+
+    /// <summary>Adds a fixed point to the plan.</summary>
+    Task<Result<RoadmapMilestoneDto>> AddMilestoneAsync(
+        string title,
+        DateOnly on,
+        MilestoneKind kind = MilestoneKind.Release,
+        IReadOnlyList<string>? repositoryAliases = null,
+        string? lane = null,
+        bool isPlanWide = false,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Writes an edited milestone back: every field, in one go.</summary>
+    Task<Result<RoadmapMilestoneDto>> UpdateMilestoneAsync(
+        Guid milestoneId,
+        string title,
+        DateOnly on,
+        MilestoneKind kind,
+        IReadOnlyList<string>? repositoryAliases = null,
+        string? lane = null,
+        bool isPlanWide = false,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Takes a date off the plan, and every dependency that waited on it.</summary>
+    Task<Result> RemoveMilestoneAsync(Guid milestoneId, CancellationToken cancellationToken = default);
+
+    /// <summary>Records that one node has to land before another can. Fails when
+    /// either end is unknown, when a node would wait on itself, or when the edge
+    /// would close a cycle — in which case the plan is left exactly as it was.</summary>
+    Task<Result> AddDependencyAsync(Guid nodeId, Guid dependsOnId, CancellationToken cancellationToken = default);
+
+    /// <summary>Takes a dependency back out. Removing one that was never there is
+    /// not an error.</summary>
+    Task<Result> RemoveDependencyAsync(Guid nodeId, Guid dependsOnId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lays plan-level entries out on the plan: one item per tag, created or found
+    /// again, and placed from <paramref name="gatheredEffort"/> (ADR 0013, rulings 2,
+    /// 4 and 5). All or nothing — a refused dependency leaves the plan as it was.
+    /// <para>
+    /// Every door into an imported plan comes through here — a roadmap document, the
+    /// Import dialog's "Lay out on the roadmap", and the shelf of plans whose tasks
+    /// arrived first — so none of them can place an item by a rule the others do not
+    /// follow.
+    /// </para>
+    /// </summary>
+    /// <param name="gatheredEffort">Per tag, what the tasks under it registered; a tag
+    /// no entry names re-lengthens its effort-placed item.</param>
+    /// <param name="createIfMissing">Entries laid out only when no item carries their
+    /// tag yet.</param>
+    Task<Result<PlanImportResultDto>> ImportPlanItemsAsync(
+        IReadOnlyList<PlanImportEntryDto> entries,
+        IReadOnlyList<PlanTagEffortDto>? gatheredEffort = null,
+        IReadOnlyList<PlanImportEntryDto>? createIfMissing = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lays every item the import sized by its effort out again from its unfinished work,
+    /// part by part from <paramref name="today"/>, and stores each window that moved — the
+    /// keep-up projection (ADR 0013, ruling 5 as amended on 2026-09-27 and 2026-10-07).
+    /// <para>
+    /// Asked for when the roadmap opens and when a task changes; never on a pace change or
+    /// a plan pulled from another PC, which redraw through the same rule and store nothing
+    /// (local ADR 0018). A due-date, hand-placed, pinned or finished item is never written.
+    /// Idempotent within a day: when nothing moved nothing is saved and
+    /// <see cref="Changed"/> is not raised; otherwise it is raised once.
+    /// </para>
+    /// </summary>
+    /// <param name="today">The day open work is placed from — the caller's own, so what is
+    /// stored and what it draws agree.</param>
+    /// <returns>Each window it moved, carrying the window it replaced; empty when nothing
+    /// moved.</returns>
+    Task<IReadOnlyList<RoadmapItemScheduledDto>> KeepUpWithWorkAsync(
+        DateOnly today,
+        CancellationToken cancellationToken = default);
+}

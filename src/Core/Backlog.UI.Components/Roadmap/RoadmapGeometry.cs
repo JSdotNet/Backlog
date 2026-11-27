@@ -172,28 +172,194 @@ public sealed record RoadmapGeometry(
     /// <param name="startY">Its vertical centre.</param>
     /// <param name="endX">Left edge of the thing waiting.</param>
     /// <param name="endY">Its vertical centre.</param>
-    public string LinkPath(double startX, double startY, double endX, double endY)
+    public string LinkPath(double startX, double startY, double endX, double endY) =>
+        Plain(new RoadmapLinkEnds(startX, startY, endX, endY));
+
+    /// <summary>How far apart two arrows sharing a corridor are drawn: their elbow
+    /// columns, or the channels two doubling-back arrows return along. Enough to read
+    /// as two lines at the heavier traced stroke, small enough that the bend still sits
+    /// where the plain path puts it.</summary>
+    public const double CorridorStepRem = 0.2;
+
+    /// <summary>
+    /// Every arrow's path, with arrows that would share a corridor drawn apart.
+    /// <para>
+    /// Two elbows whose vertical runs overlap in one column draw one line where there
+    /// are two dependencies, and two detours whose return runs overlap along one
+    /// channel do the same — a reader tracing either cannot tell where one ends and the
+    /// other begins. So an arrow whose run would lie on an earlier arrow's is moved to
+    /// the nearest free place: an elbow's column steps back toward its source, and
+    /// forward a step when the source leaves no room; a detour between two rows steps
+    /// alternately down and up inside the gutter, and one that returns under its own
+    /// row steps down only, because up is the bar. Runs that share a column or a
+    /// channel without overlapping are not in each other's way and stay put, and so
+    /// does an arrow alone: each keeps exactly the path
+    /// <see cref="LinkPath(double, double, double, double)"/> draws, so a plan with
+    /// nothing shared looks as it always did.
+    /// </para>
+    /// </summary>
+    /// <param name="links">The arrows' ends, in the order they are drawn: the order
+    /// decides which of two arrows in each other's way keeps the plain path.</param>
+    public IReadOnlyList<string> LinkPaths(IReadOnlyList<RoadmapLinkEnds> links)
     {
-        var head = endX - LinkGapRem;
+        ArgumentNullException.ThrowIfNull(links);
 
-        if (head - startX >= LinkGapRem)
+        // The runs already placed: where each lies, and the span it covers along it.
+        var columns = new List<(double At, double From, double To)>();
+        var channels = new List<(double At, double From, double To)>();
+        var paths = new string[links.Count];
+
+        for (var index = 0; index < links.Count; index++)
         {
-            var corner = Math.Max(startX + LinkGapRem, head);
+            var link = links[index];
 
-            return $"M {N(startX)} {N(startY)} H {N(corner)} V {N(endY)} H {N(endX)}";
+            if (IsElbow(link))
+            {
+                var (from, to) = Span(link.StartY, link.EndY);
+                var x = Free(ColumnCandidates(link), columns, from, to);
+                columns.Add((x, from, to));
+                paths[index] = Elbow(link, x);
+            }
+            else
+            {
+                var (from, to) = Span(link.EndX - LinkGapRem, link.StartX + LinkGapRem);
+                var y = Free(ChannelCandidates(link), channels, from, to);
+                channels.Add((y, from, to));
+                paths[index] = Detour(link, y);
+            }
         }
 
-        // Doubling back. The channel is the gutter between rows when the two are
-        // on different rows, and just below the bar when they share one — a
-        // return line drawn through the bar itself would read as a strikethrough.
-        var channel = Math.Abs(endY - startY) > RowHeightRem / 2
-            ? (startY + endY) / 2
-            : startY + BarHeightRem / 2 + (RowHeightRem - BarHeightRem) / 4;
+        return paths;
+    }
 
-        var out_ = startX + LinkGapRem;
-        var back = endX - LinkGapRem;
+    private static (double From, double To) Span(double a, double b) => (Math.Min(a, b), Math.Max(a, b));
 
-        return $"M {N(startX)} {N(startY)} H {N(out_)} V {N(channel)} H {N(back)} V {N(endY)} H {N(endX)}";
+    /// <summary>The first candidate place no placed run that overlaps this span already
+    /// holds; the plain place when every one is held, since a run must go somewhere.
+    /// Overlap is strict, so two runs that only meet at an end — two arrows arriving at
+    /// one bar from above and below — are not in each other's way.</summary>
+    private static double Free(IEnumerable<double> candidates, List<(double At, double From, double To)> placed, double from, double to)
+    {
+        var list = candidates.ToList();
+
+        foreach (var candidate in list)
+        {
+            var taken = placed.Any(run =>
+                Math.Abs(run.At - candidate) < CorridorStepRem / 2
+                && run.From < to && from < run.To);
+
+            if (!taken) return candidate;
+        }
+
+        return list[0];
+    }
+
+    /// <summary>Where an elbow may turn, plain column first: back toward the source a
+    /// step at a time while it stays clear of the source's stand-off, then forward
+    /// while it stays clear of the target's — so lanes never pile up on a clamp.</summary>
+    private static IEnumerable<double> ColumnCandidates(RoadmapLinkEnds link)
+    {
+        var plain = ElbowColumn(link);
+        yield return plain;
+
+        var least = link.StartX + LinkGapRem / 2;
+        for (var x = plain - CorridorStepRem; x >= least; x -= CorridorStepRem) yield return x;
+
+        var most = link.EndX - LinkGapRem / 2;
+        for (var x = plain + CorridorStepRem; x <= most; x += CorridorStepRem) yield return x;
+    }
+
+    /// <summary>Where a detour may return, plain channel first. Between two rows it
+    /// alternates below and above, inside the gutter. Under its own row it steps down
+    /// only, and stops short of the next row's bar: above the plain channel is the bar
+    /// the arrow left.</summary>
+    private IEnumerable<double> ChannelCandidates(RoadmapLinkEnds link)
+    {
+        var plain = Channel(link);
+        yield return plain;
+
+        if (SharesRow(link))
+        {
+            var floor = link.StartY + RowHeightRem - BarHeightRem / 2;
+            for (var y = plain + CorridorStepRem; y < floor; y += CorridorStepRem) yield return y;
+            yield break;
+        }
+
+        var room = (RowHeightRem - BarHeightRem) / 2;
+        for (var step = 1; step * CorridorStepRem <= room - CorridorStepRem / 2; step++)
+        {
+            yield return plain + step * CorridorStepRem;
+            yield return plain - step * CorridorStepRem;
+        }
+    }
+
+    private static bool IsElbow(RoadmapLinkEnds link) => link.EndX - LinkGapRem - link.StartX >= LinkGapRem;
+
+    private bool SharesRow(RoadmapLinkEnds link) => Math.Abs(link.EndY - link.StartY) <= RowHeightRem / 2;
+
+    private static double ElbowColumn(RoadmapLinkEnds link) =>
+        Math.Max(link.StartX + LinkGapRem, link.EndX - LinkGapRem);
+
+    // The channel is the gutter between rows when the two are on different rows, and
+    // just below the bar when they share one — a return line drawn through the bar
+    // itself would read as a strikethrough.
+    private double Channel(RoadmapLinkEnds link) =>
+        SharesRow(link)
+            ? link.StartY + BarHeightRem / 2 + (RowHeightRem - BarHeightRem) / 4
+            : (link.StartY + link.EndY) / 2;
+
+    /// <summary>One arrow's plain path.</summary>
+    private string Plain(RoadmapLinkEnds link) =>
+        IsElbow(link) ? Elbow(link, ElbowColumn(link)) : Detour(link, Channel(link));
+
+    private static string Elbow(RoadmapLinkEnds link, double corner) =>
+        $"M {N(link.StartX)} {N(link.StartY)} H {N(corner)} V {N(link.EndY)} H {N(link.EndX)}";
+
+    private static string Detour(RoadmapLinkEnds link, double channel) =>
+        $"M {N(link.StartX)} {N(link.StartY)} H {N(link.StartX + LinkGapRem)} V {N(channel)} H {N(link.EndX - LinkGapRem)} V {N(link.EndY)} H {N(link.EndX)}";
+
+    /// <summary>
+    /// Everything a dependency chain through <paramref name="id"/> holds: every thing it
+    /// waits on, however far back, every thing that waits on it, however far on, and the
+    /// links on those paths. Both walks keep a visited set, so a plan whose links loop
+    /// still ends. A link between two things upstream is on a path to
+    /// <paramref name="id"/> and is in the chain; a link from something upstream to
+    /// something downstream that bypasses it is not.
+    /// </summary>
+    /// <param name="id">The thing traced. Always in <see cref="RoadmapChain.Nodes"/>.</param>
+    /// <param name="links">The links that can be drawn.</param>
+    public static RoadmapChain Chain(string id, IEnumerable<RoadmapLink> links)
+    {
+        ArgumentNullException.ThrowIfNull(id);
+        ArgumentNullException.ThrowIfNull(links);
+
+        var list = links.ToList();
+        var nodes = new HashSet<string>(StringComparer.Ordinal) { id };
+        var traced = new HashSet<RoadmapLink>();
+
+        Walk(upstream: true);
+        Walk(upstream: false);
+
+        return new RoadmapChain(nodes, traced);
+
+        void Walk(bool upstream)
+        {
+            var visited = new HashSet<string>(StringComparer.Ordinal) { id };
+            var frontier = new Queue<string>([id]);
+
+            while (frontier.TryDequeue(out var current))
+            {
+                foreach (var link in list)
+                {
+                    var (near, far) = upstream ? (link.ToId, link.FromId) : (link.FromId, link.ToId);
+                    if (!string.Equals(near, current, StringComparison.Ordinal)) continue;
+
+                    traced.Add(link);
+                    nodes.Add(far);
+                    if (visited.Add(far)) frontier.Enqueue(far);
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -214,3 +380,16 @@ public sealed record RoadmapGeometry(
 /// <param name="Path">The SVG path, in the geometry's rem units.</param>
 /// <param name="Label">What the arrow means, for anything that cannot see it.</param>
 public sealed record RoadmapArrow(string FromId, string ToId, string Path, string Label);
+
+/// <summary>Where an arrow leaves and meets, in the geometry's rem: the right edge
+/// and centre of the thing depended on, the left edge and centre of the thing
+/// waiting.</summary>
+public readonly record struct RoadmapLinkEnds(double StartX, double StartY, double EndX, double EndY);
+
+/// <summary>A dependency chain (<see cref="RoadmapGeometry.Chain"/>): the things on
+/// it, the traced one included, and the links between them.</summary>
+public sealed record RoadmapChain(IReadOnlySet<string> Nodes, IReadOnlySet<RoadmapLink> Links)
+{
+    /// <summary>Whether there is anything to trace: at least one link.</summary>
+    public bool HasLinks => Links.Count > 0;
+}

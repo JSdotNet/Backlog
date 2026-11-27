@@ -1,6 +1,6 @@
 using Backlog.Infrastructure.FileSystem.Roadmap;
-using Backlog.Modules.Roadmap.Abstractions;
-using Backlog.Modules.Roadmap.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Plans;
+using Backlog.Modules.Work.Abstractions.Plans.Services;
 
 namespace Backlog.Infrastructure.FileSystem.UnitTests;
 

@@ -1020,7 +1020,8 @@
             : Task.FromResult(true);
 
     /// <summary>
-    /// Asks Windows Hello <paramref name="question"/> (local ADR 0058 §6): true when the person
+    /// Asks Windows Hello <paramref name="question"/> every time, never answered from a remembered
+    /// confirmation, so UI automation cannot pass it (local ADR 0058 §5, §6): true when the person
     /// confirmed it. Otherwise the card says <paramref name="notConfirmed"/>, or
     /// <paramref name="unavailable"/> where Windows Hello cannot ask, and the caller writes nothing.
     /// </summary>
@@ -1029,7 +1030,7 @@
         var consent = Services.GetService<IUserConsent>();
         var outcome = consent is null
             ? UserConsentOutcome.NotAvailable
-            : await consent.VerifyAsync(question);
+            : await consent.VerifyEveryTimeAsync(question);
 
         if (outcome == UserConsentOutcome.Verified) return true;
 

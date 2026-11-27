@@ -3,7 +3,7 @@ using System.Text;
 
 using Backlog.Infrastructure.SpecManager.Api;
 using Backlog.Modules.Notifications.Abstractions;
-using Backlog.Modules.Tasks.Abstractions;
+using Backlog.Modules.Work.Abstractions.Tasks;
 
 namespace Backlog.Infrastructure.SpecManager.Questions;
 

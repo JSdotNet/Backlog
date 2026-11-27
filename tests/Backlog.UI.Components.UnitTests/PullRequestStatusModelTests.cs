@@ -1,10 +1,10 @@
-using Backlog.UI.Components.Progress;
+using Backlog.UI.Components.Goals;
 
 namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
 /// The variant rules of the pull request status line
-/// (<c>.devbook/domain/progress/requirements.md#pull-request-status</c>): checks pass only
+/// (<c>.devbook/domain/goals/requirements.md#pull-request-status</c>): checks pass only
 /// when every one passed, fail once one failed, and run otherwise; approvals are met at
 /// the required total; and the words a screen reader hears are the requirement's own.
 /// </summary>

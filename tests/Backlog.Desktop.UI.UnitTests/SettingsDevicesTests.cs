@@ -13,11 +13,11 @@ using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.UI;
-using Backlog.Modules.Tasks;
-using Backlog.Modules.Tasks.Abstractions;
+using Backlog.Modules.Work.Tasks;
+using Backlog.Modules.Work.Abstractions.Tasks;
 using Backlog.Modules.Capture.Abstractions.Services;
-using Backlog.Modules.Tasks.Abstractions.Services;
-using Backlog.Modules.Tasks.DomainModels;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
+using Backlog.Modules.Work.Tasks.DomainModels;
 using Backlog.SharedKernel;
 
 using Microsoft.Extensions.DependencyInjection;

@@ -1,14 +1,14 @@
-using Backlog.Desktop.UI.Goals;
+using Backlog.Desktop.UI.ShellGoals;
 using Backlog.Infrastructure.GitHub;
-using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
-using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
-using Backlog.UI.Components.Progress;
+using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects;
+using Backlog.UI.Components.Goals;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// Which repositories a bare pull request number in a goal's attach search is read in
-/// (<c>.devbook/domain/progress/features.md#attaching-work-to-a-goal</c>): the one the
+/// (<c>.devbook/domain/goals/features.md#attaching-work-to-a-goal</c>): the one the
 /// header's scope holds when it holds one, each it holds when it holds several, and every
 /// registered one when it holds none. And how a task's status and its <c>blocked:</c> mark
 /// are handed to the Goals view.

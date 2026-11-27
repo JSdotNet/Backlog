@@ -1,8 +1,8 @@
 using Backlog.Modules.Calendar.Abstractions.DataTransferObjects;
 using Backlog.Modules.Calendar.Abstractions.Services;
-using Backlog.Modules.Tasks.Abstractions;
-using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks;
+using Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.SharedKernel.Results;
 
 namespace Backlog.Infrastructure.FileSystem.Calendar;

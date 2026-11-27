@@ -2,7 +2,7 @@ using System.ComponentModel;
 using System.Globalization;
 
 using Backlog.Modules.Devbook.Abstractions;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.SharedKernel.Devbook;
 using Backlog.SharedKernel.Results;
 

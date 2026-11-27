@@ -168,7 +168,7 @@ public sealed class SpecManagerQuestionMappingTests
 
         var draft = SpecManagerQuestionMapper.ToDraft(OnItem, Product, Root, true, "me", new SpecManagerLinkedWork(task, "Rounding fix"));
 
-        Assert.Equal(new NotificationSubject("tasks", "task", task.ToString("D")), draft.Subject);
+        Assert.Equal(new NotificationSubject("work", "task", task.ToString("D")), draft.Subject);
         Assert.Equal("Agent session · Rounding fix", draft.Origin!.Via);
     }
 

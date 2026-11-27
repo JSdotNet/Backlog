@@ -1,0 +1,38 @@
+using Backlog.Modules.Work.Abstractions.Plans;
+using Backlog.Modules.Work.Abstractions.Plans.DataTransferObjects;
+using Backlog.Modules.Work.Plans.DomainModels;
+using Backlog.Modules.Work.Plans.Services;
+using Backlog.SharedKernel.Handlers;
+using Backlog.SharedKernel.Results;
+
+namespace Backlog.Modules.Work.Plans.Features.PrioritiseItem;
+
+/// <summary>
+/// Changes how much the plan wants a piece of work.
+/// <para>
+/// It touches the plan and nothing else. A linked backlog entry keeps its own
+/// priority: the two are different judgements made for different reasons, and
+/// reprioritising a quarter must not mean editing a dozen issues.
+/// </para>
+/// </summary>
+public sealed record PrioritiseItemCommand(Guid ItemId, PlanningPriority Priority);
+
+public sealed class PrioritiseItemCommandHandler(IRoadmapPlanRepository plans, RoadmapPlanGate gate)
+    : ICommandHandler<PrioritiseItemCommand, Result<RoadmapItemDto>>
+{
+    public async Task<Result<RoadmapItemDto>> Handle(
+        PrioritiseItemCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        using var held = await gate.EnterAsync(cancellationToken);
+        var plan = await plans.LoadAsync(cancellationToken);
+        var prioritised = plan.Prioritise(command.ItemId, command.Priority);
+
+        if (prioritised is not Ok<RoadmapItem>(var item)) return (Error)prioritised.Value!;
+
+        await plans.SaveAsync(plan, cancellationToken);
+        return Result.Success(item.ToDto());
+    }
+}

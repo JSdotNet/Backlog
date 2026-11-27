@@ -1,6 +1,6 @@
 using Backlog.Infrastructure.SpecManager.Api;
 using Backlog.Infrastructure.SpecManager.OAuth;
-using Backlog.Modules.Tasks.Abstractions.Connectors;
+using Backlog.Modules.Work.Abstractions.Tasks.Connectors;
 
 using Microsoft.Extensions.Time.Testing;
 

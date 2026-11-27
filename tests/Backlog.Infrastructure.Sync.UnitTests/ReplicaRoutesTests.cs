@@ -1,7 +1,7 @@
 using System.Globalization;
 
 using Backlog.Modules.Sync.Abstractions;
-using Backlog.Modules.Tasks.DomainModels;
+using Backlog.Modules.Work.Tasks.DomainModels;
 
 namespace Backlog.Infrastructure.Sync.UnitTests;
 

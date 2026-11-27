@@ -1,6 +1,6 @@
 using Backlog.Infrastructure.GitHub;
-using Backlog.Infrastructure.GitHub.Dashboard;
-using Backlog.Modules.Dashboard.Abstractions.Services;
+using Backlog.Infrastructure.GitHub.Insights;
+using Backlog.Modules.Insights.Abstractions.Services;
 
 namespace Backlog.Infrastructure.GitHub.UnitTests;
 
@@ -11,9 +11,9 @@ namespace Backlog.Infrastructure.GitHub.UnitTests;
 /// </summary>
 public sealed class GitHubDriftIssueSourceTests : IDisposable
 {
-    private static readonly DashboardRepository Backlog = new("backlog", "JSdotNet/Backlog");
+    private static readonly InsightsRepository Backlog = new("backlog", "JSdotNet/Backlog");
 
-    private static readonly DashboardRepository Specs = new("specs", "JSdotNet/spec-manager");
+    private static readonly InsightsRepository Specs = new("specs", "JSdotNet/spec-manager");
 
     private readonly TemporaryDirectory _temp = new("github-drift-issue-source-tests");
 
@@ -94,7 +94,7 @@ public sealed class GitHubDriftIssueSourceTests : IDisposable
         var client = new ScriptedClient();
 
         var read = await new GitHubDriftIssueSource(client, Settings()).GetOpenAsync(
-            [new DashboardRepository("gone", "JSdotNet/gone")],
+            [new InsightsRepository("gone", "JSdotNet/gone")],
             TestContext.Current.CancellationToken);
 
         Assert.Empty(client.Asked);

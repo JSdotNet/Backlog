@@ -1,16 +1,16 @@
 using System.Net;
 using System.Text.Json;
 
-using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
-using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
-using Backlog.Modules.Roadmap.Abstractions.Services;
+using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Plans.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Plans.Services;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Abstractions.Services;
-using Backlog.Modules.Tasks;
-using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
-using Backlog.Modules.Tasks.Services;
-using Backlog.Modules.Tasks.DomainModels;
+using Backlog.Modules.Work.Tasks;
+using Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects;
+using Backlog.Modules.Work.Tasks.Services;
+using Backlog.Modules.Work.Tasks.DomainModels;
 
 using Microsoft.Extensions.Time.Testing;
 
@@ -764,7 +764,7 @@ public sealed class TaskSyncWorkerTests : CredentialGatedSyncWorkerTests
     /// A build from before goals rode the feed skipped a <c>goal</c> document and saved
     /// its cursor past it. Upgraded — with its My Day replay already taken — the device
     /// reads the feed from the start once more, so the goal set on the other desktop
-    /// reaches this one (<c>.devbook/domain/progress/requirements.md#syncing-goals-and-impediments</c>).
+    /// reaches this one (<c>.devbook/domain/goals/requirements.md#syncing-goals-and-impediments</c>).
     /// </summary>
     [Fact]
     public async Task An_upgraded_device_replays_the_feed_once_and_takes_goals_its_cursor_had_passed()
@@ -1084,7 +1084,7 @@ public sealed class TaskSyncWorkerTests : CredentialGatedSyncWorkerTests
         using var fixture = Fixture.Create(
             featureOn: true,
             paired: true,
-            initialState: Mine(Noon.AddHours(1), "cursor-1").WithDocumentWatermark(RoadmapReplicaDocuments.PlanType, Noon),
+            initialState: Mine(Noon.AddHours(1), "cursor-1").WithDocumentWatermark(RoadmapReplicaDocuments.WrittenPlanType, Noon),
             roadmap: roadmap);
 
         var caughtUp = fixture.NextCycle();
@@ -1395,11 +1395,11 @@ public sealed class TaskSyncWorkerTests : CredentialGatedSyncWorkerTests
         /// merge, the session and the worker alike.</summary>
         public RecordingIterationSettingsReplication? Iteration { get; }
 
-        /// <summary>Progress's goal replication port, where a test composed one, handed to
+        /// <summary>Goals' goal replication port, where a test composed one, handed to
         /// the merge, the session and the worker alike.</summary>
         public RecordingGoalReplication? Goals { get; }
 
-        /// <summary>Progress's impediment replication port, where a test composed one, on
+        /// <summary>Goals' impediment replication port, where a test composed one, on
         /// the goals' terms.</summary>
         public RecordingImpedimentReplication? Impediments { get; }
 

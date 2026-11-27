@@ -48,9 +48,9 @@ public sealed class McpScopeGateTests
     /// alone, which McpScopePoliciesTests and McpServerWorkerTests hold.</summary>
     public static TheoryData<string, string> ToolPerScope => new()
     {
-        { McpScopes.TasksRead, "find_item" },
-        { McpScopes.TasksWrite, "comment" },
-        { McpScopes.TasksAdmin, "delete_goal" },
+        { McpScopes.WorkRead, "find_item" },
+        { McpScopes.WorkWrite, "comment" },
+        { McpScopes.WorkAdmin, "delete_goal" },
         { McpScopes.DevbookRead, "devbook_get_state" },
         { McpScopes.DevbookWrite, "devbook_post_note" },
         { McpScopes.RunsWrite, "link_session" },
@@ -141,7 +141,7 @@ public sealed class McpScopeGateTests
         await using var harness = new Harness(new RecordingAuditLog());
         using var client = harness.CreateClient();
 
-        var names = await ListToolsAsync(client, UnauthenticatedHeader, [McpScopes.TasksRead]);
+        var names = await ListToolsAsync(client, UnauthenticatedHeader, [McpScopes.WorkRead]);
 
         Assert.Contains("find_item", names);
         Assert.Contains("list_entries", names);
@@ -149,7 +149,7 @@ public sealed class McpScopeGateTests
         Assert.DoesNotContain("delete_goal", names);
         Assert.DoesNotContain("devbook_get_state", names);
         Assert.DoesNotContain("request_access", names);
-        Assert.All(names, name => Assert.Equal(McpScopes.TasksRead, McpToolScopes.ScopeOf(name)));
+        Assert.All(names, name => Assert.Equal(McpScopes.WorkRead, McpToolScopes.ScopeOf(name)));
     }
 
     /// <summary>The filter is the tokenless caller's alone: a grant holding one scope and the
@@ -161,7 +161,7 @@ public sealed class McpScopeGateTests
         using var client = harness.CreateClient();
 
         var everything = await ListToolsAsync(client, header: null, scopes: null);
-        var grant = await ListToolsAsync(client, ScopesHeader, [McpScopes.TasksRead]);
+        var grant = await ListToolsAsync(client, ScopesHeader, [McpScopes.WorkRead]);
 
         Assert.Contains("request_access", everything);
         Assert.Contains("comment", everything);
@@ -179,10 +179,10 @@ public sealed class McpScopeGateTests
         await using var harness = new Harness(audit);
         using var client = harness.CreateClient();
 
-        var refused = await CallToolAsync(client, "comment", UnauthenticatedHeader, [McpScopes.TasksRead], new { });
-        var admitted = await CallToolAsync(client, "find_item", UnauthenticatedHeader, [McpScopes.TasksRead], new { });
+        var refused = await CallToolAsync(client, "comment", UnauthenticatedHeader, [McpScopes.WorkRead], new { });
+        var admitted = await CallToolAsync(client, "find_item", UnauthenticatedHeader, [McpScopes.WorkRead], new { });
 
-        Assert.Contains("needs the scope " + Escaped(McpScopes.TasksWrite), refused, StringComparison.Ordinal);
+        Assert.Contains("needs the scope " + Escaped(McpScopes.WorkWrite), refused, StringComparison.Ordinal);
         Assert.DoesNotContain("needs the scope", admitted, StringComparison.Ordinal);
         Assert.Collection(
             audit.Records,
@@ -219,8 +219,8 @@ public sealed class McpScopeGateTests
     }
 
     /// <summary>The change journal's two agent tools over the real endpoint (local ADR 0071 §5):
-    /// a grant holding <c>tasks:read</c> alone reads the change sets, and is refused
-    /// <c>propose_restore</c>, which needs <c>tasks:write</c> — the refusal comes before any
+    /// a grant holding <c>work:read</c> alone reads the change sets, and is refused
+    /// <c>propose_restore</c>, which needs <c>work:write</c> — the refusal comes before any
     /// question is asked.</summary>
     [Fact]
     public async Task A_grant_without_tasks_write_lists_change_sets_but_is_refused_propose_restore()
@@ -229,11 +229,11 @@ public sealed class McpScopeGateTests
         await using var harness = new Harness(audit);
         using var client = harness.CreateClient();
 
-        var listed = await CallToolAsync(client, "list_change_sets", [McpScopes.TasksRead], new { });
-        var proposed = await CallToolAsync(client, "propose_restore", [McpScopes.TasksRead, McpScopes.NotifyAsk], new { changeSetId = Guid.NewGuid() });
+        var listed = await CallToolAsync(client, "list_change_sets", [McpScopes.WorkRead], new { });
+        var proposed = await CallToolAsync(client, "propose_restore", [McpScopes.WorkRead, McpScopes.NotifyAsk], new { changeSetId = Guid.NewGuid() });
 
         Assert.DoesNotContain("needs the scope", listed, StringComparison.Ordinal);
-        Assert.Contains("needs the scope " + Escaped(McpScopes.TasksWrite), proposed, StringComparison.Ordinal);
+        Assert.Contains("needs the scope " + Escaped(McpScopes.WorkWrite), proposed, StringComparison.Ordinal);
         Assert.Collection(
             audit.Records,
             record => Assert.Equal("list_change_sets", record.Tool),
@@ -252,7 +252,7 @@ public sealed class McpScopeGateTests
         await using var harness = new Harness(audit);
         using var client = harness.CreateClient();
 
-        var body = await CallToolAsync(client, "propose_restore", [McpScopes.TasksWrite], new { changeSetId = Guid.NewGuid() });
+        var body = await CallToolAsync(client, "propose_restore", [McpScopes.WorkWrite], new { changeSetId = Guid.NewGuid() });
 
         Assert.DoesNotContain("needs the scope", body, StringComparison.Ordinal);
         Assert.Equal("propose_restore", Assert.Single(audit.Records).Tool);

@@ -19,13 +19,13 @@ public sealed class AccessToolsTests
         var desk = new FakeDesk(new AgentAccessAnswer("r_bbbbbbbbbbbbbbbb", true, null, "Asked the person."));
         var tools = new AccessTools(new McpCallContext { User = Caller }, desk);
 
-        var answer = await tools.RequestAsync([" runs:write ", "tasks:write"], @"D:\Repos\Backlog", TestContext.Current.CancellationToken);
+        var answer = await tools.RequestAsync([" runs:write ", "work:write"], @"D:\Repos\Backlog", TestContext.Current.CancellationToken);
 
         Assert.Equal("r_bbbbbbbbbbbbbbbb", answer.RequestId);
         Assert.True(answer.WindowOpened);
         var (caller, scopes, folder) = Assert.Single(desk.Asked);
         Assert.Same(Caller, caller);
-        Assert.Equal(["runs:write", "tasks:write"], scopes);
+        Assert.Equal(["runs:write", "work:write"], scopes);
         Assert.Equal(@"D:\Repos\Backlog", folder);
     }
 

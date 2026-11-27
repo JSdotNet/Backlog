@@ -70,7 +70,7 @@ public sealed class OpenWorkReportLayoutTests
     public void The_tiles_wrap_at_a_narrow_width()
     {
         var dialog = File.ReadAllText(RepositoryRoot.File(
-            "src", "Modules", "Tasks", "Backlog.Modules.Tasks.UI", "OpenWorkReportDialog.razor"));
+            "src", "Modules", "Work", "Backlog.Modules.Work.UI", "Tasks", "OpenWorkReportDialog.razor"));
 
         Assert.Contains("MinColumnWidth=\"8rem\"", dialog, StringComparison.Ordinal);
     }

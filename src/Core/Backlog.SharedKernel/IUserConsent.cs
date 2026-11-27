@@ -2,7 +2,7 @@ namespace Backlog.SharedKernel;
 
 /// <summary>
 /// The person confirming, with Windows Hello, an act that is hard to undo (local ADR 0058 §6):
-/// allowing an agent's grant, switching <c>agents:grant</c> on, running a <c>tasks:admin</c>
+/// allowing an agent's grant, switching <c>agents:grant</c> on, running a <c>work:admin</c>
 /// tool, minting a pairing code and revoking a device. A port, because what asks is the
 /// host's: the desktop head asks <c>UserConsentVerifier</c>, which a script or UI automation
 /// cannot pass, and the web harness has nothing to ask with and answers
@@ -19,8 +19,9 @@ public interface IUserConsent
 
     /// <summary><see cref="VerifyAsync"/>, always shown: never answered from a remembered
     /// confirmation, and never opening a window for later checks (local ADR 0058 §6). For an act
-    /// the person did not start at the desk — an agent's <c>tasks:admin</c> call, a Refuse
-    /// replayed at the next start. No default body: a decorator that forgot it would otherwise
+    /// the person did not start at the desk — an agent's <c>work:admin</c> call, a Refuse
+    /// replayed at the next start — and for one UI automation must not pass: Allow,
+    /// <c>agents:grant</c>, widening the Unauthenticated row (§5). No default body: a decorator that forgot it would otherwise
     /// forward to its own <see cref="VerifyAsync"/> and answer from a remembered confirmation.</summary>
     Task<UserConsentOutcome> VerifyEveryTimeAsync(string message, CancellationToken cancellationToken = default);
 }

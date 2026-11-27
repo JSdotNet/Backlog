@@ -8,11 +8,11 @@ namespace Backlog.UI.Components.Goals;
 /// <para>
 /// A cascading value rather than a parameter, because the places that offer "Attach to
 /// goal" are spread across the library and across contexts that may not reference
-/// Progress — the task panel in Tasks, the plan shelf and the item editor in Roadmap, the
+/// Goals — the task panel in Tasks, the plan shelf and the item editor in Roadmap, the
 /// work cards and the pull requests pane. Each asks only for a
 /// <see cref="GoalControlSlot"/> and draws <see cref="Render"/> for its
-/// <see cref="GoalSubject"/>; the host that composes Progress cascades one whose fragment
-/// reads and writes goals. With no slot cascaded — Progress not composed, a storybook
+/// <see cref="GoalSubject"/>; the host that composes Goals cascades one whose fragment
+/// reads and writes goals. With no slot cascaded — Goals not composed, a storybook
 /// page that sets none — every one of those places draws exactly what it drew before.
 /// </para>
 /// <para>

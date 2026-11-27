@@ -180,7 +180,8 @@ else if (_read?.Problem is { } problem)
         var sources = view.Contexts.Select(c => new ContextMapSource(c.Slug, c.DisplayName, null, string.Empty)).ToList();
         foreach (var mapped in ContextMaps.Read(markdown, sources).Contexts)
         {
-            if (mapped.Slug is { } slug) kinds.TryAdd(slug, mapped);
+            // A folder the map names nowhere has no subdomain type of its own.
+            if (mapped.Slug is { } slug && mapped.Named) kinds.TryAdd(slug, mapped);
         }
         return kinds;
     }

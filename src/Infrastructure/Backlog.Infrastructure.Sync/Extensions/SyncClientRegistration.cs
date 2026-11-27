@@ -6,9 +6,9 @@ using Backlog.Infrastructure.Sync.Sessions;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Notifications.Abstractions;
-using Backlog.Modules.Roadmap.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Plans.Services;
 using Backlog.Modules.Sessions.Abstractions;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.SharedKernel;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -30,7 +30,7 @@ public static class SyncClientRegistration
     /// <para>
     /// Task replication is not here. It is
     /// <see cref="AddTaskSyncClient(IServiceCollection, Uri)"/>, because it needs
-    /// an <see cref="Backlog.Modules.Tasks.ITaskRepository"/> and the mobile
+    /// an <see cref="Backlog.Modules.Work.Tasks.ITaskRepository"/> and the mobile
     /// heads have none: registering it for every caller took both of them down
     /// inside <c>Build()</c>, on a provider validation neither the build nor the
     /// unit suite can see.
@@ -175,7 +175,7 @@ public static class SyncClientRegistration
     /// </para>
     /// <para>
     /// <strong>Opt-in, and only a host may opt in.</strong> All three take
-    /// <see cref="Backlog.Modules.Tasks.ITaskRepository"/> and the session also
+    /// <see cref="Backlog.Modules.Work.Tasks.ITaskRepository"/> and the session also
     /// takes <see cref="ITaskSyncStateStore"/>, and a head that has neither is
     /// not a head that forgot them: the mobile heads carry the Inbox and no local
     /// task database at all. Registering these for every caller is what took both

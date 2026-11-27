@@ -59,7 +59,7 @@ public sealed class GrantTools(McpCallContext call, IAgentGrants? grants = null)
         OpenWorld = false)]
     [Description(
         "Answers an agent's waiting access request as this granter. Only scopes this granter holds itself; never "
-        + "devbook:decide, agents:grant or tasks:admin; never this granter's own grant or its granter's; and an agent "
+        + "devbook:decide, agents:grant or work:admin; never this granter's own grant or its granter's; and an agent "
         + "the person or another granter granted is read-only here. The grant expires after 7 days unless renewed with "
         + "edit_agent_scopes, and its tokens never carry more than this granter holds at the time. The person is told.")]
     public async Task<AgentGrantPayload> GrantAsync(
@@ -90,7 +90,7 @@ public sealed class GrantTools(McpCallContext call, IAgentGrants? grants = null)
     public async Task<AgentGrantPayload> EditScopesAsync(
         [Description("The agent's grant id, from list_agent_requests: g_ and 16 characters.")]
         string grantId,
-        [Description("The scopes it should hold, such as [\"tasks:read\", \"tasks:write\"].")]
+        [Description("The scopes it should hold, such as [\"work:read\", \"work:write\"].")]
         string[] scopes,
         CancellationToken cancellationToken = default)
     {

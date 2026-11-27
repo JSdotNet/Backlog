@@ -48,7 +48,7 @@
           "Microsoft.Extensions.Configuration.Binder": "11.0.0"
         }
       },
-      "backlog.modules.dashboard.abstractions": {
+      "backlog.modules.insights.abstractions": {
         "type": "Project",
         "dependencies": {
           "Backlog.SharedKernel": "[1.0.0, )"

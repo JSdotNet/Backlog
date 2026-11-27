@@ -494,7 +494,7 @@ public sealed class DomainContextOverviewTests
             Progress used to lay sprint series.
             """;
 
-        var overview = DomainContextOverview.Read(context, ".devbook/domain/progress/context.md", []);
+        var overview = DomainContextOverview.Read(context, ".devbook/domain/goals/context.md", []);
 
         Assert.Equal("- each goal;\n- each impediment.", overview.Inside);
         Assert.Equal(["the task itself"], overview.Outside.Select(question => question.Question));

@@ -1,9 +1,9 @@
 using System.ComponentModel;
 
-using Backlog.Modules.Progress.Abstractions;
-using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
-using Backlog.Modules.Progress.Abstractions.Services;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Goals.Abstractions;
+using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
+using Backlog.Modules.Goals.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.SharedKernel.Results;
 
 using ModelContextProtocol.Server;
@@ -13,11 +13,11 @@ namespace Backlog.Infrastructure.Mcp;
 /// <summary>
 /// The goal operations an agent performs through the server: read the goals and the
 /// iterations they are read over, set one, edit it, attach and detach its work, and delete it
-/// (<c>.devbook/domain/progress/features.md#setting-a-goal</c>,
+/// (<c>.devbook/domain/goals/features.md#setting-a-goal</c>,
 /// <c>#attaching-work-to-a-goal</c>, local ADR 0035).
 /// <para>
 /// <b>A class of its own</b>, for the reason <see cref="ImpedimentTools"/> is one: goals are
-/// Progress's, so the tools are constructed from Progress's port in a group of their own,
+/// Goals', so the tools are constructed from Goals' port in a group of their own,
 /// gated on the same always-on Tasks key (<see cref="BacklogMcpTools.Goals"/>). Every write
 /// goes through <see cref="IGoals"/>, so no tool here changes a task, a plan or a pull
 /// request: a goal names its work by identity (local ADR 0035 §6). The server runs inside
@@ -28,10 +28,10 @@ namespace Backlog.Infrastructure.Mcp;
 /// <see cref="IGoals"/> is scoped.
 /// </para>
 /// </summary>
-/// <param name="goals">Progress's goal port. Every call here goes through it.</param>
+/// <param name="goals">Goals' goal port. Every call here goes through it.</param>
 /// <param name="repositories">The repository registry a pull request's repository is
 /// resolved through, never registered in (see <see cref="RepositoryScope"/>).</param>
-/// <param name="standUp">Progress's iteration reading, which <c>read_iterations</c> answers
+/// <param name="standUp">Goals' iteration reading, which <c>read_iterations</c> answers
 /// from. A port of this class rather than a class of its own, because a group is constructed
 /// from one class and the reading is the goals' (<see cref="BacklogMcpTools.Goals"/>).</param>
 /// <param name="clock">Where "today" comes from when a call names its own length. Optional, as
@@ -91,7 +91,7 @@ public sealed class GoalTools(IGoals goals, IRepositoryDirectory repositories, I
 
     /// <summary>
     /// The iteration reading the goals view and the stand-up draw from, over
-    /// <see cref="IStandUp"/> (<c>.devbook/domain/progress/domain.md#stand-up-reading</c>), so a
+    /// <see cref="IStandUp"/> (<c>.devbook/domain/goals/domain.md#stand-up-reading</c>), so a
     /// session reports the figures the person sees. It moves nothing: Ready to resolve is a
     /// reading, and a person resolves (local ADR 0035, 2026-10-29 amendment).
     /// </summary>
@@ -106,7 +106,7 @@ public sealed class GoalTools(IGoals goals, IRepositoryDirectory repositories, I
         + "open impediment with who it is with, its days open, the goal it holds back, each item it holds back and "
         + "whether that is settled, and whether it reads ready to resolve. Read-only: ready to resolve is a reading, "
         + "and resolving is set_impediment_state. Refused for a length that is not day, week, two-weeks or month "
-        + "(progress.iteration_length_unknown).")]
+        + "(goals.iteration_length_unknown).")]
     public async Task<IterationsPayload> ReadIterationsAsync(
         [Description("Optional. The iteration length to read with: day, week, two-weeks or month. Without it, the "
             + "person's own setting applies.")]
@@ -123,7 +123,7 @@ public sealed class GoalTools(IGoals goals, IRepositoryDirectory repositories, I
         if (!Lengths.TryGetValue(length.Trim(), out var named))
         {
             throw RepositoryScope.Failure(SharedKernel.Results.Error.Validation(
-                "progress.iteration_length_unknown",
+                "goals.iteration_length_unknown",
                 $"'{length}' is not an iteration length. Use day, week, two-weeks or month, or leave it out for the person's own."));
         }
 
@@ -137,7 +137,7 @@ public sealed class GoalTools(IGoals goals, IRepositoryDirectory repositories, I
     private DateOnly Today() => DateOnly.FromDateTime((clock ?? TimeProvider.System).GetLocalNow().DateTime);
 
     /// <summary>The length tokens a call names, as the setting stores them
-    /// (<c>.devbook/domain/progress/context.md#iteration-length</c>).</summary>
+    /// (<c>.devbook/domain/goals/context.md#iteration-length</c>).</summary>
     internal static readonly IReadOnlyDictionary<string, IterationLength> Lengths =
         new Dictionary<string, IterationLength>(StringComparer.OrdinalIgnoreCase)
         {
@@ -158,7 +158,7 @@ public sealed class GoalTools(IGoals goals, IRepositoryDirectory repositories, I
     [McpServerTool(Name = CreateGoal, Title = "Set a goal", ReadOnly = false, Idempotent = false, Destructive = false, OpenWorld = false)]
     [Description(
         "Sets a new goal, holding nothing yet; attach its work with attach_to_goal. Refused without a title "
-        + "(progress.goal_without_title) or with an outcome of more than one line (progress.outcome_not_one_line). "
+        + "(goals.goal_without_title) or with an outcome of more than one line (goals.outcome_not_one_line). "
         + "Calling it twice sets two goals.")]
     public async Task<GoalPayload> CreateAsync(
         [Description("What the goal is, e.g. \"Local development\".")]
@@ -185,9 +185,9 @@ public sealed class GoalTools(IGoals goals, IRepositoryDirectory repositories, I
     [McpServerTool(Name = UpdateGoal, Title = "Edit a goal", ReadOnly = false, Idempotent = true, Destructive = false, OpenWorld = false)]
     [Description(
         "Changes a goal's title, outcome or due date. Only the fields given change; an outcome given as an empty "
-        + "string clears it. What the goal holds is unchanged. Refused for an unknown goal (progress.goal_not_found), "
-        + "a blank title (progress.goal_without_title) or an outcome of more than one line "
-        + "(progress.outcome_not_one_line).")]
+        + "string clears it. What the goal holds is unchanged. Refused for an unknown goal (goals.goal_not_found), "
+        + "a blank title (goals.goal_without_title) or an outcome of more than one line "
+        + "(goals.outcome_not_one_line).")]
     public async Task<GoalPayload> UpdateAsync(
         [Description("The goal's id, as a GUID.")]
         Guid id,
@@ -214,7 +214,7 @@ public sealed class GoalTools(IGoals goals, IRepositoryDirectory repositories, I
     [Description(
         "Attaches one plan, task or pull request to a goal. Name exactly one: planTag, or taskId, or repository and "
         + "number together. Attaching what the goal already holds changes nothing. An item another goal holds is "
-        + "refused, naming that goal (progress.item_in_other_goal), unless moveFromOtherGoal is true: then it leaves "
+        + "refused, naming that goal (goals.item_in_other_goal), unless moveFromOtherGoal is true: then it leaves "
         + "that goal and joins this one. The task, plan or pull request itself is never changed.")]
     public async Task<GoalPayload> AttachAsync(
         [Description("The goal's id, as a GUID.")]
@@ -270,7 +270,7 @@ public sealed class GoalTools(IGoals goals, IRepositoryDirectory repositories, I
     [McpServerTool(Name = DeleteGoal, Title = "Delete a goal", ReadOnly = false, Idempotent = false, Destructive = true, OpenWorld = false)]
     [Description(
         "Deletes a goal and its attachments. The plans, tasks and pull requests it held are unchanged and belong to "
-        + "no goal from then on. Refused for an unknown goal (progress.goal_not_found).")]
+        + "no goal from then on. Refused for an unknown goal (goals.goal_not_found).")]
     public async Task<GoalDeletedPayload> DeleteAsync(
         [Description("The goal's id, as a GUID.")]
         Guid id,
@@ -341,7 +341,7 @@ public sealed record GoalPayload(
             forecast);
 }
 
-/// <summary>A goal's forecast (<c>.devbook/domain/progress/domain.md#goal-forecast</c>), the one
+/// <summary>A goal's forecast (<c>.devbook/domain/goals/domain.md#goal-forecast</c>), the one
 /// the Goals view's badge and expected-landing line draw.</summary>
 /// <param name="Standing">on-track or at-risk.</param>
 /// <param name="LandsOn">When it is expected to land, or null when no done rate says.</param>

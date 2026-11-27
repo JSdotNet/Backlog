@@ -4,9 +4,9 @@ using System.Reflection;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Events.Abstractions;
 using Backlog.Modules.Notifications.Abstractions;
-using Backlog.Modules.Roadmap.Abstractions;
+using Backlog.Modules.Work.Abstractions.Plans;
 using Backlog.Modules.Sessions.Abstractions;
-using Backlog.Modules.Tasks.Abstractions;
+using Backlog.Modules.Work.Abstractions.Tasks;
 
 using ModelContextProtocol.Server;
 
@@ -45,6 +45,10 @@ public class BacklogMcpToolsTests
                 // tracker's: read the change sets, propose a restore the person confirms.
                 "list_change_sets",
                 "propose_restore",
+
+                // The planned work, and get_roadmap, its name before Tasks and Roadmap
+                // Planning merged into Work, kept as an alias (local ADR 0073 §10).
+                "get_planned_work",
                 "get_roadmap",
                 "list_knowledge_contexts",
                 "read_knowledge_chapter",
@@ -87,13 +91,13 @@ public class BacklogMcpToolsTests
                 // A scheduled run's report (local ADR 0051).
                 "report_schedule_run",
 
-                // Progress's impediments: raise, move, link and unlink what they hold back (local ADR 0035).
+                // Goals' impediments: raise, move, link and unlink what they hold back (local ADR 0035).
                 "raise_impediment",
                 "set_impediment_state",
                 "link_to_impediment",
                 "unlink_from_impediment",
 
-                // Progress's goals: read them and their iterations, set, edit, attach, detach,
+                // Goals' goals: read them and their iterations, set, edit, attach, detach,
                 // delete (local ADR 0035).
                 "list_goals",
                 "read_iterations",
@@ -165,7 +169,7 @@ public class BacklogMcpToolsTests
         Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Usage.FeatureKey);
         Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Schedules.FeatureKey);
         Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Loops.FeatureKey);
-        // Progress has no switch: its impediment and goal tools are always listed.
+        // Goals has no switch: its impediment and goal tools are always listed.
         Assert.Null(BacklogMcpTools.Impediments.FeatureKey);
         Assert.Null(BacklogMcpTools.Goals.FeatureKey);
         // The dispatcher tools have the queue's own key, off by default (local ADR 0038 §5).
@@ -191,7 +195,7 @@ public class BacklogMcpToolsTests
     /// </para>
     /// <para>
     /// The groups of an area no switch turns off carry no key at all: the backlog,
-    /// the roadmap and the devbook are permanent, Progress has no switch of its own
+    /// the roadmap and the devbook are permanent, Goals has no switch of its own
     /// (local ADR 0035 §10), and <c>open_window</c> is ungated (local ADR 0043 §7).
     /// The keys the groups name are five: sessions, the session request queue's
     /// <c>session-requests</c>, the notification tools' <c>notifications</c>, the Inbox
@@ -371,7 +375,7 @@ public class BacklogMcpToolsTests
         // not: record_prompt appends, and update_stage counts every transition to
         // done — a stage re-run after requested changes has to read as a second
         // pass rather than a retry of the first. delete_goal is not either: a
-        // second delete is refused as progress.goal_not_found. get_answer writes too —
+        // second delete is refused as goals.goal_not_found. get_answer writes too —
         // it records that the asking hook is still waiting — and a repeated poll records
         // the same fact again, so it is safe to repeat.
         string[] repeatable =

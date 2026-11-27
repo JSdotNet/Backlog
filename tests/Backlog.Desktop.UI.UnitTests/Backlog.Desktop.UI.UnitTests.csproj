@@ -11,6 +11,8 @@
 
   <ItemGroup>
     <Using Include="Backlog.SharedKernel.Markdown" />
+    <Using Include="Backlog.SharedKernel.Devbook" />
+    <Using Include="Backlog.UI.Components.Devbook" />
     <Using Include="Backlog.SharedKernel.C4" />
     <Using Include="Backlog.UI.Components.Markdown" />
     <!-- The library's feedback types. Two of them are contracts the app shell and
@@ -25,8 +27,8 @@
          lines are unchanged: each module UI project keeps publishing the
          namespace it always did. Tests sit outside that boundary and check all
          of it, so the namespaces are imported once here instead of per file. -->
-    <Using Include="Backlog.Modules.Tasks.Abstractions" />
-    <Using Include="Backlog.Modules.Tasks.Abstractions.DataTransferObjects" />
+    <Using Include="Backlog.Modules.Work.Abstractions.Tasks" />
+    <Using Include="Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects" />
     <!-- Dev PC Management publishes the Copilot tool port, the DTOs behind it and
          the .tools catalog format. Unlike the contexts above it never had a
          folder in Backlog.Desktop.UI to keep a namespace from, so its types say
@@ -62,13 +64,14 @@
          come from the abstractions project like every other context's; the .UI
          namespace is still imported for the band and the view that maps a plan onto
          the shared timeline. -->
-    <Using Include="Backlog.Modules.Roadmap.Abstractions" />
-    <Using Include="Backlog.Modules.Roadmap.Abstractions.DataTransferObjects" />
-    <Using Include="Backlog.Modules.Roadmap.Abstractions.Services" />
-    <Using Include="Backlog.Modules.Roadmap.UI" />
+    <Using Include="Backlog.Modules.Work.Abstractions.Plans" />
+    <Using Include="Backlog.Modules.Work.Abstractions.Plans.DataTransferObjects" />
+    <Using Include="Backlog.Modules.Work.Abstractions.Plans.Services" />
+    <Using Include="Backlog.Modules.Work.UI.Roadmap" />
+    <Using Include="Backlog.Modules.Work.Services" />
     <!-- The Dashboard does have one, so its feature key comes from there and its
          pane from the .UI project beside it. -->
-    <Using Include="Backlog.Modules.Dashboard.Abstractions" />
+    <Using Include="Backlog.Modules.Insights.Abstractions" />
     <!-- The app-wide ports and feature keys: the feature port, and the
          folder-editor port every knowledge screen's "Open in VS Code" goes
          through. Both are shared kernel because more than one context asks and
@@ -80,7 +83,7 @@
          browser-hosted screen gets. -->
     <Using Include="Backlog.Infrastructure.FileSystem" />
     <Using Include="Backlog.Modules.Inbox.UI" />
-    <Using Include="Backlog.Desktop.UI.Tasks" />
+    <Using Include="Backlog.Modules.Work.UI.Tasks" />
     <Using Include="Backlog.Desktop.UI.Devbook" />
     <Using Include="Backlog.Desktop.UI.Shell" />
     <!-- The self-update port and its result types moved out of the Shell folder
@@ -96,7 +99,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Modules\Tasks\Backlog.Modules.Tasks\Backlog.Modules.Tasks.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Work\Backlog.Modules.Work\Backlog.Modules.Work.csproj" />
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.AzureFoundry\Backlog.Infrastructure.AzureFoundry.csproj" />
     <!-- The desktop web harness. Referencing a harness from a test project is
          allowed; only shipping projects under src/ may not
@@ -129,7 +132,7 @@
     <!-- The phone's note view and outbox, for the tests that pair a phone with a
          desktop through one replica (NoteSyncBetweenPhoneAndDesktopTests). -->
     <ProjectReference Include="..\..\src\App\Backlog.Mobile.UI\Backlog.Mobile.UI.csproj" />
-    <ProjectReference Include="..\..\src\Modules\Tasks\Backlog.Modules.Tasks.UI\Backlog.Modules.Tasks.UI.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Work\Backlog.Modules.Work.UI\Backlog.Modules.Work.UI.csproj" />
     <ProjectReference Include="..\..\src\Modules\Devbook\Backlog.Modules.Devbook.UI\Backlog.Modules.Devbook.UI.csproj" />
     <ProjectReference Include="..\..\src\Modules\DevPc\Backlog.Modules.DevPc.Abstractions\Backlog.Modules.DevPc.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Modules\Sessions\Backlog.Modules.Sessions.Abstractions\Backlog.Modules.Sessions.Abstractions.csproj" />
@@ -139,9 +142,8 @@
          Backlog.Modules.Sessions.UnitTests and the readers' own are
          Backlog.Infrastructure.Sessions.UnitTests. -->
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Sessions\Backlog.Infrastructure.Sessions.csproj" />
-    <ProjectReference Include="..\..\src\Modules\Roadmap\Backlog.Modules.Roadmap.UI\Backlog.Modules.Roadmap.UI.csproj" />
-    <ProjectReference Include="..\..\src\Modules\Dashboard\Backlog.Modules.Dashboard.UI\Backlog.Modules.Dashboard.UI.csproj" />
-    <ProjectReference Include="..\..\src\Modules\Dashboard\Backlog.Modules.Dashboard.Abstractions\Backlog.Modules.Dashboard.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Insights\Backlog.Modules.Insights.UI\Backlog.Modules.Insights.UI.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Insights\Backlog.Modules.Insights.Abstractions\Backlog.Modules.Insights.Abstractions.csproj" />
     <!-- Capture, all three sides: the Home hosts here compose the module the way
          the application hosts do, the Inbox tests drive its port, and the
          sources panel on the Inbox pane is rendered on its own. -->
@@ -173,11 +175,18 @@
     <Compile Include="..\Shared\TestDoubles\StubFolderSource.cs" Link="Shared\TestDoubles\StubFolderSource.cs" />
     <Compile Include="..\Shared\TestDoubles\RecordingShellWindows.cs" Link="Shared\TestDoubles\RecordingShellWindows.cs" />
     <Compile Include="..\Shared\TestDoubles\RecordingLogger.cs" Link="Shared\TestDoubles\RecordingLogger.cs" />
-    <Compile Include="..\Shared\TestDoubles\StubDeviceIdentity.cs" Link="Shared\TestDoubles\StubDeviceIdentity.cs" />
     <!-- The pane-header shape the shell panes share with the Sessions pane. -->
     <Compile Include="..\Shared\PaneHeaderAssertions.cs" Link="Shared\PaneHeaderAssertions.cs" />
     <!-- The race-safe gestures the Sessions pane's tests use too. -->
     <Compile Include="..\Shared\RaceSafeTestHelpers.cs" Link="Shared\RaceSafeTestHelpers.cs" />
+  </ItemGroup>
+
+  <!-- The Tasks pane host, the Roadmap band harness and the task and plan state
+       they compose, shared with the Work screens' own tests in
+       Backlog.Modules.Work.UnitTests; TasksPaneHost.FeatureCatalog.cs here hands
+       the pane host the app's whole feature catalog. -->
+  <ItemGroup>
+    <Compile Include="..\Shared\Work\*.cs" LinkBase="Shared\Work" />
   </ItemGroup>
 
   <!-- bUnit's default wait for this process, set before any test runs; the file

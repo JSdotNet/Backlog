@@ -71,7 +71,7 @@ A bar marked `Tentative` is intent alone, nothing set up to carry it out yet: an
     </Story>
 
     <Story Name="Dependencies, and what happens when one end is missing"
-           Description="`Dependencies` are pairs of bar ids; the badge on a bar counts how many arrows point at it. Both are resolved from where the two ends are drawn right now, including a bar part-way through a drag, so an arrow is never stale. Move the second bar and watch the arrow follow.
+           Description="`Dependencies` are pairs of bar ids; the badge on a bar counts the arrows drawn to and from it. Both are resolved from where the two ends are drawn right now, including a bar part-way through a drag, so an arrow is never stale. Move the second bar and watch the arrow follow.
 
 An arrow takes an elbow when there is room and doubles back through the gutter when there is not — the second shape is what a plan that contradicts itself looks like. A dependency with one end missing draws nothing."
            Code="@LinkCode">
@@ -85,6 +85,24 @@ An arrow takes an elbow when there is room and doubles back through the gutter w
                          ShowFilters="false"
                          OnBarChanged="ApplyDependent"
                          TestId="links" />
+    </Story>
+
+    <Story Name="Tracing a chain of dependencies, and pinning it"
+           Description="Point at a bar, or focus it, and its whole chain is drawn out: everything it waits on however far back, everything that waits on it however far on, and every arrow on those paths, in the primary colour. The things on the chain are ringed, and everything off it recedes, so a chain can be followed across a crowded plan. A bar with no arrows dims nothing.
+
+The count on a bar — every arrow drawn to or from it, so the first thing in a chain has one too — is a toggle: press it to pin the trace, and it stays while the pointer goes elsewhere to follow it. Press it again to let go, or press another bar's to move the pin. Its name stays `Trace 3 dependencies of Integrate` either way, and it says pressed while pinned. A bar too short to hold the count beside a place to click leaves it off; T reaches the same trace there. From the keyboard, T on a focused bar or milestone pins and unpins, and Escape lets the pin go — unless a bar is grabbed, or a dependency is being drawn, when Escape ends that first. Pin Integrate here: Spec, UI, API and Launch prep stay, and the rest recedes. A pin on something that leaves the chart is let go.
+
+Arrows whose runs would lie on one another are drawn apart. The arrows from API and UI into Integrate would turn down one column over the same stretch; the second turns a step earlier. Roll out starts before Audit ends and Pilot before Training ends, so both arrows double back, and their returns would run along one gutter over the same weeks; the second returns a step away. Runs that share a column or a gutter without overlapping, and an arrow with a corridor to itself, keep their usual path."
+           Code="@TraceCode">
+        <RoadmapTimeline Groups="@TracePlan"
+                         Bars="@TraceBars"
+                         Links="@TraceLinks"
+                         Title="A chain to follow"
+                         HeadingLevel="3"
+                         Window="@EditWindow"
+                         QuarterWidth="48"
+                         ShowFilters="false"
+                         TestId="trace" />
     </Story>
 
     <Story Name="Filtering, without the library knowing what it is filtering on"
@@ -266,7 +284,9 @@ A step is a proportion, not a date: a step drawn across March is not scheduled f
     </Story>
 
     <Story Name="A plan across repositories, without its tasks"
-           Description="How the app draws a plan filed in two repositories: one bar in each repository's band, each that repository's part of the plan, with a progress fill read from the tasks filed there. `ShowSteps` off keeps the bars from opening into a row per task — the roadmap reads plans, and the tasks stay in the task list. The parts share one window, because they are one stored plan: moving either moves both, and the arrow runs within each repository."
+           Description="How the app draws a plan filed in two repositories: one bar in each repository's band, each that repository's part of the plan, with a progress fill read from the tasks filed there. `ShowSteps` off keeps the bars from opening into a row per task — the roadmap reads plans, and the tasks stay in the task list. The parts share one window, because they are one stored plan: moving either moves both, and the arrow runs within each repository.
+
+Each part carries the `PartOf` key it shares with the others, its `PartIndex` and the `PartCount`. More than one part draws a small `1/2` chip after the title, and the detail says it in words — Part 1 of 2, also in specs — because the chip is hidden from a screen reader. Point at or focus one part and the other is outlined dashed, so the rest of the plan can be found in a band the reader is not looking at."
            Code="@PartsCode">
         <RoadmapTimeline Groups="@PartsPlan"
                          Bars="@PartsBars"
@@ -967,15 +987,19 @@ Every action is a real button named for its plan, and the shelf is a region name
     private static readonly RoadmapBar[] PartsBars =
     [
         new("conventions@budgetbeheer", "budgetbeheer::planned", "Devbook conventions", On(2, 2), On(3, 27), 1,
-            Detail: "one of 2 repository parts",
-            Steps: [Done("a", 30), Done("b", 20), Open("c", 28)]),
+            Detail: "Part 1 of 2 · also in specs",
+            Steps: [Done("a", 30), Done("b", 20), Open("c", 28)],
+            PartOf: "conventions", PartIndex: 1, PartCount: 2),
         new("conventions@spec-manager", "spec-manager::planned", "Devbook conventions", On(2, 2), On(3, 27), 1,
-            Detail: "one of 2 repository parts",
-            Steps: [Done("d", 12), Open("e", 35)]),
+            Detail: "Part 2 of 2 · also in budget",
+            Steps: [Done("d", 12), Open("e", 35)],
+            PartOf: "conventions", PartIndex: 2, PartCount: 2),
         new("rollout@budgetbeheer", "budgetbeheer::planned", "Roll out", On(4, 6), On(5, 29), 2,
-            Detail: "one of 2 repository parts"),
+            Detail: "Part 1 of 2 · also in specs",
+            PartOf: "rollout", PartIndex: 1, PartCount: 2),
         new("rollout@spec-manager", "spec-manager::planned", "Roll out", On(4, 6), On(5, 29), 2,
-            Detail: "one of 2 repository parts")
+            Detail: "Part 2 of 2 · also in budget",
+            PartOf: "rollout", PartIndex: 2, PartCount: 2)
     ];
 
     private static readonly RoadmapLink[] PartsLinks =
@@ -987,9 +1011,15 @@ Every action is a real button named for its plan, and the shelf is a region name
     private const string PartsCode = """
         <RoadmapTimeline Groups="@groups" Bars="@bars" Links="@links" ShowSteps="false" />
 
-        // One stored plan, one bar per repository, each with that repository's tasks as steps
-        new RoadmapBar("conventions@budgetbeheer", "budgetbeheer::planned", "Devbook conventions", start, end, Steps: budgetbeheerTasks),
-        new RoadmapBar("conventions@spec-manager", "spec-manager::planned", "Devbook conventions", start, end, Steps: specManagerTasks),
+        // One stored plan, one bar per repository, each with that repository's tasks as steps.
+        // The parts share a PartOf key the timeline only compares; PartCount above one draws
+        // the "1/2" chip, and the chip is hidden from a screen reader, so Detail says it too.
+        new RoadmapBar("conventions@budgetbeheer", "budgetbeheer::planned", "Devbook conventions", start, end,
+            Detail: "Part 1 of 2 · also in specs", Steps: budgetbeheerTasks,
+            PartOf: "conventions", PartIndex: 1, PartCount: 2),
+        new RoadmapBar("conventions@spec-manager", "spec-manager::planned", "Devbook conventions", start, end,
+            Detail: "Part 2 of 2 · also in budget", Steps: specManagerTasks,
+            PartOf: "conventions", PartIndex: 2, PartCount: 2),
         """;
 
     // --- An archived band ------------------------------------------------------
@@ -1047,6 +1077,56 @@ Every action is a real button named for its plan, and the shelf is a region name
         new RoadmapShelfPlan("unplanned-plans-shelf", ["backlog"], TaskCount: 1, TotalEffort: 3, UnestimatedCount: 0),
         """;
 
+    // --- Tracing a chain -------------------------------------------------------
+
+    private static IReadOnlyList<RoadmapGroup> TracePlan =>
+    [
+        new("work", "Work",
+        [
+            new("work::design", "Design"),
+            new("work::build", "Build"),
+            new("work::ship", "Ship"),
+            new("work::ops", "Ops")
+        ], "var(--color-band-1)")
+    ];
+
+    // Spec → API → Integrate → Launch prep, and UI → Integrate: the two arrows into
+    // Integrate turn down one column over the same rows. Roll out starts before Audit
+    // ends and Pilot long before Training ends, so both double back between Ops and
+    // Ship, and their return runs overlap in April along the one gutter.
+    private static readonly RoadmapBar[] TraceBars =
+    [
+        new("spec", "work::design", "Spec", On(1, 5), On(1, 16)),
+        new("ui", "work::design", "UI", On(1, 26), On(2, 6), 1),
+        new("api", "work::build", "API", On(1, 26), On(2, 6)),
+        new("integrate", "work::ship", "Integrate", On(2, 16), On(3, 6)),
+        new("launch-prep", "work::build", "Launch prep", On(3, 16), On(4, 3), 1),
+        new("pilot", "work::ship", "Pilot", On(3, 16), On(4, 3), 3),
+        new("audit", "work::ops", "Audit", On(4, 6), On(4, 24)),
+        new("rollout", "work::ship", "Roll out", On(4, 13), On(5, 1), 2),
+        new("training", "work::ops", "Training", On(4, 27), On(5, 8), 1)
+    ];
+
+    private static readonly RoadmapLink[] TraceLinks =
+    [
+        new("spec", "api"),
+        new("api", "integrate"),
+        new("ui", "integrate"),
+        new("integrate", "launch-prep"),
+        new("audit", "rollout"),
+        new("training", "pilot")
+    ];
+
+    private const string TraceCode = """
+        <RoadmapTimeline Groups="@groups" Bars="@bars" Links="@links" QuarterWidth="48" />
+
+        // Zoomed in so every bar here is long enough to hold its count.
+        // Nothing to wire: hovering or focusing a bar traces its whole chain, the count
+        // on a bar pins it (T from the keyboard), and Escape lets the pin go.
+        new RoadmapLink("api", "integrate"),
+        new RoadmapLink("ui", "integrate"),   // shares Integrate's elbow column: drawn apart
+        """;
+
     // --- Handed over between repositories ------------------------------------
 
     private static IReadOnlyList<RoadmapGroup> HandOverPlan =>
@@ -1059,11 +1139,14 @@ Every action is a real button named for its plan, and the shelf is a region name
     private RoadmapBar[] _handOverBars =
     [
         new("release@backlog#1", "backlog::planned", "Release", On(2, 2), On(2, 27), 1,
-            Detail: "one of 3 parts, handed over between repositories"),
+            Detail: "Part 1 of 3 · handed over between repositories · also in web",
+            PartOf: "release", PartIndex: 1, PartCount: 3),
         new("release@web#2", "web::planned", "Release", On(2, 28), On(4, 10), 1,
-            Detail: "one of 3 parts, handed over between repositories"),
+            Detail: "Part 2 of 3 · handed over between repositories · also in backlog",
+            PartOf: "release", PartIndex: 2, PartCount: 3),
         new("release@backlog#3", "backlog::planned", "Release", On(4, 11), On(4, 30), 1,
-            Detail: "one of 3 parts, handed over between repositories"),
+            Detail: "Part 3 of 3 · handed over between repositories · also in web",
+            PartOf: "release", PartIndex: 3, PartCount: 3),
         new("docs", "web::planned", "Docs", On(5, 4), On(5, 29), 2)
     ];
 

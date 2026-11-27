@@ -39,7 +39,7 @@
          what a task's Devbook references point at, and this is the adapter that
          can see both that port and the devbook it answers from - the join
          ModuleBoundaryTests puts in infrastructure rather than in a screen. -->
-    <ProjectReference Include="..\..\Modules\Tasks\Backlog.Modules.Tasks.Abstractions\Backlog.Modules.Tasks.Abstractions.csproj" />
+    <ProjectReference Include="..\..\Modules\Work\Backlog.Modules.Work.Abstractions\Backlog.Modules.Work.Abstractions.csproj" />
     <!-- Notifications' published surface, for RemarkNotificationStore and
          RemarkSubjectProbe: Devbook owns the remark subject, so its adapter tells
          Notifications when a remark is resolved and answers the startup probe about it
@@ -68,6 +68,8 @@
          stores and panels there still call them, and the tests that drive them,
          and subclass the reader, are still that project's. -->
     <InternalsVisibleTo Include="Backlog.Modules.Devbook.UI" />
+    <!-- The chapter parser and content loader moved to the pane's published surface. -->
+    <InternalsVisibleTo Include="Backlog.Modules.Devbook.Contracts.UI" />
     <InternalsVisibleTo Include="Backlog.Desktop.UI.UnitTests" />
   </ItemGroup>
 

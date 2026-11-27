@@ -2,8 +2,8 @@
 
 ```meta
 date: 2026-10-15
-related: [".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/arc42/08-crosscutting-concepts.md#task-sync", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push", ".devbook/domain/tasks/features.md#my-day", ".devbook/domain/tasks/domain.md#my-day", ".devbook/domain/tasks/context.md#clear-my-day-overnight"]
-c4: [backlog.desktop.tasks, backlog.mobile, backlog.cloud]
+related: [".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0021-github-accounts-and-repository-registry-ride-the-task-feed.md", ".devbook/arc42/adr/0025-notes-ride-the-task-feed.md", ".devbook/arc42/08-crosscutting-concepts.md#task-sync", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push", ".devbook/domain/work/features.md#my-day", ".devbook/domain/work/domain.md#my-day", ".devbook/domain/work/context.md#clear-my-day-overnight"]
+c4: [backlog.desktop.work, backlog.mobile, backlog.cloud]
 ```
 
 The person's My Day preferences replicate between paired devices as one whole
@@ -45,7 +45,7 @@ behaviour, so these are inputs here, not open questions:
 ```
 
 **My Day expires by arithmetic.** A task is in My Day while its stamp equals the
-reader's local date, as `.devbook/domain/tasks/domain.md#my-day` defines it. No
+reader's local date, as `.devbook/domain/work/domain.md#my-day` defines it. No
 timer clears the list. Each head computes the list from the stamp and its own
 clock, so both heads agree because they read the same stamps.
 

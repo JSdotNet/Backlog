@@ -1,7 +1,7 @@
-using Backlog.Modules.Tasks.Abstractions.Services;
-using Backlog.Modules.Tasks;
-using Backlog.Modules.Roadmap;
-using Backlog.Modules.Roadmap.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
+using Backlog.Modules.Work.Tasks;
+using Backlog.Modules.Work.Plans;
+using Backlog.Modules.Work.Abstractions.Plans.Services;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.SharedKernel;
 using Microsoft.Extensions.DependencyInjection;
@@ -10,24 +10,20 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace Backlog.Infrastructure.FileSystem.Roadmap;
 
 /// <summary>
-/// What the roadmap plan asks of the world outside it, answered by adapters that
-/// may see both sides: the backlog's tag picker offers the plan's tags
-/// (<see cref="IRoadmapTagSource"/>), Import lays a document's <c>plan</c> entries
-/// out on the plan (<see cref="IRoadmapPlanIntake"/>), the backlog's plan filter chip
-/// queues a plan session (<see cref="IPlanTagSessionRequests"/>), a roadmap item rolls up the backlog entries
-/// and devbook chapters it gathers (<see cref="IRoadmapItemRollup"/>), the
-/// reader's typed pace is read from the settings file
-/// (<see cref="IPlanningVelocitySettings"/>), the finished work a measured pace
-/// counts comes from the backlog (<see cref="IRoadmapCompletedWork"/>), and the
+/// What the roadmap plan asks of the world outside Work, answered by adapters that
+/// may see both sides: a roadmap item rolls up the backlog entries and devbook
+/// chapters it gathers (<see cref="IRoadmapItemRollup"/>), the reader's typed pace is
+/// read from the settings file (<see cref="IPlanningVelocitySettings"/>), and the
 /// actual hours a day head shows come from the agents' activity
-/// (<see cref="IRoadmapActualHours"/>).
+/// (<see cref="IRoadmapActualHours"/>). Where the task and the plan meet inside Work
+/// is the module's own, composed by <c>AddWorkJoins</c> (local ADR 0073 §1).
 /// <para>
 /// Registered here — in one place both hosts and the scope-validation guard call —
 /// so the lifetimes cannot drift between the desktop app and the web harness. The
-/// two cross-context adapters capture services the modules register as
-/// <c>Scoped</c> (<see cref="IRoadmapPlanning"/> and <see cref="ITaskItems"/>), so
-/// both must be <c>Scoped</c> too: a singleton over a scoped dependency is a
-/// captive dependency that a validating root provider refuses to build.
+/// rollup captures services the module registers as <c>Scoped</c>
+/// (<see cref="IRoadmapPlanning"/> and <see cref="ITaskItems"/>), so it is
+/// <c>Scoped</c> too: a singleton over a scoped dependency is a captive dependency
+/// that a validating root provider refuses to build.
 /// </para>
 /// </summary>
 public static class RoadmapCrossContextAdapterRegistration
@@ -42,30 +38,12 @@ public static class RoadmapCrossContextAdapterRegistration
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        // Constructor injection where it fits: the container hands the scoped
-        // IRoadmapPlanning to the constructor, so no factory reaches into the
-        // provider for it.
-        services.AddScoped<IRoadmapTagSource, RoadmapPlanTagSource>();
-
-        // The same join the other way: Import hands a document's `plan` entries to
-        // Roadmap's own command through the scoped IRoadmapPlanning (ADR 0013).
-        services.AddScoped<IRoadmapPlanIntake, RoadmapPlanIntake>();
-
-        // The plan filter chip's queue icon (local ADR 0038 §2): where a plan is filed,
-        // read from the scoped IRoadmapPlanning, and its requests through the roadmap's
-        // own plan queue port — optional, because a host without a queue registers
-        // none, and then the icon is not offered.
-        services.AddScoped<IPlanTagSessionRequests>(sp =>
-            new RoadmapPlanTagSessionRequests(
-                sp.GetRequiredService<IRoadmapPlanning>(),
-                sp.GetService<IPlanSessionRequests>()));
-
         // The rollup also captures the storage root, read per call rather than
         // pinned, so it stays a factory — but a scoped one, resolving its scoped
         // ITaskItems from the same scope the request runs in, per call: the backlog's
         // plan import reaches the roadmap importer, which gathers through this, so
         // taking the backlog in the constructor deadlocks the scope, as for the
-        // finished work below. The session source is optional: it dates work its entry
+        // finished work AddWorkJoins registers. The session source is optional: it dates work its entry
         // left undated, and a host without one draws the entries' own dates, as before.
         //
         // The Brain's notes are read through Roadmap's own port (local ADR 0053): none
@@ -90,21 +68,6 @@ public static class RoadmapCrossContextAdapterRegistration
                 sp.GetService<IRoadmapProjectNotes>(),
                 sp.GetService<ShellNavigationStore>()));
 
-        // The shelf of plans not yet on the roadmap reads the backlog the same way,
-        // so it is scoped for the same reason: ITaskItems is.
-        services.AddScoped<IImportedPlanSource, ImportedPlanSource>();
-
-        // The finished work a measured pace is counted from, read from the backlog —
-        // scoped because ITaskItems is, and resolving it per call because the backlog's
-        // plan import reaches the roadmap importer, which reaches the pace, which
-        // reaches this: taken in the constructor, that loop deadlocks the scope. The
-        // repository directory, which turns a task's repository ids into the aliases a
-        // pace is kept under, is resolved per call for the same reason.
-        services.AddScoped<IRoadmapCompletedWork>(sp =>
-            new RoadmapCompletedWork(
-                () => sp.GetRequiredService<ITaskItems>(),
-                () => sp.GetRequiredService<IRepositoryDirectory>()));
-
         // Singleton, unlike the adapters above, and deliberately: this one captures no
         // scoped service — only the settings store, which is a singleton in both
         // hosts — so there is no captive dependency to avoid, and the reader's typed
@@ -117,10 +80,6 @@ public static class RoadmapCrossContextAdapterRegistration
         // 0018): Roadmap's replication port reads and writes it through its store
         // port. A singleton over the singleton store, for the reason the line above is.
         services.AddSingleton<IRoadmapReplicaStore>(sp => sp.GetRequiredService<PlanningVelocitySettingsStore>());
-
-        // Singleton for the same reason: it holds only the task signal, itself a
-        // singleton, and a write in one window has to reach a band open in another.
-        services.AddSingleton<IRoadmapWorkChanges>(sp => new RoadmapWorkChanges(sp.GetService<ITaskChangeSignal>()));
 
         // The actual hours a begun day head shows, read from the merged agent activity
         // the dashboard reads (ADR 0019). A singleton over singletons: the activity

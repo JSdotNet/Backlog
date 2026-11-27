@@ -2,7 +2,7 @@
 
 ```meta
 date: 2026-11-19
-related: [".devbook/domain/repository-management/context.md", ".devbook/domain/repository-management/features.md#pull-request-readiness", ".devbook/domain/repository-management/features.md#one-verdict-per-pull-request", ".devbook/domain/repository-management/features.md#github-integration", ".devbook/domain/repository-management/requirements.md#archiving-a-repository", ".devbook/domain/context-map.md", ".devbook/domain/sessions/context.md", ".devbook/domain/tasks/dependencies.md", ".devbook/domain/progress/dependencies.md", ".devbook/domain/progress/features.md#pull-request-status", ".devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md", ".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md", ".devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md", ".devbook/arc42/adr/0031-github-calls-resolve-their-account-per-repository-and-never-store-a-gh-token.md", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md", ".devbook/arc42/adr/0037-a-session-attaches-to-a-goal-as-its-own-item.md", ".devbook/arc42/adr/guidelines/0009-feature-slices-module-structure.md", ".devbook/arc42/08-crosscutting-concepts.md#feature-enablement", ".devbook/arc42/12-glossary.md#terms", ".devbook/arc42/05-building-block-view.md#desktop-app", ".devbook/arc42/tdr/0004-the-side-panel-reads-sessions-outside-ilinkedsessionstates.md"]
+related: [".devbook/domain/repositories/context.md", ".devbook/domain/repositories/features.md#pull-request-readiness", ".devbook/domain/repositories/features.md#one-verdict-per-pull-request", ".devbook/domain/repositories/features.md#github-integration", ".devbook/domain/repositories/requirements.md#archiving-a-repository", ".devbook/domain/context-map.md", ".devbook/domain/sessions/context.md", ".devbook/domain/work/dependencies.md", ".devbook/domain/goals/dependencies.md", ".devbook/domain/goals/features.md#pull-request-status", ".devbook/arc42/adr/0020-external-items-arrive-as-linked-tasks.md", ".devbook/arc42/adr/0022-the-shell-shows-one-main-view-picked-by-a-view-switch.md", ".devbook/arc42/adr/0028-progress-is-its-own-boundary-and-tasks-knows-no-sprints.md", ".devbook/arc42/adr/0029-an-archived-repository-stays-in-the-registry.md", ".devbook/arc42/adr/0031-github-calls-resolve-their-account-per-repository-and-never-store-a-gh-token.md", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md", ".devbook/arc42/adr/0037-a-session-attaches-to-a-goal-as-its-own-item.md", ".devbook/arc42/adr/guidelines/0009-feature-slices-module-structure.md", ".devbook/arc42/08-crosscutting-concepts.md#feature-enablement", ".devbook/arc42/12-glossary.md#terms", ".devbook/arc42/05-building-block-view.md#desktop-app", ".devbook/arc42/tdr/0004-the-side-panel-reads-sessions-outside-ilinkedsessionstates.md"]
 ```
 
 Repository Management owns the state of every pull request Backlog reads. It owns
@@ -113,13 +113,13 @@ their age per repository, stays a count over the same reads.
 Three things make it the owner rather than a context of its own:
 
 - A pull request belongs to a repository, and the context already reaches GitHub for
-  each registered repository ([GitHub integration](../../domain/repository-management/features.md#github-integration)),
+  each registered repository ([GitHub integration](../../domain/repositories/features.md#github-integration)),
   with the account that repository resolves to (ADR 0031).
 - Whether a pull request is read at all is its call already: an archived repository's
   pull requests are not read (ADR 0029). This context becomes the one place that
   applies that rule to pull requests.
 - The pane's features move here from Sessions, under
-  [Pull request readiness](../../domain/repository-management/features.md#pull-request-readiness).
+  [Pull request readiness](../../domain/repositories/features.md#pull-request-readiness).
 
 The module is laid out by feature slices (guidelines ADR 0009), in two projects
 under `src/Modules/RepositoryManagement/`:
@@ -163,7 +163,7 @@ they are now this context's published status shape. Progress's rows show the sta
 Repository Management publishes.
 
 **One verdict function.** The contract offers one function from a status to its
-[readiness verdict](../../domain/repository-management/features.md#one-verdict-per-pull-request),
+[readiness verdict](../../domain/repositories/features.md#one-verdict-per-pull-request),
 with its lane, tone and acts. The pane, the session card and the task row all call it.
 The precedence lives in that feature, not in this record.
 
@@ -269,7 +269,7 @@ Management's own feature declarations. Its key stays `pull-requests`. A person's
 choice is stored under that key in `features.json`, so renaming it would turn the
 pane off for everyone who had it on
 ([Feature Enablement](../08-crosscutting-concepts.md#feature-enablement)). The flag's
-chapter moves to `domain/repository-management/context.md`.
+chapter moves to `domain/repositories/context.md`.
 
 ### 8. No module screen reads pull-request state from the GitHub adapter
 

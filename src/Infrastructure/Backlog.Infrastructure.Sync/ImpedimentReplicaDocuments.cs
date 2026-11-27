@@ -1,5 +1,5 @@
-using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
-using Backlog.Modules.Progress.Abstractions.Services;
+using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
+using Backlog.Modules.Goals.Abstractions.Services;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 
 namespace Backlog.Infrastructure.Sync;
@@ -8,7 +8,7 @@ namespace Backlog.Infrastructure.Sync;
 /// How an impediment is written on the task feed: a whole document under the
 /// impediment's own id with the kind token <c>impediment</c> (local ADR 0035 §9), on the
 /// terms a goal travels on (<see cref="GoalReplicaDocuments"/>). The wire half only —
-/// which copy wins is Progress's, behind <see cref="IImpedimentReplication"/>. The kind
+/// which copy wins is Goals', behind <see cref="IImpedimentReplication"/>. The kind
 /// token is persisted on every replica, so it is never renamed.
 /// </summary>
 public static class ImpedimentReplicaDocuments
@@ -35,7 +35,7 @@ public static class ImpedimentReplicaDocuments
         return Kind.ToChange(copy.Id, copy.Title, copy.Content, copy.UpdatedAt);
     }
 
-    /// <summary>The copy a pulled document carries, as Progress takes it.</summary>
+    /// <summary>The copy a pulled document carries, as Goals takes it.</summary>
     public static ImpedimentReplicaCopyDto ToCopy(TaskChange change)
     {
         ArgumentNullException.ThrowIfNull(change);

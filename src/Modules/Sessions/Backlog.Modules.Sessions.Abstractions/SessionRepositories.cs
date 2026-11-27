@@ -4,7 +4,7 @@ namespace Backlog.Modules.Sessions.Abstractions;
 /// PORT — which registered repository a working folder lies inside, on this
 /// machine.
 /// <para>
-/// Repository Management owns the repository list and the clone directory each
+/// Repositories owns the repository list and the clone directory each
 /// entry was registered with; this context asks it one question and holds the
 /// answer on <see cref="AgentSession.ResolvedRepository"/>. A port of one method
 /// rather than the directory itself, for the reason the sync side's alias port is:

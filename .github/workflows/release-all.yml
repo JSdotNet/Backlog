@@ -119,8 +119,8 @@ jobs:
           }
 
           # A git pathspec matches a directory and everything under it, but only on a
-          # path-segment boundary: 'src/Modules/Tasks/Backlog.Modules.Tasks' does not
-          # match the sibling '...Backlog.Modules.Tasks.UI'. So every project a head
+          # path-segment boundary: 'src/Modules/Work/Backlog.Modules.Work' does not
+          # match the sibling '...Backlog.Modules.Work.UI'. So every project a head
           # composes has to be named, and the list is derived from each head's
           # ProjectReference graph rather than hand-maintained: the hand-written lists
           # went stale twice, and a pathspec matching nothing is not an error, it just

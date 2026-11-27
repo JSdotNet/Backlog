@@ -18,7 +18,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// Agents that grant other agents (local ADR 0058 §5): the <c>agents:grant</c> tools' host, the
 /// access desk, held to every rule of the proposal over the real file stores and the real token
 /// mint — only scopes the granter holds; never <c>devbook:decide</c>, <c>agents:grant</c> or
-/// <c>tasks:admin</c>; one level deep; never its own grant or its granter's; the person's and
+/// <c>work:admin</c>; one level deep; never its own grant or its granter's; the person's and
 /// another granter's grants read-only; seven days unless renewed; scopes cut to the granter's at
 /// each mint; and revoking the granter revokes what it granted in the same write. Each grant
 /// raises a quiet notification and writes an audit record naming both.
@@ -47,7 +47,7 @@ public sealed class McpGrantDelegationTests : IDisposable
     private CancellationToken Cancel => TestContext.Current.CancellationToken;
 
     private McpGrant Manager() =>
-        _grants.Create("Manager session", ["sessions:dispatch", "tasks:read", "tasks:write", "devbook:read", "agents:grant"], "Settings");
+        _grants.Create("Manager session", ["sessions:dispatch", "work:read", "work:write", "devbook:read", "agents:grant"], "Settings");
 
     private async Task<McpAccessRequest> RegisterAsync(string name, params string[] scopes)
     {
@@ -68,26 +68,26 @@ public sealed class McpGrantDelegationTests : IDisposable
     public async Task A_granter_grants_a_registration_one_level_deep_for_seven_days_and_the_worker_gets_a_token()
     {
         var manager = Manager();
-        var request = await RegisterAsync("Worker · Copilot", "tasks:read", "tasks:write");
+        var request = await RegisterAsync("Worker · Copilot", "work:read", "work:write");
 
-        var answer = await _desk.GrantAsync(await PrincipalOf(manager), request.Id, ["tasks:read", "tasks:write"], Cancel);
+        var answer = await _desk.GrantAsync(await PrincipalOf(manager), request.Id, ["work:read", "work:write"], Cancel);
 
         Assert.False(answer.Refused, answer.Message);
         var worker = _grants.Find(request.GrantId)!;
         Assert.Equal(manager.Id, worker.GrantedBy);
         Assert.Equal(Now + McpGrantClaims.DelegationLifetime, worker.ExpiresAt);
-        Assert.Equal(["tasks:read", "tasks:write"], worker.Scopes);
+        Assert.Equal(["work:read", "work:write"], worker.Scopes);
         Assert.Equal(McpAccessRequestState.Allowed, _requests.Find(request.Id)!.State);
 
         var principal = await PrincipalOf(worker);
-        Assert.Equal(["tasks:read", "tasks:write"], McpScopePolicies.ScopesOf(principal).Order(StringComparer.Ordinal));
+        Assert.Equal(["work:read", "work:write"], McpScopePolicies.ScopesOf(principal).Order(StringComparer.Ordinal));
     }
 
     [Fact]
     public async Task A_grant_raises_a_quiet_notification_and_an_audit_record_naming_both()
     {
         var manager = Manager();
-        var worker = await WorkerAsync(manager, "tasks:read");
+        var worker = await WorkerAsync(manager, "work:read");
 
         var (_, draft) = Assert.Single(_notifications.Published, published => published.Draft.Source.Key == worker.Id);
         Assert.Equal(NotificationKind.Alert, draft.Kind);
@@ -107,9 +107,9 @@ public sealed class McpGrantDelegationTests : IDisposable
     public async Task Only_scopes_the_granter_holds_are_granted()
     {
         var manager = Manager();
-        var request = await RegisterAsync("Worker", "tasks:read", "runs:write");
+        var request = await RegisterAsync("Worker", "work:read", "runs:write");
 
-        var refused = await _desk.GrantAsync(await PrincipalOf(manager), request.Id, ["tasks:read", "runs:write"], Cancel);
+        var refused = await _desk.GrantAsync(await PrincipalOf(manager), request.Id, ["work:read", "runs:write"], Cancel);
 
         Assert.Equal(McpAccessRefusals.NotHeld, refused.Refusal);
         Assert.True(_requests.Find(request.Id)!.IsOpen);
@@ -120,48 +120,68 @@ public sealed class McpGrantDelegationTests : IDisposable
     public async Task Granting_as_asked_keeps_only_what_the_granter_may_hand_on()
     {
         var manager = Manager();
-        var request = await RegisterAsync("Worker", "tasks:read", "runs:write", "agents:grant", "tasks:admin");
+        var request = await RegisterAsync("Worker", "work:read", "runs:write", "agents:grant", "work:admin");
 
         var answer = await _desk.GrantAsync(await PrincipalOf(manager), request.Id, null, Cancel);
 
         Assert.False(answer.Refused, answer.Message);
-        Assert.Equal(["tasks:read"], _grants.Find(request.GrantId)!.Scopes);
+        Assert.Equal(["work:read"], _grants.Find(request.GrantId)!.Scopes);
+    }
+
+    /// <summary>A granter or a worker still naming a Work scope by its old name (local ADR 0073
+    /// §10) grants and edits the new scope, and the old admin name is no more delegable.</summary>
+    [Fact]
+    public async Task A_granter_naming_the_old_scope_names_grants_the_new_ones()
+    {
+        var manager = Manager();
+        var request = await RegisterAsync("Worker · old skill", "tasks:read", "tasks:write");
+
+        var answer = await _desk.GrantAsync(await PrincipalOf(manager), request.Id, ["tasks:read", "tasks:write"], Cancel);
+
+        Assert.False(answer.Refused, answer.Message);
+        var worker = _grants.Find(request.GrantId)!;
+        Assert.Equal(["work:read", "work:write"], worker.Scopes);
+
+        var caller = await PrincipalOf(manager);
+        Assert.False((await _desk.EditScopesAsync(caller, worker.Id, ["tasks:read"], Cancel)).Refused);
+        Assert.Equal(["work:read"], _grants.Find(worker.Id)!.Scopes);
+        Assert.Equal(McpAccessRefusals.NotDelegable, (await _desk.EditScopesAsync(caller, worker.Id, ["tasks:read", "tasks:admin"], Cancel)).Refusal);
     }
 
     [Theory]
     [InlineData("devbook:decide")]
     [InlineData("agents:grant")]
-    [InlineData("tasks:admin")]
+    [InlineData("work:admin")]
     public async Task The_powerful_scopes_are_never_delegated_even_by_a_granter_that_holds_them(string scope)
     {
-        var granter = _grants.Create("Orchestrator", ["tasks:read", "tasks:admin", "agents:grant"], "Settings");
-        var worker = await WorkerAsync(granter, "tasks:read");
+        var granter = _grants.Create("Orchestrator", ["work:read", "work:admin", "agents:grant"], "Settings");
+        var worker = await WorkerAsync(granter, "work:read");
         var caller = await PrincipalOf(granter);
 
-        Assert.Equal(McpAccessRefusals.NotDelegable, (await _desk.EditScopesAsync(caller, worker.Id, ["tasks:read", scope], Cancel)).Refusal);
+        Assert.Equal(McpAccessRefusals.NotDelegable, (await _desk.EditScopesAsync(caller, worker.Id, ["work:read", scope], Cancel)).Refusal);
 
         if (scope != McpScopes.DevbookDecide)
         {
-            var request = await RegisterAsync("Second worker", "tasks:read", scope);
+            var request = await RegisterAsync("Second worker", "work:read", scope);
             Assert.Equal(McpAccessRefusals.NotDelegable, (await _desk.GrantAsync(caller, request.Id, [scope], Cancel)).Refusal);
         }
 
-        Assert.Equal(["tasks:read"], _grants.Find(worker.Id)!.Scopes);
+        Assert.Equal(["work:read"], _grants.Find(worker.Id)!.Scopes);
     }
 
     [Fact]
     public async Task A_delegated_grant_cannot_grant_further_and_never_mints_agents_grant()
     {
         var manager = Manager();
-        var worker = await WorkerAsync(manager, "tasks:read");
+        var worker = await WorkerAsync(manager, "work:read");
 
         // A hand edit puts agents:grant on the worker: one level deep still holds, at the desk and
         // at the mint.
-        _grants.SetScopes(worker.Id, ["tasks:read", "agents:grant"]);
+        _grants.SetScopes(worker.Id, ["work:read", "agents:grant"]);
         var caller = await PrincipalOf(_grants.Find(worker.Id)!);
         Assert.DoesNotContain(McpScopes.AgentsGrant, McpScopePolicies.ScopesOf(caller));
 
-        var request = await RegisterAsync("Grandchild", "tasks:read");
+        var request = await RegisterAsync("Grandchild", "work:read");
         Assert.Equal(McpAccessRefusals.OneLevel, (await _desk.GrantAsync(caller, request.Id, null, Cancel)).Refusal);
         Assert.Equal(McpAccessRefusals.OneLevel, _desk.List(caller).Refusal);
     }
@@ -172,7 +192,7 @@ public sealed class McpGrantDelegationTests : IDisposable
         var manager = Manager();
         var caller = await PrincipalOf(manager);
 
-        Assert.Equal(McpAccessRefusals.OwnGrant, (await _desk.EditScopesAsync(caller, manager.Id, ["tasks:read"], Cancel)).Refusal);
+        Assert.Equal(McpAccessRefusals.OwnGrant, (await _desk.EditScopesAsync(caller, manager.Id, ["work:read"], Cancel)).Refusal);
         Assert.Equal(McpAccessRefusals.OwnGrant, (await _desk.RevokeAsync(caller, manager.Id, Cancel)).Refusal);
 
         var more = await _desk.RequestMoreAsync(caller, ["runs:write"], null, Cancel);
@@ -188,12 +208,12 @@ public sealed class McpGrantDelegationTests : IDisposable
     public async Task A_worker_never_touches_its_granter_s_grant()
     {
         var manager = Manager();
-        var worker = await WorkerAsync(manager, "tasks:read");
-        _grants.SetScopes(worker.Id, ["tasks:read", "agents:grant"]);
+        var worker = await WorkerAsync(manager, "work:read");
+        _grants.SetScopes(worker.Id, ["work:read", "agents:grant"]);
         var caller = await PrincipalOf(_grants.Find(worker.Id)!);
 
         Assert.True((await _desk.RevokeAsync(caller, manager.Id, Cancel)).Refused);
-        Assert.True((await _desk.EditScopesAsync(caller, manager.Id, ["tasks:read"], Cancel)).Refused);
+        Assert.True((await _desk.EditScopesAsync(caller, manager.Id, ["work:read"], Cancel)).Refused);
         Assert.False(_grants.Find(manager.Id)!.Revoked);
     }
 
@@ -201,17 +221,17 @@ public sealed class McpGrantDelegationTests : IDisposable
     public async Task Grants_the_person_made_are_read_only_to_a_granter()
     {
         var manager = Manager();
-        var person = _grants.Create("Backlog delivery", ["tasks:read", "tasks:write"], "Settings");
+        var person = _grants.Create("Backlog delivery", ["work:read", "work:write"], "Settings");
         var caller = await PrincipalOf(manager);
 
-        Assert.Equal(McpAccessRefusals.ReadOnly, (await _desk.EditScopesAsync(caller, person.Id, ["tasks:read"], Cancel)).Refusal);
+        Assert.Equal(McpAccessRefusals.ReadOnly, (await _desk.EditScopesAsync(caller, person.Id, ["work:read"], Cancel)).Refusal);
         Assert.Equal(McpAccessRefusals.ReadOnly, (await _desk.RevokeAsync(caller, person.Id, Cancel)).Refusal);
 
         // Nor does a granter answer the person's own agent asking for more.
         var more = await _desk.RequestMoreAsync(await PrincipalOf(person), ["devbook:read"], null, Cancel);
         Assert.Equal(McpAccessRefusals.ReadOnly, (await _desk.GrantAsync(caller, more.RequestId!, null, Cancel)).Refusal);
 
-        Assert.Equal(["tasks:read", "tasks:write"], _grants.Find(person.Id)!.Scopes);
+        Assert.Equal(["work:read", "work:write"], _grants.Find(person.Id)!.Scopes);
         Assert.False(_grants.Find(person.Id)!.Revoked);
     }
 
@@ -219,11 +239,11 @@ public sealed class McpGrantDelegationTests : IDisposable
     public async Task Grants_another_granter_made_are_read_only_to_a_granter()
     {
         var manager = Manager();
-        var other = _grants.Create("Delivery orchestrator", ["tasks:read", "agents:grant"], "Settings");
-        var worker = await WorkerAsync(other, "tasks:read");
+        var other = _grants.Create("Delivery orchestrator", ["work:read", "agents:grant"], "Settings");
+        var worker = await WorkerAsync(other, "work:read");
         var caller = await PrincipalOf(manager);
 
-        Assert.Equal(McpAccessRefusals.ReadOnly, (await _desk.EditScopesAsync(caller, worker.Id, ["tasks:read"], Cancel)).Refusal);
+        Assert.Equal(McpAccessRefusals.ReadOnly, (await _desk.EditScopesAsync(caller, worker.Id, ["work:read"], Cancel)).Refusal);
         Assert.Equal(McpAccessRefusals.ReadOnly, (await _desk.RevokeAsync(caller, worker.Id, Cancel)).Refusal);
         Assert.False(_grants.Find(worker.Id)!.Revoked);
         Assert.Empty(_desk.List(caller).Granted);
@@ -233,7 +253,7 @@ public sealed class McpGrantDelegationTests : IDisposable
     public async Task A_delegated_grant_expires_after_seven_days_unless_its_granter_renews_it()
     {
         var manager = Manager();
-        var worker = await WorkerAsync(manager, "tasks:read");
+        var worker = await WorkerAsync(manager, "work:read");
 
         _clock.Advance(TimeSpan.FromDays(6));
         Assert.NotNull(_tokens.Mint(worker.Id).Token);
@@ -246,10 +266,10 @@ public sealed class McpGrantDelegationTests : IDisposable
     public async Task Editing_a_delegated_grant_renews_it_for_another_seven_days()
     {
         var manager = Manager();
-        var worker = await WorkerAsync(manager, "tasks:read");
+        var worker = await WorkerAsync(manager, "work:read");
 
         _clock.Advance(TimeSpan.FromDays(6));
-        var edited = await _desk.EditScopesAsync(await PrincipalOf(manager), worker.Id, ["tasks:read"], Cancel);
+        var edited = await _desk.EditScopesAsync(await PrincipalOf(manager), worker.Id, ["work:read"], Cancel);
 
         Assert.False(edited.Refused, edited.Message);
         Assert.Equal(_clock.GetUtcNow() + McpGrantClaims.DelegationLifetime, _grants.Find(worker.Id)!.ExpiresAt);
@@ -263,38 +283,38 @@ public sealed class McpGrantDelegationTests : IDisposable
     public async Task At_each_mint_a_delegated_grant_is_cut_to_its_granter_s_current_scopes()
     {
         var manager = Manager();
-        var worker = await WorkerAsync(manager, "tasks:read", "tasks:write");
+        var worker = await WorkerAsync(manager, "work:read", "work:write");
 
-        _grants.SetScopes(manager.Id, ["sessions:dispatch", "tasks:read", "agents:grant"]);
+        _grants.SetScopes(manager.Id, ["sessions:dispatch", "work:read", "agents:grant"]);
 
         var principal = await PrincipalOf(worker);
-        Assert.Equal(["tasks:read"], McpScopePolicies.ScopesOf(principal));
-        Assert.Equal(["tasks:read", "tasks:write"], _grants.Find(worker.Id)!.Scopes);
+        Assert.Equal(["work:read"], McpScopePolicies.ScopesOf(principal));
+        Assert.Equal(["work:read", "work:write"], _grants.Find(worker.Id)!.Scopes);
 
-        _grants.SetScopes(manager.Id, ["sessions:dispatch", "tasks:read", "tasks:write", "agents:grant"]);
-        Assert.Equal(["tasks:read", "tasks:write"], McpScopePolicies.ScopesOf(await PrincipalOf(worker)).Order(StringComparer.Ordinal));
+        _grants.SetScopes(manager.Id, ["sessions:dispatch", "work:read", "work:write", "agents:grant"]);
+        Assert.Equal(["work:read", "work:write"], McpScopePolicies.ScopesOf(await PrincipalOf(worker)).Order(StringComparer.Ordinal));
     }
 
     [Fact]
     public async Task Trimming_a_granter_refuses_its_workers_live_tokens_so_they_mint_again_under_the_new_cut()
     {
         var manager = Manager();
-        var worker = await WorkerAsync(manager, "tasks:read", "tasks:write");
+        var worker = await WorkerAsync(manager, "work:read", "work:write");
         var token = _tokens.Mint(worker.Id).Token!;
 
-        _grants.SetScopes(manager.Id, ["sessions:dispatch", "tasks:read", "agents:grant"]);
+        _grants.SetScopes(manager.Id, ["sessions:dispatch", "work:read", "agents:grant"]);
 
         Assert.Equal(McpGrantRefusal.StaleVersion, (await _tokens.ValidateAsync(token.Value, Cancel)).Refusal);
-        Assert.Equal(["tasks:read"], McpScopePolicies.ScopesOf(await PrincipalOf(worker)));
+        Assert.Equal(["work:read"], McpScopePolicies.ScopesOf(await PrincipalOf(worker)));
     }
 
     [Fact]
     public async Task A_granter_that_loses_agents_grant_takes_its_workers_tokens_with_it()
     {
         var manager = Manager();
-        var worker = await WorkerAsync(manager, "tasks:read");
+        var worker = await WorkerAsync(manager, "work:read");
 
-        _grants.SetScopes(manager.Id, ["sessions:dispatch", "tasks:read"]);
+        _grants.SetScopes(manager.Id, ["sessions:dispatch", "work:read"]);
 
         Assert.Equal(McpGrantRefusal.GranterRevoked, _tokens.Mint(worker.Id).Refusal);
     }
@@ -303,10 +323,10 @@ public sealed class McpGrantDelegationTests : IDisposable
     public async Task An_expired_grant_is_not_renewed_by_an_edit_and_a_delegated_grant_without_an_expiry_fails_closed()
     {
         var manager = Manager();
-        var worker = await WorkerAsync(manager, "tasks:read");
+        var worker = await WorkerAsync(manager, "work:read");
         _clock.Advance(TimeSpan.FromDays(8));
 
-        Assert.Equal(McpAccessRefusals.Expired, (await _desk.EditScopesAsync(await PrincipalOf(manager), worker.Id, ["tasks:read"], Cancel)).Refusal);
+        Assert.Equal(McpAccessRefusals.Expired, (await _desk.EditScopesAsync(await PrincipalOf(manager), worker.Id, ["work:read"], Cancel)).Refusal);
         Assert.False((await _desk.RevokeAsync(await PrincipalOf(manager), worker.Id, Cancel)).Refused);
 
         Assert.True((worker with { ExpiresAt = null }).IsExpired(Now));
@@ -316,34 +336,34 @@ public sealed class McpGrantDelegationTests : IDisposable
     public async Task The_person_cannot_widen_a_delegated_grant_and_is_told_to_revoke_and_allow_it_instead()
     {
         var manager = Manager();
-        var worker = await WorkerAsync(manager, "tasks:read");
+        var worker = await WorkerAsync(manager, "work:read");
         var more = await _desk.RequestMoreAsync(await PrincipalOf(worker), ["runs:write"], null, Cancel);
 
         var refused = await _desk.AllowAsync(more.RequestId!, ["runs:write"], Cancel);
 
         Assert.Equal(McpAccessRefusals.Delegated, refused.Refusal);
-        Assert.Equal(["tasks:read"], _grants.Find(worker.Id)!.Scopes);
+        Assert.Equal(["work:read"], _grants.Find(worker.Id)!.Scopes);
     }
 
     [Fact]
     public async Task The_store_refuses_a_delegated_grant_under_a_revoked_granter_or_with_a_powerful_scope()
     {
         var manager = Manager();
-        var request = await RegisterAsync("Worker", "tasks:read");
+        var request = await RegisterAsync("Worker", "work:read");
 
-        Assert.Throws<ArgumentException>(() => _grants.Delegate(request.GrantId, ["tasks:admin"], manager.Id, Now.AddDays(7)));
+        Assert.Throws<ArgumentException>(() => _grants.Delegate(request.GrantId, ["work:admin"], manager.Id, Now.AddDays(7)));
         _grants.Revoke(manager.Id);
-        Assert.Null(_grants.Delegate(request.GrantId, ["tasks:read"], manager.Id, Now.AddDays(7)));
+        Assert.Null(_grants.Delegate(request.GrantId, ["work:read"], manager.Id, Now.AddDays(7)));
     }
 
     [Fact]
     public async Task Revoking_a_granter_revokes_everything_it_granted_at_once()
     {
         var manager = Manager();
-        var first = await WorkerAsync(manager, "tasks:read");
-        var secondRequest = await RegisterAsync("Second worker", "tasks:read");
+        var first = await WorkerAsync(manager, "work:read");
+        var secondRequest = await RegisterAsync("Second worker", "work:read");
         await _desk.GrantAsync(await PrincipalOf(manager), secondRequest.Id, null, Cancel);
-        var bystander = _grants.Create("Personal assistant", ["tasks:read"], "Settings");
+        var bystander = _grants.Create("Personal assistant", ["work:read"], "Settings");
         var firstToken = _tokens.Mint(first.Id).Token!;
 
         _grants.Revoke(manager.Id);
@@ -359,7 +379,7 @@ public sealed class McpGrantDelegationTests : IDisposable
     public async Task A_granter_revokes_a_grant_it_made_and_the_audit_names_both()
     {
         var manager = Manager();
-        var worker = await WorkerAsync(manager, "tasks:read");
+        var worker = await WorkerAsync(manager, "work:read");
 
         var answer = await _desk.RevokeAsync(await PrincipalOf(manager), worker.Id, Cancel);
 
@@ -374,8 +394,8 @@ public sealed class McpGrantDelegationTests : IDisposable
     [Fact]
     public async Task An_agent_without_agents_grant_or_without_a_grant_is_no_granter()
     {
-        var plain = _grants.Create("Backlog delivery", ["tasks:read", "tasks:write"], "Settings");
-        var request = await RegisterAsync("Worker", "tasks:read");
+        var plain = _grants.Create("Backlog delivery", ["work:read", "work:write"], "Settings");
+        var request = await RegisterAsync("Worker", "work:read");
 
         Assert.Equal(McpAccessRefusals.NotGranter, (await _desk.GrantAsync(await PrincipalOf(plain), request.Id, null, Cancel)).Refusal);
         Assert.Equal(McpAccessRefusals.NotGranter, (await _desk.GrantAsync(null, request.Id, null, Cancel)).Refusal);
@@ -387,10 +407,10 @@ public sealed class McpGrantDelegationTests : IDisposable
     public async Task The_listing_holds_the_waiting_requests_and_only_the_grants_this_granter_made()
     {
         var manager = Manager();
-        var worker = await WorkerAsync(manager, "tasks:read");
-        var other = _grants.Create("Delivery orchestrator", ["tasks:read", "agents:grant"], "Settings");
-        var request = await RegisterAsync("Waiting agent", "tasks:read");
-        var person = _grants.Create("Backlog delivery", ["tasks:read"], "Settings");
+        var worker = await WorkerAsync(manager, "work:read");
+        var other = _grants.Create("Delivery orchestrator", ["work:read", "agents:grant"], "Settings");
+        var request = await RegisterAsync("Waiting agent", "work:read");
+        var person = _grants.Create("Backlog delivery", ["work:read"], "Settings");
         await _desk.RequestMoreAsync(await PrincipalOf(person), ["devbook:read"], null, Cancel);
 
         var listing = _desk.List(await PrincipalOf(manager));
@@ -408,11 +428,11 @@ public sealed class McpGrantDelegationTests : IDisposable
     public async Task A_request_the_granter_answered_is_closed_for_the_person_and_its_alert_settled()
     {
         var manager = Manager();
-        var request = await RegisterAsync("Worker", "tasks:read");
+        var request = await RegisterAsync("Worker", "work:read");
 
         await _desk.GrantAsync(await PrincipalOf(manager), request.Id, null, Cancel);
 
-        Assert.Equal(McpAccessRefusals.NotOpen, (await _desk.AllowAsync(request.Id, ["tasks:read"], Cancel)).Refusal);
+        Assert.Equal(McpAccessRefusals.NotOpen, (await _desk.AllowAsync(request.Id, ["work:read"], Cancel)).Refusal);
         Assert.Contains(_notifications.ClosedById, closed => closed.Id == McpAccessDesk.NotificationIdFor(request.Id));
     }
 

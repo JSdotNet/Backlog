@@ -37,7 +37,7 @@
 *@
 @namespace Backlog.Desktop.UI.Shell
 @using Backlog.SharedKernel
-@using Backlog.Modules.Tasks.Abstractions
+@using Backlog.Modules.Work.Abstractions.Tasks
 @using Backlog.Modules.Devbook.Abstractions
 @using Backlog.Modules.Brain.Abstractions
 @using Backlog.Infrastructure.Claude
@@ -386,7 +386,7 @@
     {
         var page = string.IsNullOrWhiteSpace(id)
             ? null
-            : OfferedPages.FirstOrDefault(candidate => string.Equals(candidate.Id, id.Trim(), StringComparison.OrdinalIgnoreCase));
+            : OfferedPages.FirstOrDefault(candidate => string.Equals(candidate.Id, SettingsPages.CurrentId(id.Trim()), StringComparison.OrdinalIgnoreCase));
         var target = page?.Id ?? SettingsPages.Features;
         var changed = !IsShowing(target);
 

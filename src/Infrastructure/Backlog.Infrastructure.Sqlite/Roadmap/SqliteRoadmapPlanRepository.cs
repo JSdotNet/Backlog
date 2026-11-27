@@ -3,10 +3,10 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 
 using Backlog.Infrastructure.Sqlite.Changes;
-using Backlog.Modules.Roadmap;
-using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
-using Backlog.Modules.Roadmap.Abstractions.Services;
-using Backlog.Modules.Roadmap.DomainModels;
+using Backlog.Modules.Work.Plans;
+using Backlog.Modules.Work.Abstractions.Plans.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Plans.Services;
+using Backlog.Modules.Work.Plans.DomainModels;
 
 using Microsoft.Data.Sqlite;
 
@@ -80,7 +80,7 @@ public sealed class SqliteRoadmapPlanRepository : IRoadmapPlanRepository, IRoadm
         await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
         await using var command = connection.CreateCommand();
 
-        command.CommandText = "SELECT document FROM roadmap_plan WHERE id = $id;";
+        command.CommandText = "SELECT document FROM work_plan WHERE id = $id;";
         command.Parameters.AddWithValue("$id", PlanRowId);
 
         var document = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) as string;
@@ -148,7 +148,7 @@ public sealed class SqliteRoadmapPlanRepository : IRoadmapPlanRepository, IRoadm
         // disagree about.
         command.CommandText =
             """
-            INSERT INTO roadmap_plan (id, document, updated_at)
+            INSERT INTO work_plan (id, document, updated_at)
             VALUES ($id, $document, $updated_at)
             ON CONFLICT(id) DO UPDATE SET
                 document = excluded.document,
@@ -175,7 +175,7 @@ public sealed class SqliteRoadmapPlanRepository : IRoadmapPlanRepository, IRoadm
         await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
         await using var command = connection.CreateCommand();
 
-        command.CommandText = "SELECT document, updated_at FROM roadmap_plan WHERE id = $id;";
+        command.CommandText = "SELECT document, updated_at FROM work_plan WHERE id = $id;";
         command.Parameters.AddWithValue("$id", PlanRowId);
 
         await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
@@ -211,7 +211,7 @@ public sealed class SqliteRoadmapPlanRepository : IRoadmapPlanRepository, IRoadm
 
         command.CommandText =
             """
-            INSERT INTO roadmap_plan (id, document, updated_at)
+            INSERT INTO work_plan (id, document, updated_at)
             VALUES ($id, $document, $updated_at)
             ON CONFLICT(id) DO UPDATE SET
                 document = excluded.document,
@@ -253,7 +253,7 @@ public sealed class SqliteRoadmapPlanRepository : IRoadmapPlanRepository, IRoadm
     private static async Task<DateTimeOffset?> StampAsync(SqliteConnection connection, CancellationToken cancellationToken)
     {
         await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT updated_at FROM roadmap_plan WHERE id = $id;";
+        command.CommandText = "SELECT updated_at FROM work_plan WHERE id = $id;";
         command.Parameters.AddWithValue("$id", PlanRowId);
 
         return await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) is string stored
@@ -289,19 +289,33 @@ public sealed class SqliteRoadmapPlanRepository : IRoadmapPlanRepository, IRoadm
     private static Task<SqliteConnection> OpenAsync(string databasePath, CancellationToken cancellationToken) =>
         SqliteJournal.OpenJournalledAsync(databasePath, Schema, JournalSchema, cancellationToken);
 
-    /// <summary>The triggers that write a <c>roadmap-plan</c> revision for every write
+    /// <summary>The kind the change journal records a plan revision under. It was
+    /// <see cref="LegacyJournalKind"/> before Tasks and Roadmap Planning merged into Work
+    /// (local ADR 0073 §10); revisions written then keep that kind, and
+    /// <see cref="Changes.SqliteChangeRestore"/> still restores them.</summary>
+    internal const string JournalKind = "work-plan";
+
+    /// <summary>The kind plan revisions carried before the rename.</summary>
+    internal const string LegacyJournalKind = "roadmap-plan";
+
+    /// <summary>The triggers that write a <c>work-plan</c> revision for every write
     /// of the plan row (local ADR 0071 §2), its before-image the whole stored
     /// document.</summary>
     internal static readonly SqliteSchemaDefinition JournalSchema = new(
-        owner: "journal:roadmap_plan",
-        ddl: SqliteJournal.Triggers("roadmap_plan", "roadmap-plan", ["id", "document", "updated_at"]));
+        owner: "journal:work_plan",
+        ddl: SqliteJournal.Triggers("work_plan", JournalKind, ["id", "document", "updated_at"]));
 
     // No index. The table holds one row and every read is by primary key, so
     // there is nothing an index could accelerate.
+    //
+    // The table was roadmap_plan, stamped under the owner roadmap, before Tasks and
+    // Roadmap Planning merged into Work (local ADR 0073 §10). A file that still has it
+    // has its row copied over on the first open, and the old table stays behind unread:
+    // ADR 0006 adds and never drops.
     internal static readonly SqliteSchemaDefinition Schema = new(
-        owner: "roadmap",
+        owner: "work_plan",
         ddl: """
-            CREATE TABLE IF NOT EXISTS roadmap_plan (
+            CREATE TABLE IF NOT EXISTS work_plan (
                 id         TEXT PRIMARY KEY NOT NULL,
                 document   TEXT NOT NULL,
                 -- NOT NULL, unlike the tasks table's updated_at. That one had to
@@ -311,5 +325,6 @@ public sealed class SqliteRoadmapPlanRepository : IRoadmapPlanRepository, IRoadm
                 -- about columns added to a populated table, and this is not one.
                 updated_at TEXT NOT NULL
             );
-            """);
+            """,
+        renamedTables: [new SqliteRenamedTable("roadmap_plan", "work_plan", ["id", "document", "updated_at"])]);
 }

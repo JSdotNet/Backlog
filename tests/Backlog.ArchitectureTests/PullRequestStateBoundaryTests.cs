@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 namespace Backlog.ArchitectureTests;
 
 /// <summary>
-/// Repository Management owns pull-request state, and every other reader reaches it
+/// Repositories owns pull-request state, and every other reader reaches it
 /// through the module's contract (local ADR 0042). These facts read the source of the
 /// readers that used to reach the GitHub adapter on their own, so a pull-request read
 /// that goes around the contract — and so around its one cache — fails here rather
@@ -16,7 +16,7 @@ public sealed class PullRequestStateBoundaryTests
     /// lists, the read by number, the merge, auto-merge on
     /// and off, update branch, ready for review and re-run. A module screen reads and
     /// acts on a pull request through its own module's port, which an adapter answers
-    /// out of Repository Management's contract, never through these (local ADR 0042 §4).
+    /// out of Repositories' contract, never through these (local ADR 0042 §4).
     /// </summary>
     private static readonly string[] PullRequestMembers =
     [
@@ -48,8 +48,8 @@ public sealed class PullRequestStateBoundaryTests
     ];
 
     /// <summary>
-    /// Progress's pull-request reader asks the contract, not the GitHub adapter (local
-    /// ADR 0042 §5, V6): no adapter in <c>Infrastructure.FileSystem/Progress</c> that
+    /// Goals' pull-request reader asks the contract, not the GitHub adapter (local
+    /// ADR 0042 §5, V6): no adapter in <c>Infrastructure.FileSystem/Goals</c> that
     /// answers goal pull requests names <c>GitHubIntegration</c> or the GitHub adapter's
     /// namespace.
     /// </summary>
@@ -57,7 +57,7 @@ public sealed class PullRequestStateBoundaryTests
     public void Progress_reads_pull_requests_through_the_contract()
     {
         var readers = System.IO.Directory
-            .EnumerateFiles(RepositoryRoot.Directory("src", "Infrastructure", "Backlog.Infrastructure.FileSystem", "Progress"), "*GoalPullRequests*.cs")
+            .EnumerateFiles(RepositoryRoot.Directory("src", "Infrastructure", "Backlog.Infrastructure.FileSystem", "Goals"), "*GoalPullRequests*.cs")
             .ToList();
 
         Assert.NotEmpty(readers);
@@ -98,7 +98,7 @@ public sealed class PullRequestStateBoundaryTests
         Assert.True(
             offenders.Count == 0,
             "A module screen calls a pull-request member of the GitHub adapter. Read and act through the module's own port, "
-            + "answered out of Repository Management's contract (local ADR 0042 §4):\n" + string.Join('\n', offenders));
+            + "answered out of Repositories' contract (local ADR 0042 §4):\n" + string.Join('\n', offenders));
     }
 
     /// <summary>
@@ -185,7 +185,7 @@ public sealed class PullRequestStateBoundaryTests
     [Fact]
     public void The_side_panels_reader_lists_the_linked_pull_requests_through_Tasks()
     {
-        var reader = File.ReadAllText(RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "Goals", "WorkInProgressReader.cs"));
+        var reader = File.ReadAllText(RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "ShellGoals", "WorkInProgressReader.cs"));
 
         Assert.DoesNotContain("TasksDesktopState", reader, StringComparison.Ordinal);
         Assert.DoesNotContain("EntryRow", reader, StringComparison.Ordinal);

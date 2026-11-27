@@ -47,38 +47,38 @@ public sealed class McpAccessDeskTests : IDisposable
     [Fact]
     public async Task A_registration_is_a_pending_grant_that_mints_no_token_until_the_person_allows_it_with_Hello()
     {
-        var registered = await _desk.RegisterAsync("Claude Code · Backlog", ["tasks:write", "tasks:read"], "claude.exe", @"D:\Repos\Backlog", Cancel);
+        var registered = await _desk.RegisterAsync("Claude Code · Backlog", ["work:write", "work:read"], "claude.exe", @"D:\Repos\Backlog", Cancel);
 
         Assert.False(registered.Refused, registered.Message);
         var grant = registered.Grant!;
         Assert.Empty(grant.Scopes);
         Assert.Equal(McpAccessDesk.CreatedBySelf, grant.CreatedBy);
-        Assert.Equal(["tasks:read", "tasks:write"], registered.Request!.Scopes);
+        Assert.Equal(["work:read", "work:write"], registered.Request!.Scopes);
         Assert.Equal(McpGrantRefusal.Pending, _tokens.Mint(grant.Id).Refusal);
 
-        var allowed = await _desk.AllowAsync(registered.Request.Id, ["tasks:read", "tasks:write"], Cancel);
+        var allowed = await _desk.AllowAsync(registered.Request.Id, ["work:read", "work:write"], Cancel);
 
         Assert.False(allowed.Refused, allowed.Message);
         Assert.Equal(1, _consent.Asked);
-        Assert.Equal(["tasks:read", "tasks:write"], _grants.Find(grant.Id)!.Scopes);
+        Assert.Equal(["work:read", "work:write"], _grants.Find(grant.Id)!.Scopes);
         Assert.Equal(McpAccessRequestState.Allowed, _requests.Find(registered.Request.Id)!.State);
 
         var minted = _tokens.Mint(grant.Id);
         Assert.NotNull(minted.Token);
         var validated = await _tokens.ValidateAsync(minted.Token.Value, Cancel);
         Assert.Equal(grant.Id, validated.Grant?.Id);
-        Assert.Equal(["tasks:read", "tasks:write"], McpScopePolicies.ScopesOf(validated.Principal).Order(StringComparer.Ordinal));
+        Assert.Equal(["work:read", "work:write"], McpScopePolicies.ScopesOf(validated.Principal).Order(StringComparer.Ordinal));
     }
 
     [Fact]
     public async Task Allow_with_scopes_trimmed_grants_only_those()
     {
-        var registered = await _desk.RegisterAsync("Copilot CLI", ["tasks:read", "tasks:write", "runs:write"], null, null, Cancel);
+        var registered = await _desk.RegisterAsync("Copilot CLI", ["work:read", "work:write", "runs:write"], null, null, Cancel);
 
-        await _desk.AllowAsync(registered.Request!.Id, ["tasks:read"], Cancel);
+        await _desk.AllowAsync(registered.Request!.Id, ["work:read"], Cancel);
 
-        Assert.Equal(["tasks:read"], _grants.Find(registered.Grant!.Id)!.Scopes);
-        Assert.Equal(["tasks:read"], _requests.Find(registered.Request.Id)!.Allowed);
+        Assert.Equal(["work:read"], _grants.Find(registered.Grant!.Id)!.Scopes);
+        Assert.Equal(["work:read"], _requests.Find(registered.Request.Id)!.Allowed);
     }
 
     [Theory]
@@ -86,7 +86,7 @@ public sealed class McpAccessDeskTests : IDisposable
     [InlineData("   ")]
     public async Task A_blank_name_is_refused(string name)
     {
-        var outcome = await _desk.RegisterAsync(name, ["tasks:read"], null, null, Cancel);
+        var outcome = await _desk.RegisterAsync(name, ["work:read"], null, null, Cancel);
 
         Assert.Equal(McpAccessRefusals.BadName, outcome.Refusal);
         Assert.Empty(_grants.List());
@@ -97,7 +97,7 @@ public sealed class McpAccessDeskTests : IDisposable
     {
         Assert.Equal(McpAccessRefusals.NoScopes, (await _desk.RegisterAsync("A", [], null, null, Cancel)).Refusal);
         Assert.Equal(McpAccessRefusals.BadScope, (await _desk.RegisterAsync("A", ["tasks:reed"], null, null, Cancel)).Refusal);
-        Assert.Equal(McpAccessRefusals.BadScope, (await _desk.RegisterAsync("A", ["tasks:read", "devbook:decide"], null, null, Cancel)).Refusal);
+        Assert.Equal(McpAccessRefusals.BadScope, (await _desk.RegisterAsync("A", ["work:read", "devbook:decide"], null, null, Cancel)).Refusal);
 
         Assert.Empty(_grants.List());
         Assert.Empty(_requests.List());
@@ -106,9 +106,9 @@ public sealed class McpAccessDeskTests : IDisposable
     [Fact]
     public async Task One_request_per_name_waits_at_a_time()
     {
-        await _desk.RegisterAsync("Claude Code", ["tasks:read"], null, null, Cancel);
+        await _desk.RegisterAsync("Claude Code", ["work:read"], null, null, Cancel);
 
-        var again = await _desk.RegisterAsync("claude code", ["tasks:read"], null, null, Cancel);
+        var again = await _desk.RegisterAsync("claude code", ["work:read"], null, null, Cancel);
 
         Assert.Equal(McpAccessRefusals.AlreadyPending, again.Refusal);
         Assert.Single(_grants.List());
@@ -119,10 +119,10 @@ public sealed class McpAccessDeskTests : IDisposable
     {
         for (var i = 1; i <= McpAccessDesk.MaxOpen; i++)
         {
-            Assert.False((await _desk.RegisterAsync($"Agent {i}", ["tasks:read"], null, null, Cancel)).Refused);
+            Assert.False((await _desk.RegisterAsync($"Agent {i}", ["work:read"], null, null, Cancel)).Refused);
         }
 
-        var sixth = await _desk.RegisterAsync("Agent 6", ["tasks:read"], null, null, Cancel);
+        var sixth = await _desk.RegisterAsync("Agent 6", ["work:read"], null, null, Cancel);
 
         Assert.Equal(McpAccessRefusals.TooMany, sixth.Refusal);
         Assert.Equal(McpAccessDesk.MaxOpen, _desk.Waiting().Count);
@@ -131,9 +131,9 @@ public sealed class McpAccessDeskTests : IDisposable
     [Fact]
     public async Task A_name_an_agent_already_has_is_refused()
     {
-        _grants.Create("Backlog delivery", ["tasks:read"], "Settings");
+        _grants.Create("Backlog delivery", ["work:read"], "Settings");
 
-        var outcome = await _desk.RegisterAsync("Backlog delivery", ["tasks:read"], null, null, Cancel);
+        var outcome = await _desk.RegisterAsync("Backlog delivery", ["work:read"], null, null, Cancel);
 
         Assert.Equal(McpAccessRefusals.NameTaken, outcome.Refusal);
     }
@@ -141,7 +141,7 @@ public sealed class McpAccessDeskTests : IDisposable
     [Fact]
     public async Task Decline_revokes_the_pending_grant_and_blocks_the_name_for_a_day()
     {
-        var registered = await _desk.RegisterAsync("Copilot CLI", ["tasks:read"], null, null, Cancel);
+        var registered = await _desk.RegisterAsync("Copilot CLI", ["work:read"], null, null, Cancel);
 
         var declined = await _desk.DeclineAsync(registered.Request!.Id, Cancel);
 
@@ -151,19 +151,19 @@ public sealed class McpAccessDeskTests : IDisposable
         Assert.Equal(0, _consent.Asked);
 
         _clock.Advance(TimeSpan.FromHours(23));
-        Assert.Equal(McpAccessRefusals.DeclinedRecently, (await _desk.RegisterAsync("Copilot CLI", ["tasks:read"], null, null, Cancel)).Refusal);
+        Assert.Equal(McpAccessRefusals.DeclinedRecently, (await _desk.RegisterAsync("Copilot CLI", ["work:read"], null, null, Cancel)).Refusal);
 
         _clock.Advance(TimeSpan.FromHours(1));
-        Assert.False((await _desk.RegisterAsync("Copilot CLI", ["tasks:read"], null, null, Cancel)).Refused);
+        Assert.False((await _desk.RegisterAsync("Copilot CLI", ["work:read"], null, null, Cancel)).Refused);
     }
 
     [Fact]
     public async Task Allow_is_refused_when_Hello_is_not_available_and_the_grant_stays_pending()
     {
-        var registered = await _desk.RegisterAsync("Claude Code", ["tasks:read"], null, null, Cancel);
+        var registered = await _desk.RegisterAsync("Claude Code", ["work:read"], null, null, Cancel);
         var harness = new McpAccessDesk(_grants, _requests, new UnavailableUserConsent(), _clock);
 
-        var outcome = await harness.AllowAsync(registered.Request!.Id, ["tasks:read"], Cancel);
+        var outcome = await harness.AllowAsync(registered.Request!.Id, ["work:read"], Cancel);
 
         Assert.Equal(McpAccessRefusals.HelloUnavailable, outcome.Refusal);
         Assert.True(_requests.Find(registered.Request.Id)!.IsOpen);
@@ -174,21 +174,37 @@ public sealed class McpAccessDeskTests : IDisposable
     [Fact]
     public async Task Allow_is_refused_when_Hello_does_not_confirm()
     {
-        var registered = await _desk.RegisterAsync("Claude Code", ["tasks:read"], null, null, Cancel);
+        var registered = await _desk.RegisterAsync("Claude Code", ["work:read"], null, null, Cancel);
         _consent.Answer = UserConsentOutcome.Declined;
 
-        var outcome = await _desk.AllowAsync(registered.Request!.Id, ["tasks:read"], Cancel);
+        var outcome = await _desk.AllowAsync(registered.Request!.Id, ["work:read"], Cancel);
 
         Assert.Equal(McpAccessRefusals.HelloDeclined, outcome.Refusal);
         Assert.True(_requests.Find(registered.Request.Id)!.IsOpen);
     }
 
+    /// <summary>Allow must be a prompt UI automation cannot pass (local ADR 0058 §5), so a
+    /// confirmation the person gave a moment ago does not answer it.</summary>
+    [Fact]
+    public async Task Allow_asks_Hello_even_within_a_remembered_confirmation()
+    {
+        var remembered = new RememberedUserConsent(_consent, _clock);
+        var desk = new McpAccessDesk(_grants, _requests, remembered, _clock);
+        var registered = await desk.RegisterAsync("Claude Code", ["work:read"], null, null, Cancel);
+        Assert.Equal(UserConsentOutcome.Verified, await remembered.VerifyAsync("A setting a moment ago", Cancel));
+
+        var allowed = await desk.AllowAsync(registered.Request!.Id, ["work:read"], Cancel);
+
+        Assert.False(allowed.Refused, allowed.Message);
+        Assert.Equal(2, _consent.Asked);
+    }
+
     [Fact]
     public async Task Allow_refuses_a_scope_not_asked_for_and_none_at_all_before_asking_for_Hello()
     {
-        var registered = await _desk.RegisterAsync("Claude Code", ["tasks:read"], null, null, Cancel);
+        var registered = await _desk.RegisterAsync("Claude Code", ["work:read"], null, null, Cancel);
 
-        Assert.Equal(McpAccessRefusals.NotAsked, (await _desk.AllowAsync(registered.Request!.Id, ["tasks:read", "tasks:admin"], Cancel)).Refusal);
+        Assert.Equal(McpAccessRefusals.NotAsked, (await _desk.AllowAsync(registered.Request!.Id, ["work:read", "work:admin"], Cancel)).Refusal);
         Assert.Equal(McpAccessRefusals.NothingAllowed, (await _desk.AllowAsync(registered.Request.Id, [], Cancel)).Refusal);
         Assert.Equal(0, _consent.Asked);
     }
@@ -196,10 +212,10 @@ public sealed class McpAccessDeskTests : IDisposable
     [Fact]
     public async Task A_request_is_answered_once()
     {
-        var registered = await _desk.RegisterAsync("Claude Code", ["tasks:read"], null, null, Cancel);
-        await _desk.AllowAsync(registered.Request!.Id, ["tasks:read"], Cancel);
+        var registered = await _desk.RegisterAsync("Claude Code", ["work:read"], null, null, Cancel);
+        await _desk.AllowAsync(registered.Request!.Id, ["work:read"], Cancel);
 
-        Assert.Equal(McpAccessRefusals.NotOpen, (await _desk.AllowAsync(registered.Request.Id, ["tasks:read"], Cancel)).Refusal);
+        Assert.Equal(McpAccessRefusals.NotOpen, (await _desk.AllowAsync(registered.Request.Id, ["work:read"], Cancel)).Refusal);
         Assert.Equal(McpAccessRefusals.NotOpen, (await _desk.DeclineAsync(registered.Request.Id, Cancel)).Refusal);
         Assert.False(_grants.Find(registered.Grant!.Id)!.Revoked);
     }
@@ -207,10 +223,10 @@ public sealed class McpAccessDeskTests : IDisposable
     [Fact]
     public async Task Request_more_opens_a_request_and_leaves_the_caller_s_grant_as_it_was_until_allowed()
     {
-        var grant = _grants.Create("Backlog delivery", ["tasks:read"], "Settings");
+        var grant = _grants.Create("Backlog delivery", ["work:read"], "Settings");
         var caller = await PrincipalOf(grant);
 
-        var answer = await _desk.RequestMoreAsync(caller, ["tasks:read", "runs:write"], @"D:\Repos\Backlog", Cancel);
+        var answer = await _desk.RequestMoreAsync(caller, ["work:read", "runs:write"], @"D:\Repos\Backlog", Cancel);
 
         Assert.False(answer.Refused, answer.Message);
         Assert.True(answer.WindowOpened);
@@ -223,13 +239,29 @@ public sealed class McpAccessDeskTests : IDisposable
 
         await _desk.AllowAsync(request.Id, ["runs:write"], Cancel);
 
-        Assert.Equal(["tasks:read", "runs:write"], _grants.Find(grant.Id)!.Scopes);
+        Assert.Equal(["work:read", "runs:write"], _grants.Find(grant.Id)!.Scopes);
+    }
+
+    /// <summary>An agent still asking by the Work scopes' old names (local ADR 0073 §10) asks
+    /// for the new scopes, registering or asking for more.</summary>
+    [Fact]
+    public async Task An_agent_asking_by_the_old_scope_names_asks_for_the_new_ones()
+    {
+        var registered = await _desk.RegisterAsync("Old skill", ["tasks:read"], null, null, Cancel);
+        Assert.Null(registered.Refusal);
+        Assert.Equal(["work:read"], registered.Request!.Scopes);
+
+        var grant = _grants.Create("Backlog delivery", ["work:read"], "Settings");
+        var answer = await _desk.RequestMoreAsync(await PrincipalOf(grant), ["tasks:read", "tasks:write"], null, Cancel);
+
+        Assert.False(answer.Refused, answer.Message);
+        Assert.Equal(["work:write"], _requests.Find(answer.RequestId!)!.Scopes);
     }
 
     [Fact]
     public async Task Request_more_asked_again_while_one_waits_focuses_the_same_request()
     {
-        var grant = _grants.Create("Backlog delivery", ["tasks:read"], "Settings");
+        var grant = _grants.Create("Backlog delivery", ["work:read"], "Settings");
         var caller = await PrincipalOf(grant);
 
         var first = await _desk.RequestMoreAsync(caller, ["runs:write"], null, Cancel);
@@ -243,36 +275,36 @@ public sealed class McpAccessDeskTests : IDisposable
     [Fact]
     public async Task Request_more_is_refused_for_a_caller_with_no_grant_a_pending_grant_and_scopes_it_holds()
     {
-        Assert.Equal(McpAccessRefusals.NoGrant, (await _desk.RequestMoreAsync(McpScopePolicies.SharedTokenCaller, ["tasks:read"], null, Cancel)).Refusal);
-        Assert.Equal(McpAccessRefusals.NoGrant, (await _desk.RequestMoreAsync(McpScopePolicies.HarnessCaller, ["tasks:read"], null, Cancel)).Refusal);
-        Assert.Equal(McpAccessRefusals.NoGrant, (await _desk.RequestMoreAsync(null, ["tasks:read"], null, Cancel)).Refusal);
+        Assert.Equal(McpAccessRefusals.NoGrant, (await _desk.RequestMoreAsync(McpScopePolicies.SharedTokenCaller, ["work:read"], null, Cancel)).Refusal);
+        Assert.Equal(McpAccessRefusals.NoGrant, (await _desk.RequestMoreAsync(McpScopePolicies.HarnessCaller, ["work:read"], null, Cancel)).Refusal);
+        Assert.Equal(McpAccessRefusals.NoGrant, (await _desk.RequestMoreAsync(null, ["work:read"], null, Cancel)).Refusal);
 
-        var held = _grants.Create("Backlog delivery", ["tasks:read"], "Settings");
-        Assert.Equal(McpAccessRefusals.NothingNew, (await _desk.RequestMoreAsync(await PrincipalOf(held), ["tasks:read"], null, Cancel)).Refusal);
+        var held = _grants.Create("Backlog delivery", ["work:read"], "Settings");
+        Assert.Equal(McpAccessRefusals.NothingNew, (await _desk.RequestMoreAsync(await PrincipalOf(held), ["work:read"], null, Cancel)).Refusal);
         Assert.Equal(McpAccessRefusals.BadScope, (await _desk.RequestMoreAsync(await PrincipalOf(held), ["devbook:decide"], null, Cancel)).Refusal);
 
-        var registered = await _desk.RegisterAsync("Claude Code", ["tasks:read"], null, null, Cancel);
+        var registered = await _desk.RegisterAsync("Claude Code", ["work:read"], null, null, Cancel);
         var pending = new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub", registered.Grant!.Id)], McpGrantTokens.AuthenticationType));
-        Assert.Equal(McpAccessRefusals.Pending, (await _desk.RequestMoreAsync(pending, ["tasks:write"], null, Cancel)).Refusal);
+        Assert.Equal(McpAccessRefusals.Pending, (await _desk.RequestMoreAsync(pending, ["work:write"], null, Cancel)).Refusal);
     }
 
     [Fact]
     public async Task Declining_a_request_for_more_leaves_the_grant_working()
     {
-        var grant = _grants.Create("Backlog delivery", ["tasks:read"], "Settings");
+        var grant = _grants.Create("Backlog delivery", ["work:read"], "Settings");
         var answer = await _desk.RequestMoreAsync(await PrincipalOf(grant), ["runs:write"], null, Cancel);
 
         await _desk.DeclineAsync(answer.RequestId!, Cancel);
 
         Assert.False(_grants.Find(grant.Id)!.Revoked);
-        Assert.Equal(["tasks:read"], _grants.Find(grant.Id)!.Scopes);
+        Assert.Equal(["work:read"], _grants.Find(grant.Id)!.Scopes);
         Assert.NotNull(_tokens.Mint(grant.Id).Token);
     }
 
     [Fact]
     public async Task A_request_raises_an_alert_the_phone_shows_and_its_answer_closes_it()
     {
-        var registered = await _desk.RegisterAsync("Claude Code", ["tasks:read"], null, null, Cancel);
+        var registered = await _desk.RegisterAsync("Claude Code", ["work:read"], null, null, Cancel);
 
         var (id, draft) = Assert.Single(_notifications.Published);
         Assert.Equal(Backlog.Modules.Notifications.Abstractions.NotificationKind.Alert, draft.Kind);
@@ -280,7 +312,7 @@ public sealed class McpAccessDeskTests : IDisposable
         Assert.Equal(AgentRequestSurface.Link(registered.Request!.Id), draft.DeepLink);
         Assert.Contains("Claude Code", draft.Title, StringComparison.Ordinal);
 
-        await _desk.AllowAsync(registered.Request.Id, ["tasks:read"], Cancel);
+        await _desk.AllowAsync(registered.Request.Id, ["work:read"], Cancel);
 
         Assert.Equal(id, Assert.Single(_notifications.ClosedById).Id);
     }
@@ -288,7 +320,7 @@ public sealed class McpAccessDeskTests : IDisposable
     [Fact]
     public async Task Show_opens_the_window_of_the_grant_s_waiting_request_and_changes_nothing()
     {
-        var registered = await _desk.RegisterAsync("Claude Code", ["tasks:read"], null, null, Cancel);
+        var registered = await _desk.RegisterAsync("Claude Code", ["work:read"], null, null, Cancel);
         var before = File.ReadAllText(_root.Combine(FileMcpAccessRequestStore.FileName));
 
         var shown = await _desk.ShowAsync(registered.Grant!.Id);
@@ -304,7 +336,7 @@ public sealed class McpAccessDeskTests : IDisposable
     {
         var broker = new McpTokenBroker(_tokens, "unused-" + Guid.NewGuid().ToString("N"), null, desk: _desk);
 
-        var registered = await ExchangeAsync(broker, "{\"register\":{\"name\":\"Claude Code\",\"scopes\":[\"tasks:read\"],\"folder\":\"D:\\\\Repos\\\\Backlog\"}}\n");
+        var registered = await ExchangeAsync(broker, "{\"register\":{\"name\":\"Claude Code\",\"scopes\":[\"work:read\"],\"folder\":\"D:\\\\Repos\\\\Backlog\"}}\n");
 
         Assert.Equal("pending", (string?)registered["state"]);
         var grantId = (string)registered["grant"]!;
@@ -314,17 +346,17 @@ public sealed class McpAccessDeskTests : IDisposable
         Assert.Equal("pending", (string?)(await ExchangeAsync(broker, "{\"grant\":\"" + grantId + "\"}\n"))["error"]);
         Assert.True((bool)(await ExchangeAsync(broker, "{\"request\":\"" + grantId + "\"}\n"))["opened"]!);
 
-        var refused = await ExchangeAsync(broker, "{\"register\":{\"name\":\"Claude Code\",\"scopes\":[\"tasks:read\"]}}\n");
+        var refused = await ExchangeAsync(broker, "{\"register\":{\"name\":\"Claude Code\",\"scopes\":[\"work:read\"]}}\n");
         Assert.Equal(McpAccessRefusals.AlreadyPending, (string?)refused["error"]);
     }
 
     [Theory]
     [InlineData("{\"allow\":\"r_aaaaaaaaaaaaaaaa\"}\n")]
     [InlineData("{\"decline\":\"r_aaaaaaaaaaaaaaaa\"}\n")]
-    [InlineData("{\"setScopes\":{\"grant\":\"g_aaaaaaaaaaaaaaaa\",\"scopes\":[\"tasks:admin\"]}}\n")]
+    [InlineData("{\"setScopes\":{\"grant\":\"g_aaaaaaaaaaaaaaaa\",\"scopes\":[\"work:admin\"]}}\n")]
     public async Task No_pipe_command_answers_a_request_or_edits_a_grant(string request)
     {
-        var grant = _grants.Create("Backlog delivery", ["tasks:read"], "Settings");
+        var grant = _grants.Create("Backlog delivery", ["work:read"], "Settings");
         var broker = new McpTokenBroker(_tokens, "unused-" + Guid.NewGuid().ToString("N"), null, desk: _desk);
 
         var reply = await ExchangeAsync(broker, request);
@@ -337,12 +369,12 @@ public sealed class McpAccessDeskTests : IDisposable
     [Fact]
     public async Task A_self_registered_grant_stays_pending_when_its_requests_are_lost()
     {
-        var registered = await _desk.RegisterAsync("Claude Code", ["tasks:read"], null, null, Cancel);
+        var registered = await _desk.RegisterAsync("Claude Code", ["work:read"], null, null, Cancel);
         File.Delete(_root.Combine(FileMcpAccessRequestStore.FileName));
 
         Assert.Equal(McpGrantRefusal.Pending, _tokens.Mint(registered.Grant!.Id).Refusal);
         var principal = new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub", registered.Grant.Id)], McpGrantTokens.AuthenticationType));
-        Assert.Equal(McpAccessRefusals.Pending, (await _desk.RequestMoreAsync(principal, ["tasks:write"], null, Cancel)).Refusal);
+        Assert.Equal(McpAccessRefusals.Pending, (await _desk.RequestMoreAsync(principal, ["work:write"], null, Cancel)).Refusal);
     }
 
     [Fact]
@@ -350,7 +382,7 @@ public sealed class McpAccessDeskTests : IDisposable
     {
         File.WriteAllText(_root.Combine(FileMcpAccessRequestStore.FileName), "{ not json");
 
-        var outcome = await _desk.RegisterAsync("Claude Code", ["tasks:read"], null, null, Cancel);
+        var outcome = await _desk.RegisterAsync("Claude Code", ["work:read"], null, null, Cancel);
 
         Assert.Equal(McpAccessRefusals.StoreUnavailable, outcome.Refusal);
         var grant = Assert.Single(_grants.List());
@@ -371,7 +403,7 @@ public sealed class McpAccessDeskTests : IDisposable
     {
         var broker = new McpTokenBroker(_tokens, "unused-" + Guid.NewGuid().ToString("N"), null);
 
-        var reply = await ExchangeAsync(broker, "{\"register\":{\"name\":\"Claude Code\",\"scopes\":[\"tasks:read\"]}}\n");
+        var reply = await ExchangeAsync(broker, "{\"register\":{\"name\":\"Claude Code\",\"scopes\":[\"work:read\"]}}\n");
 
         Assert.Equal("bad-request", (string?)reply["error"]);
         Assert.Empty(_grants.List());

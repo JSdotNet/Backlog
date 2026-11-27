@@ -13,8 +13,8 @@
 @using Backlog.SharedKernel
 @using Backlog.SharedKernel.Changes
 @using Backlog.SharedKernel.Results
-@using Backlog.Modules.Tasks.Abstractions
-@using Backlog.Modules.Tasks.Abstractions.Services
+@using Backlog.Modules.Work.Abstractions.Tasks
+@using Backlog.Modules.Work.Abstractions.Tasks.Services
 @using Backlog.Modules.Inbox.Abstractions.Services
 @using Backlog.Modules.Devbook.Abstractions
 @* Said in writing, which is the rule this project's _Imports.razor states for
@@ -26,6 +26,7 @@
 @using Backlog.UI.Components.Selects
 @* The repositories table is the library's DataTable. *@
 @using Backlog.UI.Components.Data
+@using Backlog.Modules.Repositories.Abstractions.Environments
 @inject GitHubIntegration GitHub
 @inject IAppFeatureSettings Features
 @inject ILocalGitRepositoryService LocalGit
@@ -414,6 +415,13 @@
                 </p>
             </div>
 
+            @* The places this repository runs, opened from the repository itself
+               (local ADR 0073 §3). Kept on this device, beside github.json, so a
+               command or folder that is this machine's never travels. *@
+            <RepositoryEnvironmentList Home="@EnvironmentHome.Repository(activeRepo.FullName)"
+                                       CloneDirectory="@activeRepo.CloneDirectory"
+                                       Label="@activeRepo.FullName" />
+
             @* Which of this machine's accounts calls for this repository go
                out as. Beside the colour and for the same reason: it is one
                fact about the repository rather than about any one surface,
@@ -594,7 +602,7 @@
                     @if (_activityCache is not null)
                     {
                         <div class="repo-card__section" data-testid="repo-activity-cache">
-                            <h4 class="devbook-folders__title">Dashboard activity</h4>
+                            <h4 class="devbook-folders__title">Insights activity</h4>
                             <p class="setting__note">
                                 Merged pull requests and closed issues are kept on this machine, with each pull request's review, churn and size detail, so opening the dashboard only walks the pages that changed since and fetches the pull requests it has not seen. Nothing about a merged pull request changes, so the saved copy stays right unless <code>@activeRepo.FullName</code> had its history rewritten.
                             </p>
@@ -824,6 +832,22 @@
 </Modal>
     </ChildContent>
 </SettingsCard>
+
+@* The registry's one group for the destinations no registered repository owns -
+   a cloud portal, a team dashboard (local ADR 0073 §3). A card of its own beside
+   the repositories, because it is no repository's row. *@
+@if (Services.GetService<Backlog.Modules.Repositories.Abstractions.Services.IEnvironments>() is not null)
+{
+<SettingsCard Title="No repository"
+              Description="Environments that belong to no registered repository, such as a cloud portal or a team dashboard."
+              TestId="no-repository-card">
+    <ChildContent>
+        <RepositoryEnvironmentList Home="@EnvironmentHome.NoRepository"
+                                   TestId="no-repository-environments"
+                                   Note="Launched the same way as a repository's own. Kept on this device." />
+    </ChildContent>
+</SettingsCard>
+}
 
 
 @code {

@@ -24,8 +24,8 @@ public class StylesheetDuplicateSelectorTests
     private const string App = "src/App/Backlog.Desktop.UI/wwwroot/app.css";
     private const string Components = "src/Core/Backlog.UI.Components/wwwroot/components.css";
     private const string Capture = "src/Modules/Capture/Backlog.Modules.Capture.UI/wwwroot/capture.css";
-    private const string Roadmap = "src/Modules/Roadmap/Backlog.Modules.Roadmap.UI/wwwroot/roadmap.css";
-    private const string Dashboard = "src/Modules/Dashboard/Backlog.Modules.Dashboard.UI/wwwroot/dashboard.css";
+    private const string Roadmap = "src/Modules/Work/Backlog.Modules.Work.UI/wwwroot/roadmap.css";
+    private const string Dashboard = "src/Modules/Insights/Backlog.Modules.Insights.UI/wwwroot/dashboard.css";
     private const string DevPc = "src/Modules/DevPc/Backlog.Modules.DevPc.UI/wwwroot/devpc.css";
     private const string Inbox = "src/Modules/Inbox/Backlog.Modules.Inbox.UI/wwwroot/inbox.css";
 
@@ -161,7 +161,6 @@ public class StylesheetDuplicateSelectorTests
             new(".metric-stacked-area__canvas-wrap", 2, PlotPlacement),
             new(".metric-stacked-area__axis", 2, PlotPlacement),
             new(".roadmap-bar__title", 2, SharedWithSiblings),
-            new(".roadmap-bar__badge", 2, SharedWithSiblings),
             new(".roadmap-bar__unestimated", 2, SharedWithSiblings),
             new(".integration-link__auto-merge", 2, SharedWithSiblings),
             new(".graph-atlas-index__status", 2, SharedWithSiblings),

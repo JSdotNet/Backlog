@@ -1,5 +1,5 @@
 using Backlog.Modules.Brain.Abstractions;
-using Backlog.Modules.Roadmap.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Plans.Services;
 
 namespace Backlog.Infrastructure.Brain;
 

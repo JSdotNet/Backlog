@@ -3,7 +3,7 @@ namespace Backlog.Infrastructure.Sync.UnitTests;
 /// <summary>
 /// A <c>sprint-series</c> document an older desktop left on the replica is read and
 /// dropped (local ADR 0035): counted as nothing to do, never written, never a task, and
-/// never logged as received — on a head with Progress or without it.
+/// never logged as received — on a head with Goals or without it.
 /// </summary>
 public sealed class TaskReplicaMergeRetiredTests
 {

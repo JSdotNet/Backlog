@@ -2,7 +2,7 @@
 
 ```meta
 date: 2026-10-20
-related: [".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md", ".devbook/arc42/08-crosscutting-concepts.md#task-sync", ".devbook/domain/progress/context.md#iteration-length", ".devbook/domain/progress/context.md#two-week-start", ".devbook/domain/progress/domain.md#iteration"]
+related: [".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md", ".devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md", ".devbook/arc42/08-crosscutting-concepts.md#task-sync", ".devbook/domain/goals/context.md#iteration-length", ".devbook/domain/goals/context.md#two-week-start", ".devbook/domain/goals/domain.md#iteration"]
 c4: [backlog.desktop.persistence, backlog.cloud]
 c4-touches: [backlog.mobile]
 ```
@@ -40,7 +40,7 @@ reads the length and the anchor from `ShellNavigationStore`, in the fields
 `GoalsIterationLength` and `GoalsTwoWeekStart`. That store never leaves the machine.
 
 **The model already says it travels.** ADR 0035 §3 calls the length a per-person
-setting, and [Iteration length](../../domain/progress/context.md#iteration-length)
+setting, and [Iteration length](../../domain/goals/context.md#iteration-length)
 says it travels with the person to every device. The build does not yet do that.
 
 **The feed already carries small whole documents.** ADR 0018 put the plan and the

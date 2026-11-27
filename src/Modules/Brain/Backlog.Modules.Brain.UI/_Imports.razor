@@ -6,9 +6,11 @@
    that namespace without a global:: prefix, and a bare "Backlog" binds to
    Backlog.Modules.
 
-   No Devbook pane namespace is named here: the components that render on
-   Devbook's viewer import it in their own file, so the one declared edge stays
-   visible where it is taken. *@
+   No Devbook pane namespace is named here: the components that take the pane's
+   published surface (Backlog.Modules.Devbook.Contracts.UI, local ADR 0073 §9) -
+   its mode extension point, editor, atlas and Lobes - import it in their own
+   file, so the declared edge stays visible where it is taken. The viewer itself,
+   DevbookMarkdownView, is the shared library's (Backlog.UI.Components.Devbook). *@
 @using global::Backlog.Modules.Brain.Abstractions
 @using global::Backlog.Modules.Devbook.Abstractions
 @using global::Backlog.SharedKernel

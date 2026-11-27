@@ -1,9 +1,9 @@
-using Backlog.Infrastructure.FileSystem.Progress;
-using Backlog.Modules.Progress.Abstractions;
-using Backlog.Modules.Progress.Abstractions.DataTransferObjects;
-using Backlog.Modules.Progress.Abstractions.Services;
-using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
-using Backlog.Modules.Roadmap.Abstractions.Services;
+using Backlog.Infrastructure.FileSystem.Goals;
+using Backlog.Modules.Goals.Abstractions;
+using Backlog.Modules.Goals.Abstractions.DataTransferObjects;
+using Backlog.Modules.Goals.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Plans.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Plans.Services;
 using Backlog.SharedKernel.Replication;
 
 namespace Backlog.Infrastructure.FileSystem.UnitTests;
@@ -11,7 +11,7 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// <summary>
 /// What the stand-up asks of the desktop: the person's iteration length and two-week start,
 /// kept in the per-user iteration settings file that travels between desktops (local ADR
-/// 0036; <c>.devbook/domain/progress/context.md#iteration-length</c>, <c>#two-week-start</c>)
+/// 0036; <c>.devbook/domain/goals/context.md#iteration-length</c>, <c>#two-week-start</c>)
 /// and seeded once from the shell navigation file an earlier build kept them in, and the
 /// global pace Roadmap Planning places by.
 /// </summary>

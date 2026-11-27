@@ -1,8 +1,8 @@
 using System.Collections.Concurrent;
 using Backlog.Modules.Notifications.Abstractions;
-using Backlog.Modules.RepositoryManagement.Abstractions;
-using Backlog.Modules.RepositoryManagement.Abstractions.DataTransferObjects;
-using Backlog.Modules.RepositoryManagement.Abstractions.Services;
+using Backlog.Modules.Repositories.Abstractions;
+using Backlog.Modules.Repositories.Abstractions.DataTransferObjects;
+using Backlog.Modules.Repositories.Abstractions.Services;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.Logging;

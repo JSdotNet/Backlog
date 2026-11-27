@@ -1,0 +1,1527 @@
+@*
+    The roadmap: the planning view, taking the whole screen below the header as a
+    surface of its own. It used to be a band capped at three tenths of the screen
+    above the task panes, and a plan read across time in a strip that short was a
+    plan paged through a few rows at a time; the panes beside it were never what the
+    reader was planning with. So the shell shows it instead of the panes, the way it
+    shows Tools and the Dashboard.
+
+    It draws the stored plan (.devbook/domain/work) through the shared timeline
+    control: a band per configured repository, the person's own lanes inside each,
+    spans and milestones placed by their dates, and an arrow from each thing that
+    has to land first to the thing waiting on it. A plan filed in several
+    repositories is drawn in each of their bands, as that repository's part. The
+    chart shows plans and not their tasks: a bar carries its progress fill, and the
+    tasks themselves stay in the task list. The chart owns its own scrollbar, so
+    the heading and the switches above it stay put.
+
+    What the band never does is edit the plan it was handed. RoadmapTimeline
+    proposes a placement when something is dragged or moved with the keyboard;
+    this asks the module whether that placement stands, and redraws from what
+    comes back. Only the plan knows whether a window is valid and what else the
+    change means.
+
+    A plan with nothing in it still gets an empty state rather than an empty
+    chart.
+
+    Whether the roadmap is on screen is decided in the shell's header, in the
+    takeover group beside the Dashboard, Sessions and Tools. So there is no
+    affordance on the view itself and no visibility state of its own to hold.
+
+    Beside the chart, or under it on a narrow window, sits the unplanned work: the
+    imported plans that have no item yet, whose tasks arrived first (ADR 0013,
+    ruling 3), one card each with its share per repository. Picking one runs the
+    same import a roadmap document runs, so the item lands placed and sized
+    exactly as an imported one does. With nothing to offer the column is not drawn
+    and the chart takes the width.
+*@
+@implements IDisposable
+@using global::Backlog.SharedKernel
+@using global::Backlog.SharedKernel.Changes
+@using global::Backlog.SharedKernel.Results
+@using Microsoft.Extensions.Logging
+@inject IRoadmapPlanning Planning
+@inject IRoadmapItemRollup Rollups
+@inject IPlanningPace Paces
+@inject IImportedPlanSource ImportedPlans
+@inject GitHubSettingsStore Repositories
+@inject IRoadmapWorkChanges WorkChanges
+@inject IRoadmapActualHours ActualHours
+@inject IRoadmapViewPreferences ViewPreferences
+@inject IServiceProvider Services
+@inject ILogger<RoadmapBand> Log
+
+<section class="roadmap-band" id="roadmap-band" aria-labelledby="roadmap-band-title" data-testid="roadmap-band">
+    @* The heading lives in one of two places, and which one depends on whether
+       there is a chart to head.
+
+       With a plan, it is handed to RoadmapTimeline as its own heading. The chart's
+       header is already a row with the heading in it, so giving it this one puts
+       "Roadmap" and its controls on the chart's own header line, and a chart heading
+       of its own would have been a second title saying the same thing. The chart's
+       facet filters are off: the Completed switch is the one narrowing the roadmap
+       offers.
+
+       With nothing planned there is no chart, so the view carries its own header
+       above the empty state. Either way the h2 keeps the id this section's
+       aria-labelledby names. *@
+    <div class="@BodyClass" data-testid="roadmap-band-body">
+        <div class="roadmap-band__content" data-testid="roadmap-band-content">
+            @if (!_loaded)
+            {
+                @* The plan is still being read. The roadmap is a surface of its own
+                   with nothing to lay out until the plan says what is on it, so the
+                   spinner — and not "No roadmap yet", which is an answer the band
+                   does not have yet (.devbook/design/interaction-guidelines.md,
+                   Loading States). The header is drawn as it is with nothing
+                   planned, so the section's heading is there from the first frame. *@
+                <header class="roadmap-band__header">
+                    @BandHeading
+                </header>
+
+                <Spinner Label="Loading the roadmap" CssClass="roadmap-band__loading" TestId="roadmap-band-loading" />
+            }
+            else if (_view.HasAnythingToDraw)
+            {
+                @* ShowSteps off: the roadmap reads plans, and a bar opening into a row
+                   per task put the whole backlog back on a chart meant to show what is
+                   planned when. The fill still says how far along each part is. *@
+                <RoadmapTimeline Groups="@_view.Groups"
+                                 Bars="@_view.Bars"
+                                 Milestones="@_view.Milestones"
+                                 Links="@_view.Links"
+                                 Today="@(Today ?? DateOnly.FromDateTime(DateTime.Today))"
+                                 Graduated="true"
+                                 WeekStart="RoadmapPlanView.WeekStart"
+                                 PlannedHoursOn="@PlannedOn"
+                                 IsOverridden="@IsOverridden"
+                                 ActualHoursByDate="@_actual"
+                                 ShowHours="@_hoursShown"
+                                 OnDayToggled="ToggleDay"
+                                 OnHoursOpened="OpenHours"
+                                 TitleContent="@BandHeading"
+                                 LabelledBy="roadmap-band-title"
+                                 ShowSteps="false"
+                                 ShowFilters="false"
+                                 Collapsible="true"
+                                 CollapsedGroups="@ViewPreferences.CollapsedGroups"
+                                 OnCollapsedChanged="ViewPreferences.SetCollapsedGroups"
+                                 SelectedId="@_selectedId"
+                                 OnBarSelected="Select"
+                                 OnBarAction="ActOnBarAsync"
+                                 BusyActionId="@_acting"
+                                 OnBarChanged="Apply"
+                                 DroppedAt="DroppedAt"
+                                 OnLinkCreated="LinkAsync"
+                                 OnSlotActivated="PlaceHere"
+                                 GroupContent="@BandPace"
+                                 CssClass="roadmap-band__timeline"
+                                 TestId="roadmap-timeline" />
+
+                @* Refusals are shown, not swallowed. The library's alert renders nothing
+                   when there is no message, so there is no empty element in the band on
+                   the ordinary path — and role="status" rather than "alert" because the
+                   chart has already redrawn the bar back to where it was, so this is the
+                   explanation rather than the news. *@
+                <Alert Message="@_error" Role="status" TestId="roadmap-band-error" />
+            }
+            else
+            {
+                @* Nothing planned, so the only affordance is the one that starts a plan.
+                   It sits in the band's own header here, because there is no chart header
+                   for it to live in. *@
+                <header class="roadmap-band__header">
+                    @BandHeading
+                </header>
+
+                <EmptyState TestId="roadmap-band-empty-state"
+                            CssClass="roadmap-band__empty"
+                            Title="No roadmap yet"
+                            Description="Planned work appears here on a timeline, in a band per configured repository. Priorities and dependencies are the plan's own; status is read from the backlog entry a plan item is linked to." />
+            }
+        </div>
+
+        <RoadmapPlanShelf Plans="@_unplanned"
+                          Busy="@_planning"
+                          OnPlan="PlanFromShelfAsync"
+                          CssClass="roadmap-band__shelf"
+                          TestId="roadmap-shelf" />
+    </div>
+
+    @* Outside the shelf, because planning its last row takes the shelf away and a
+       live region inside it would go with it. What was planned is only heard — the
+       bar appearing on the chart is what a sighted reader sees — and a refusal is
+       shown as well, since the row it concerns is still there. *@
+    <Alert Message="@_shelfNews"
+           Role="status"
+           CssClass="@(_shelfRefused ? "roadmap-band__shelf-news" : "sr-only")"
+           TestId="roadmap-shelf-news" />
+
+    <RoadmapItemEditor @ref="_editor"
+                       Open="@_editing"
+                       OpenChanged="EditingChanged"
+                       Item="@_edited"
+                       Placement="@_placement"
+                       Rollup="@_rollup"
+                       CanUseForecast="@UseForecastOffered"
+                       CanOpenTasks="@OnOpenTasks.HasDelegate"
+                       Repositories="@Configured()"
+                       ShowArchived="@(_showArchived?.Shown ?? false)"
+                       DependencyOptions="@DependencyOptions()"
+                       Today="@(Today ?? DateOnly.FromDateTime(DateTime.Today))"
+                       OnSave="SaveAsync"
+                       OnDelete="DeleteAsync"
+                       OnDependencyChanged="ChangeDependencyAsync"
+                       OnUseForecast="UseForecastAsync"
+                       OnOpenTasks="OpenTasksAsync"
+                       OnOpenBrainNote="@(OnOpenBrainNote.HasDelegate ? OpenBrainNoteCallback : default(EventCallback<string>))"
+                       OnComplete="CompleteAsync"
+                       OnReopen="ReopenAsync"
+                       AllowCopy="true"
+                       PlanSession="@PlanSessionFor(_edited)"
+                       WaitingSession="@_planSessions.OpenFor(_edited?.Tag)"
+                       SessionBusy="@_planSessions.Busy"
+                       OnQueuePlanSession="QueuePlanSessionAsync"
+                       OnCancelPlanSession="CancelPlanSessionAsync" />
+
+    <RoadmapMilestoneEditor @ref="_dateEditor"
+                            Open="@_editingDate"
+                            OpenChanged="EditingDateChanged"
+                            Milestone="@_editedDate"
+                            PlacedOn="@_placedOn"
+                            Repositories="@Configured()"
+                            ShowArchived="@(_showArchived?.Shown ?? false)"
+                            DependencyOptions="@DependencyOptions()"
+                            Today="@(Today ?? DateOnly.FromDateTime(DateTime.Today))"
+                            OnSave="SaveDateAsync"
+                            OnDelete="DeleteDateAsync"
+                            OnDependencyChanged="ChangeDependencyAsync" />
+
+    <RoadmapDaysOffDialog Open="@_daysOffOpen"
+                          OpenChanged="open => _daysOffOpen = open"
+                          Week="@_week"
+                          Today="@(Today ?? DateOnly.FromDateTime(DateTime.Today))"
+                          RestoreFocusToId="roadmap-band-days-off" />
+
+    <RoadmapHoursReport Open="@_hoursOpen"
+                        OpenChanged="open => _hoursOpen = open"
+                        Date="@_hoursDate"
+                        Today="@(Today ?? DateOnly.FromDateTime(DateTime.Today))"
+                        RestoreFocusToId="@($"roadmap-hours-{_hoursDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}")" />
+</section>
+
+@code {
+    // The plan as the timeline needs it. Rebuilt from the module after every
+    // change rather than patched in place: the plan decides what a reschedule did,
+    // and a locally applied guess is one more thing that can disagree with it.
+    private RoadmapTimelineModel _view = RoadmapTimelineModel.Empty;
+
+    /// <summary>The working week the paces were last read in — what the axis heads show
+    /// and shade (local ADR 0019).</summary>
+    private Backlog.SharedKernel.WorkingHours _week = Backlog.SharedKernel.WorkingHours.Default;
+
+    /// <summary>The week as the timeline takes it: the hours worked on a date, its day
+    /// override first and its weekday's pattern after, a date not worked at zero.</summary>
+    private double PlannedOn(DateOnly date) => _week.WorkedOn(date).TotalHours;
+
+    /// <summary>Whether the person blocked or unblocked a date on its own, so its head
+    /// carries the marker.</summary>
+    private bool IsOverridden(DateOnly date) => _week.OverrideOn(date) is not null;
+
+    /// <summary>
+    /// The hours the person actually worked on each begun date the axis rules in days or
+    /// weeks, for those heads to show in place of their planned hours (local ADR 0019,
+    /// §6); null until they are read, for good when they cannot be, and while the Hours
+    /// switch is off — a begun head then shows no figure.
+    /// </summary>
+    private IReadOnlyDictionary<DateOnly, double>? _actual;
+
+    /// <summary>The Hours switch on the toolbar (local ADR 0019, §4): whether the heads
+    /// carry their hours line. Read from this device's preferences when the band opens.</summary>
+    private bool _hoursShown = true;
+
+    /// <summary>The Completed switch on the toolbar: whether finished plans are drawn.
+    /// Read from this device's preferences when the band opens.</summary>
+    private bool _completedShown = true;
+
+    /// <summary>What the chart was last drawn from, so the Completed switch redraws it
+    /// without reading the plan again.</summary>
+    private IReadOnlyDictionary<Guid, RoadmapItemRollupDto>? _rollups;
+    private RoadmapForecast? _forecast;
+
+    /// <summary>Show archived on this device, or null where the host composes none. The
+    /// port, not its answer: <see cref="Load"/> asks it every time.</summary>
+    private global::Backlog.SharedKernel.IShowArchivedRepositories? _showArchived;
+
+    /// <summary>Whether the Days off dialog is open.</summary>
+    private bool _daysOffOpen;
+
+    /// <summary>Whether the hours report is open, and the date whose head opened it.</summary>
+    private bool _hoursOpen;
+    private DateOnly _hoursDate;
+
+    /// <summary>The dates the actual hours were last asked for, so a render asks again
+    /// only when they move: a new day, or a change that asked for a fresh read.</summary>
+    private (DateOnly From, DateOnly Through)? _actualAskedFor;
+
+    /// <summary>Whether the first read has come back. Only the first: every later
+    /// load redraws over a chart that is already on screen.</summary>
+    private bool _loaded;
+
+    // The plan itself as well as the view of it. The editor needs the items — their
+    // titles, their dependencies — and a bar on the chart carries only what it takes
+    // to draw one.
+    private RoadmapPlanDto _plan = RoadmapPlanDto.Empty;
+
+    private RoadmapItemEditor? _editor;
+    private RoadmapItemDto? _edited;
+
+    // Where on the chart the new work or date being added was put, when it was put
+    // somewhere rather than asked for from the heading.
+    private RoadmapItemPlacement? _placement;
+    private DateOnly? _placedOn;
+    private RoadmapItemRollupDto _rollup = RoadmapItemRollupDto.Empty;
+    private bool _editing;
+
+    private RoadmapMilestoneEditor? _dateEditor;
+    private RoadmapMilestoneDto? _editedDate;
+    private bool _editingDate;
+
+    private string? _selectedId;
+    private string? _error;
+
+    // Imported plans no item carries the tag of, as the shelf offers them, and the
+    // reading they were built from — which is what a pressed row is planned with.
+    private IReadOnlyList<RoadmapShelfPlan> _unplanned = [];
+    private IReadOnlyList<ImportedPlanDto> _imported = [];
+    private string? _planning;
+    private string? _shelfNews;
+    private bool _shelfRefused;
+
+    /// <summary>The chart and, while there is unplanned work, the column beside it.
+    /// Without any the chart takes the width rather than leaving a gutter.</summary>
+    private string BodyClass => _unplanned.Count > 0
+        ? "roadmap-band__body roadmap-band__body--with-shelf"
+        : "roadmap-band__body";
+
+    /// <summary>
+    /// The band's heading, in one place because it is rendered in two.
+    /// <para>
+    /// The years the plan covers used to be the chart's title, on the reasoning that
+    /// the band already said "Roadmap" and a second copy of the word would read as a
+    /// different thing. Both headings are now one heading, so the year has nowhere to
+    /// go that is worth a line — the quarters are ruled across the axis with their
+    /// years on them, which is where a reader looks for a date anyway.
+    /// </para>
+    /// </summary>
+    private RenderFragment BandHeading => @<text>
+        <div class="roadmap-band__title-lines">
+            <p class="roadmap-band__eyebrow">Planning</p>
+            <h2 id="roadmap-band-title" class="roadmap-band__title">Roadmap</h2>
+        </div>
+
+        @* Beside the heading: these add to the plan, where the switches further along
+           only change what is shown of it. *@
+        <AppButton Variant="ButtonVariant.Secondary"
+                   Size="ButtonSize.Small"
+                   OnClick="PlanSomething"
+                   TestId="roadmap-band-add">
+            Plan work
+        </AppButton>
+
+        <AppButton Variant="ButtonVariant.Ghost"
+                   Size="ButtonSize.Small"
+                   OnClick="AddADate"
+                   TestId="roadmap-band-add-date">
+            Add a date
+        </AppButton>
+
+        @* The reader's own pace, once for the whole roadmap: the fallback a band
+           places by until it has finished work to measure one. Only with a chart —
+           with nothing planned there is nothing to place. *@
+        @if (_view.HasAnythingToDraw)
+        {
+            <RoadmapTypedPace Repositories="@([.. Configured().Select(repository => repository.Alias)])" />
+
+            @* The working week as the axis reads it (local ADR 0019, §4): the dates set off
+               the pattern, in a dialog, and whether the heads say their hours at all. *@
+            <AppButton Variant="ButtonVariant.Ghost"
+                       Size="ButtonSize.Small"
+                       id="roadmap-band-days-off"
+                       OnClick="() => _daysOffOpen = true"
+                       TestId="roadmap-band-days-off">
+                Days off
+            </AppButton>
+
+            <Toggle Label="Hours"
+                    Checked="@_hoursShown"
+                    CheckedChanged="ShowHours"
+                    CssClass="roadmap-band__hours"
+                    TestId="roadmap-band-hours" />
+
+            @* Finished plans stay on the chart, where the work ran, until this is
+               turned off; off, the lanes close up over what is left to do. *@
+            <Toggle Label="Completed"
+                    Checked="@_completedShown"
+                    CheckedChanged="ShowCompleted"
+                    CssClass="roadmap-band__completed"
+                    TestId="roadmap-band-completed" />
+        }
+    </text>;
+
+    /// <summary>
+    /// The pace a band's plans are placed at, under the band's name in the chart's
+    /// sidebar and above its named lanes — where the reader is looking at them.
+    /// <para>
+    /// Drawn only for a band that asked for room (<see cref="RoadmapPlanView"/> gives
+    /// every configured repository's band and the no-repository band
+    /// <see cref="RoadmapPlanView.PaceRows"/>). A repository's band carries that
+    /// repository's pace. The no-repository band carries the default pace — the one its
+    /// plans are placed at — measured over all finished work. A band with nothing
+    /// measured places by the reader's own pace in the heading. The milestones band
+    /// places nothing and has none. A change redraws every plan still sized by its
+    /// effort, each at its own pace, and writes nothing to the plan.
+    /// </para>
+    /// </summary>
+    private RenderFragment<RoadmapGroup> BandPace => group =>
+        @<RoadmapPaceControl Repository="@(group.Id == RoadmapPlanView.NoRepositoryGroupId ? null : group.Id)" />;
+
+    /// <summary>Where the "now" line is drawn. A parameter so a test can put
+    /// today somewhere it chooses rather than wherever the clock happens to
+    /// be.</summary>
+    [Parameter]
+    public DateOnly? Today { get; set; }
+
+    /// <summary>
+    /// Asks the host to show an item's plan in the task list — its plan tag, scoped to
+    /// the repositories of the bar it was opened from. The host owns the task list and
+    /// the view switch, so the band only says what to show; with nothing answering,
+    /// the editor does not offer it.
+    /// </summary>
+    [Parameter]
+    public EventCallback<RoadmapTasksRequest> OnOpenTasks { get; set; }
+
+    /// <summary>
+    /// Asks the host to open one of an item's gathered Brain notes — its
+    /// <c>&lt;path&gt;[#slug]</c> inside the Brain (local ADR 0053) — in the Devbook
+    /// pane, Brain side. With nothing answering, the editor's Brain chips are text.
+    /// </summary>
+    [Parameter]
+    public EventCallback<string> OnOpenBrainNote { get; set; }
+
+    /// <summary>
+    /// A plan to open the chart on, by its tag with or without the <c>+</c>: the bar of
+    /// the item that carries it is selected, the way a click marks one, without opening
+    /// the editor (local ADR 0043 §6, <c>plan=</c>). Followed once per value; null
+    /// selects nothing.
+    /// </summary>
+    [Parameter]
+    public string? SelectedPlan { get; set; }
+
+    /// <summary>The <see cref="SelectedPlan"/> last followed, and the one waiting for
+    /// the plan to load.</summary>
+    private string? _planTaken;
+    private string? _planPending;
+
+    protected override void OnParametersSet()
+    {
+        if (string.Equals(SelectedPlan, _planTaken, StringComparison.Ordinal)) return;
+
+        _planTaken = SelectedPlan;
+        _planPending = SelectedPlan;
+        SelectPendingPlan();
+    }
+
+    /// <summary>
+    /// Selects the first bar of the item whose tag is <see cref="SelectedPlan"/>, once
+    /// the plan is on screen. The tag is compared the way <c>PlanTagMatch.Carries</c>
+    /// compares an entry's: one leading <c>+</c> lifted from each, in any case. A plan no
+    /// item carries selects nothing.
+    /// </summary>
+    private void SelectPendingPlan()
+    {
+        if (_planPending is not { } plan || !_loaded) return;
+
+        _planPending = null;
+
+        var slug = plan.StartsWith('+') ? plan[1..] : plan;
+        if (slug.Length == 0) return;
+
+        var item = _plan.Items.FirstOrDefault(candidate =>
+            !string.IsNullOrEmpty(candidate.Tag)
+            && string.Equals(candidate.Tag.StartsWith('+') ? candidate.Tag[1..] : candidate.Tag, slug, StringComparison.OrdinalIgnoreCase));
+        if (item is null) return;
+
+        if (_view.Bars.FirstOrDefault(bar => RoadmapPlanView.NodeIdOf(bar.Id) == item.Id) is { } shown) _selectedId = shown.Id;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Repositories.Changed += OnRepositoriesChanged;
+        Planning.Changed += OnPlanChanged;
+        WorkChanges.Changed += OnWorkChanged;
+        Paces.Changed += OnPaceSettingsChanged;
+        _hoursShown = ViewPreferences.HoursShown;
+        _completedShown = ViewPreferences.CompletedShown;
+
+        // Show archived (local ADR 0029, §3), the device's choice the header's switch
+        // makes. Resolved optionally: a host that composes none draws archived bands
+        // as with the switch off. Read from the port on every load, never held here, so
+        // a remount reads what was left.
+        _showArchived = Services.GetService(typeof(global::Backlog.SharedKernel.IShowArchivedRepositories))
+            as global::Backlog.SharedKernel.IShowArchivedRepositories;
+        if (_showArchived is not null) _showArchived.Changed += OnShowArchivedChanged;
+
+        // The plan's queue icon (local ADR 0038), over Roadmap's own port. A host that
+        // composed no session request queue offers nothing.
+        _planSessions = new RoadmapSessionRequests(
+            Services.GetService(typeof(IPlanSessionRequests)) as IPlanSessionRequests,
+            Services.GetService(typeof(TimeProvider)) as TimeProvider);
+        _planSessions.Changed += OnPlanSessionsChanged;
+        _ = _planSessions.RefreshAsync();
+
+        // Opening the roadmap is one of the two moments the keep-up projection stores
+        // what it moved; the plan is read after it, so the bars are the stored windows.
+        await KeepUpWithWorkAsync();
+        await Load();
+        _loaded = true;
+        SelectPendingPlan();
+    }
+
+    /// <summary>
+    /// Stores the window each item sized by its effort now makes from its unfinished work,
+    /// counted from the day this band draws as today (ADR 0013, ruling 5 as amended on
+    /// 2026-09-27). Run when the roadmap opens and when a task changes — never on a pace
+    /// change or a plan pulled from another PC, which only redraw (local ADR 0018).
+    /// <para>
+    /// A failure is logged, not shown: the plan still opens, drawn through the same rule
+    /// from what is stored, and the next open or task change stores it.
+    /// </para>
+    /// </summary>
+    private async Task KeepUpWithWorkAsync()
+    {
+        try
+        {
+            // The projection's own pass, not a person's gesture (local ADR 0071 §3): it is
+            // run outside every gesture's change set, so it names the system.
+            using var change = ChangeContext.BeginIfNone(ChangeActor.System, "keeping the roadmap up with the work");
+            await Planning.KeepUpWithWorkAsync(Today ?? DateOnly.FromDateTime(DateTime.Today));
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            LogEffortWindowsNotStored(Log, exception);
+        }
+    }
+
+    /// <summary>
+    /// Reads the actual hours once the plan is on screen, never before it: they are a
+    /// second reading on top of the plan, and the plan does not wait for them. Asked
+    /// again only when the dates they cover move — today changed, or a pace change
+    /// cleared what was asked for — and not on every render.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // With the hours switched off nothing shows them, so nothing reads them.
+        if (!_loaded || !_view.HasAnythingToDraw || !_hoursShown) return;
+
+        var today = Today ?? DateOnly.FromDateTime(DateTime.Today);
+        var range = (RoadmapWindow.GraduatedWeeksFrom(today, RoadmapPlanView.WeekStart), today);
+        if (_actualAskedFor == range) return;
+
+        _actualAskedFor = range;
+        var actual = await ReadActualHoursAsync(range.Item1, range.Item2);
+
+        // A read overtaken by a newer one leaves the newer one's answer.
+        if (_actualAskedFor != range) return;
+
+        _actual = actual;
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// The actual hours over the dates, in hours, or null when the host cannot state
+    /// them or the read failed: the begun heads then show no figure — never their planned
+    /// hours, which would read as hours worked — and the roadmap still opens (local ADR
+    /// 0019, §6). A failure is logged, not shown — the plan on screen is right without
+    /// them.
+    /// </summary>
+    private async Task<IReadOnlyDictionary<DateOnly, double>?> ReadActualHoursAsync(DateOnly from, DateOnly through)
+    {
+        try
+        {
+            var read = await ActualHours.ReadAsync(from, through);
+            return read?.ToDictionary(day => day.Key, day => day.Value.TotalHours);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            LogActualHoursNotRead(Log, exception, from, through);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// A day head was pressed: block the date when it is worked, unblock it when it is
+    /// not (local ADR 0019, §§4 and 5). The pace raises its change when the toggle took,
+    /// and the band re-reads on that as it does for a typed pace — so every bar sized by
+    /// its effort is placed again at once. What comes back is a refusal, or a warning
+    /// that it took but could not be kept, and is shown where the band's other
+    /// refusals are.
+    /// </summary>
+    private void ToggleDay(DateOnly date) => _error = Paces.ToggleWorkedDay(date);
+
+    /// <summary>
+    /// A begun head's hours were pressed: open the report of the week the head's date
+    /// falls in, so the person can check the figure against the stretches behind it
+    /// (local ADR 0019, §6).
+    /// </summary>
+    private void OpenHours(DateOnly date)
+    {
+        _hoursDate = date;
+        _hoursOpen = true;
+    }
+
+    /// <summary>
+    /// The Hours switch moved: the heads gain or lose their hours line at once, the choice
+    /// is kept on this device, and the actual hours are read again when it comes on —
+    /// they were not read while it was off.
+    /// </summary>
+    private void ShowHours(bool shown)
+    {
+        _hoursShown = shown;
+        ViewPreferences.SetHoursShown(shown);
+
+        _actualAskedFor = null;
+        if (!shown) _actual = null;
+    }
+
+    /// <summary>The Completed switch moved: the chart is drawn again from what it was
+    /// last drawn from, with or without the finished plans, and the choice is kept on
+    /// this device.</summary>
+    private void ShowCompleted(bool shown)
+    {
+        _completedShown = shown;
+        ViewPreferences.SetCompletedShown(shown);
+
+        _view = Drawn();
+    }
+
+    /// <summary>The chart from what it was last read from, under show archived and the
+    /// Completed switch, with each item's bar action and the waiting mark of each plan
+    /// with a session request open.</summary>
+    private RoadmapTimelineModel Drawn() =>
+        RoadmapPlanView.WithSessionWaits(
+            RoadmapPlanView.WithActions(
+                RoadmapPlanView.From(
+                    _plan,
+                    Configured(),
+                    _rollups,
+                    _forecast,
+                    showArchived: _showArchived?.Shown ?? false,
+                    hideFinished: !_completedShown),
+                OnOpenTasks.HasDelegate),
+            _plan.Items,
+            _planSessions.OpenFor);
+
+    public void Dispose()
+    {
+        Repositories.Changed -= OnRepositoriesChanged;
+        Planning.Changed -= OnPlanChanged;
+        WorkChanges.Changed -= OnWorkChanged;
+        Paces.Changed -= OnPaceSettingsChanged;
+        if (_showArchived is not null) _showArchived.Changed -= OnShowArchivedChanged;
+        _planSessions.Changed -= OnPlanSessionsChanged;
+        _planSessions.Dispose();
+    }
+
+    // --- Queue a plan session (local ADR 0038) -----------------------------
+
+    /// <summary>The plan session requests the plans have open, the press and Cancel.</summary>
+    private RoadmapSessionRequests _planSessions = null!;
+
+    /// <summary>A plan's wait changed, or a press started or ended: the chart is drawn
+    /// again, because the bars carry the waiting mark, and the dialog's chip follows.</summary>
+    private void OnPlanSessionsChanged() => _ = InvokeAsync(() =>
+    {
+        _view = Drawn();
+        StateHasChanged();
+    });
+
+    /// <summary>What the plan's queue icon offers on <paramref name="item"/>: nothing
+    /// while the action is not offered; otherwise the item's tag in its first
+    /// repository with a clone folder, read from the settings per render so a clone
+    /// folder set in Settings is used at once.</summary>
+    private PlanSessionOffer? PlanSessionFor(RoadmapItemDto? item) =>
+        _planSessions.IsOffered ? PlanSessionOffer.For(item, Repositories.Current.Find) : null;
+
+    private async Task QueuePlanSessionAsync()
+    {
+        if (PlanSessionFor(_edited) is not { IsEnabled: true } offer) return;
+
+        if (await _planSessions.RequestAsync(offer))
+        {
+            // As the Tasks pane's plan row says it. Resolved optionally, as the queue's
+            // port is: a host that composed no toast tray still queues, without the news.
+            (Services.GetService(typeof(IToastChannel)) as IToastChannel)?
+                .Publish(ToastMessage.Info($"Asked for a session in {offer.Repository}.", "plan-session-request-queued"));
+        }
+        else if (_planSessions.Error is { } error)
+        {
+            _editor?.Refuse(error);
+        }
+    }
+
+    private async Task CancelPlanSessionAsync()
+    {
+        if (_edited?.Tag is not { Length: > 0 } tag) return;
+
+        if (!await _planSessions.CancelAsync(tag) && _planSessions.Error is { } error) _editor?.Refuse(error);
+    }
+
+    private async Task Load()
+    {
+        _plan = await Planning.GetPlanAsync();
+        CarryOverPlanColours();
+
+        // Every item's gathered work in one read, not one per bar: the steps drawn
+        // inside each bar, and its progress fill, come from here (ADR 0013, ruling
+        // 6). Read on every load and never kept — progress belongs to Tasks.
+        var rollups = await Rollups.GatherPlanAsync(_plan);
+
+        var configured = Configured();
+
+        // The plan is drawn the way the keep-up projection lays it out from today, one
+        // part per repository at that repository's pace: work in flight from the work, a
+        // plan sized by its effort from today or from what it waits on, and everything a
+        // person or a due date placed over its stored window (RoadmapPlanView.Layouts).
+        // Every band's pace from one read of the finished work, not one read per band.
+        var paces = await Paces.ReadPacesInUseAsync();
+
+        // The week the paces are counted in, which every window is counted through and
+        // the axis heads show (local ADR 0019).
+        _week = paces.Week;
+
+        var forecast = new RoadmapForecast(
+            Today ?? DateOnly.FromDateTime(DateTime.Today),
+            paces);
+
+        // An archived repository's band holds only its finished work in the drawn window
+        // unless show archived is on (local ADR 0029; RoadmapPlanView.WithoutHiddenArchivedWork).
+        // Each item's action on the bar that ends it: Open in Tasks where tasks carry it
+        // and the shell can show them, Complete where nothing does.
+        (_rollups, _forecast) = (rollups, forecast);
+        _view = Drawn();
+
+        _imported = await ImportedPlans.ListAsync();
+        _unplanned = Unplanned(_imported, _plan);
+    }
+
+    /// <summary>
+    /// The imported plans no item on the plan carries the tag of, in the order the
+    /// backlog holds them.
+    /// <para>
+    /// Decided by <see cref="RoadmapShelf.Unplanned"/>, the rule the Tasks Calendar's
+    /// shelf reads too, so the two never disagree about which plans are waiting.
+    /// </para>
+    /// </summary>
+    internal static IReadOnlyList<RoadmapShelfPlan> Unplanned(
+        IReadOnlyList<ImportedPlanDto> imported,
+        RoadmapPlanDto plan)
+    {
+        return
+        [
+            .. RoadmapShelf.Unplanned(imported, plan)
+                .Select(candidate => new RoadmapShelfPlan(
+                    candidate.Tag,
+                    candidate.RepositoryAliases,
+                    candidate.TaskCount,
+                    candidate.TotalEffort,
+                    candidate.UnestimatedCount,
+                    // Only for a plan spanning repositories: one repository's share
+                    // of a one-repository plan is the plan, said twice.
+                    candidate.Parts.Count > 1
+                        ? [.. candidate.Parts.Select(part => new RoadmapShelfPart(
+                            part.RepositoryAlias,
+                            part.TaskCount,
+                            part.TotalEffort,
+                            part.UnestimatedCount))]
+                        : null))
+        ];
+    }
+
+    /// <summary>
+    /// Plans one shelf row: a single plan-level entry built from it, run through the
+    /// same import a roadmap document goes through, with the effort its tasks already
+    /// registered — so the window is the one an import would have drawn.
+    /// </summary>
+    private async Task PlanFromShelfAsync(RoadmapShelfPlan row)
+    {
+        if (_planning is not null) return;
+
+        var imported = _imported.FirstOrDefault(candidate =>
+            string.Equals(candidate.Tag, row.Tag, StringComparison.Ordinal));
+        if (imported is null) return;
+
+        _planning = row.Tag;
+        _shelfNews = null;
+        _shelfRefused = false;
+
+        try
+        {
+            var entry = new PlanImportEntryDto(
+                Title: TitleOf(imported.Tag),
+                Tag: imported.Tag,
+                RepositoryAliases: imported.RepositoryAliases);
+
+            var result = await AsPersonAsync($"planning +{imported.Tag}", () => Planning.ImportPlanItemsAsync([entry], [imported.Effort]));
+
+            if (result is Error error)
+            {
+                _shelfRefused = true;
+                _shelfNews = $"+{row.Tag} could not be planned: {error.Message}";
+                return;
+            }
+
+            _shelfNews = $"Planned +{row.Tag} on the roadmap.";
+            await Load();
+        }
+        finally
+        {
+            _planning = null;
+        }
+    }
+
+    /// <summary>The item's title, read off its tag — the only name a tasks-first plan
+    /// has. <c>release-q4</c> becomes <c>Release q4</c>; the editor is where a person
+    /// gives it a better one.</summary>
+    internal static string TitleOf(string tag) => RoadmapShelf.TitleOf(tag);
+
+    /// <summary>
+    /// Moves colours chosen before the choice lived in Settings onto the repositories
+    /// they were chosen for.
+    /// <para>
+    /// A plan written by an older version stores a hue per alias. That choice was a real
+    /// decision somebody made and losing it would be the upgrade quietly recolouring
+    /// their chart, so it is carried over the first time the roadmap is opened. Only
+    /// onto a repository that has no colour of its own — a choice made in Settings since
+    /// is the newer answer and is never overwritten by the file.
+    /// </para>
+    /// <para>
+    /// Here rather than at startup because this is the only screen that reads a plan,
+    /// and a startup path that loaded one just to look for colours would make every
+    /// launch pay for a migration that concerns one screen.
+    /// </para>
+    /// </summary>
+    private void CarryOverPlanColours()
+    {
+        if (_plan.Bands.Count == 0) return;
+
+        foreach (var repository in Repositories.Current.Repositories.Where(r => r.Colour is null))
+        {
+            if (!_plan.Bands.TryGetValue(repository.Alias, out var colour)) continue;
+
+            Repositories.SetRepositoryColour(repository.Alias, colour);
+        }
+    }
+
+    /// <summary>The configured repositories, in the order Settings lists them. The
+    /// band asks per load rather than caching: a repository added while the app is
+    /// open should show up when the plan is next read, not after a restart.</summary>
+    /// <summary>
+    /// The configured repositories as the band needs them, each carrying the identity
+    /// hue Settings resolved for it. The roadmap is told which hue rather than choosing
+    /// one, so the same project is the same colour here, on the repository filter and
+    /// on an entry row.
+    /// <para>
+    /// The visible hues rather than the chosen ones, so a workspace with the
+    /// visualization off draws its bands the way this chart has always drawn a group
+    /// nobody gave a hue to: no colour at all. Note that
+    /// <see cref="CarryOverPlanColours"/> above deliberately reads the raw choice — a
+    /// migration that only ran while the hues happened to be on screen would lose
+    /// somebody's old plan colours for good.
+    /// </para>
+    /// </summary>
+    private List<PlannedRepository> Configured()
+    {
+        var colours = Repositories.Current.VisibleColours();
+
+        return
+        [
+            .. Repositories.Current.Repositories.Select(repository =>
+                new PlannedRepository(
+                    repository.Alias,
+                    repository.FullName,
+                    colours.TryGetValue(repository.Alias, out var colour) ? colour : null,
+                    repository.Archived))
+        ];
+    }
+
+    /// <summary>
+    /// A bar was opened — clicked, or Enter pressed on it, which the chart's own
+    /// keyboard help calls "open". So it opens the editor for that item.
+    /// <para>
+    /// A milestone is selectable too and has no editor yet, so opening one selects it
+    /// and stops there rather than showing a dialog with the wrong fields in it.
+    /// </para>
+    /// </summary>
+    private async Task Select(string barId)
+    {
+        _selectedId = barId;
+
+        var id = RoadmapPlanView.NodeIdOf(barId);
+        if (id is null) return;
+
+        var item = _plan.Items.FirstOrDefault(candidate => candidate.Id == id);
+        if (item is not null)
+        {
+            // Gathered before the dialog opens, so the item's linked and tagged work is
+            // on screen with it rather than a render behind it. The band asks its own
+            // module port; the adapter behind it is the one thing allowed to read both
+            // the backlog and the knowledge graph.
+            _rollup = await Rollups.GatherAsync(item);
+            _edited = item;
+            _editing = true;
+            return;
+        }
+
+        var milestone = _plan.Milestones.FirstOrDefault(candidate => candidate.Id == id);
+        if (milestone is null) return;
+
+        _editedDate = milestone;
+        _editingDate = true;
+    }
+
+    private void PlanSomething()
+    {
+        // Nothing to gather for work that does not exist yet.
+        _rollup = RoadmapItemRollupDto.Empty;
+        _edited = null;
+        _placement = null;
+        _editing = true;
+    }
+
+    private void AddADate()
+    {
+        _editedDate = null;
+        _placedOn = null;
+        _editingDate = true;
+    }
+
+    /// <summary>
+    /// A double-click on an empty place on the chart, or a drag across one: the same two
+    /// dialogs the heading opens, opened on where it was — the week, or the weeks
+    /// dragged across, and for work the band's repository and the row's lane. Nothing is added until the dialog is saved, so a stray
+    /// double-click costs a Cancel, never an item.
+    /// </summary>
+    private void PlaceHere(RoadmapSlot slot)
+    {
+        if (slot.Kind == RoadmapRowKind.Milestones)
+        {
+            AddADate();
+            _placedOn = slot.On;
+            return;
+        }
+
+        PlanSomething();
+        _placement = new RoadmapItemPlacement(slot.On, RepositoryOf(slot.RowId), RoadmapPlanView.LaneOf(slot.RowId), slot.Until);
+    }
+
+    /// <summary>The configured repository a row's band stands for, or null for a row
+    /// no repository's band holds — the no-repository band, where work is planned
+    /// under none.</summary>
+    private string? RepositoryOf(string rowId)
+    {
+        var separator = rowId.IndexOf("::", StringComparison.Ordinal);
+        var band = separator < 0 ? rowId : rowId[..separator];
+
+        return Configured().FirstOrDefault(repository =>
+            string.Equals(repository.Alias, band, StringComparison.OrdinalIgnoreCase))?.Alias;
+    }
+
+    private void EditingDateChanged(bool open)
+    {
+        _editingDate = open;
+        if (open) return;
+
+        _editedDate = null;
+        _placedOn = null;
+    }
+
+    private void EditingChanged(bool open)
+    {
+        _editing = open;
+        if (open) return;
+
+        _edited = null;
+        _placement = null;
+        KeepUpHeldForTheEditor();
+    }
+
+    /// <summary>Everything in the plan an item could be told to wait for, itself
+    /// excluded — the plan would refuse that, but offering it at all is the kind of
+    /// choice a control should not present.</summary>
+    private List<SelectorOption> DependencyOptions() =>
+    [
+        .. _plan.Items
+            .Where(item => item.Id != _edited?.Id)
+            .Select(item => new SelectorOption(item.Id.ToString(), item.Title)),
+        .. _plan.Milestones
+            .Where(milestone => milestone.Id != _edited?.Id)
+            .Select(milestone => new SelectorOption(milestone.Id.ToString(), milestone.Title))
+    ];
+
+    /// <summary>
+    /// Add or edit, decided by whether the submission carries an id.
+    /// <para>
+    /// The dialog closes only when the module accepted it. A refusal is shown inside
+    /// the dialog, on the fields that caused it, rather than behind a dialog that
+    /// closed as though the save had worked.
+    /// </para>
+    /// </summary>
+    private async Task SaveAsync(RoadmapEditorSubmission submission)
+    {
+        _error = null;
+
+        var saved = await AsPersonAsync(submission.ItemId is null ? "adding a roadmap item" : "editing a roadmap item", () => submission.ItemId is null
+            ? Planning.AddItemAsync(
+                submission.Title,
+                submission.Start,
+                submission.End,
+                submission.Priority,
+                submission.RepositoryAliases,
+                submission.Lane,
+                submission.TaskId,
+                submission.Notes,
+                submission.Tag,
+                submission.KnowledgeRefs)
+            : Planning.UpdateItemAsync(
+                submission.ItemId.Value,
+                submission.Title,
+                submission.Start,
+                submission.End,
+                submission.Priority,
+                submission.RepositoryAliases,
+                submission.Lane,
+                submission.TaskId,
+                submission.Notes,
+                submission.Tag,
+                submission.KnowledgeRefs));
+
+        if (saved is Error error)
+        {
+            _editor?.Refuse(error.Message);
+            return;
+        }
+
+        _editing = false;
+        _edited = null;
+        await Load();
+        KeepUpHeldForTheEditor();
+    }
+
+    private async Task DeleteAsync(Guid itemId)
+    {
+        _error = null;
+
+        var removed = await AsPersonAsync("deleting a roadmap item", () => Planning.RemoveItemAsync(itemId));
+
+        if (removed is Error error)
+        {
+            _editor?.Refuse(error.Message);
+            return;
+        }
+
+        _editing = false;
+        _edited = null;
+        _selectedId = null;
+        await Load();
+        KeepUpHeldForTheEditor();
+    }
+
+    private async Task SaveDateAsync(RoadmapMilestoneSubmission submission)
+    {
+        _error = null;
+
+        var saved = await AsPersonAsync(submission.MilestoneId is null ? "adding a roadmap date" : "editing a roadmap date", () => submission.MilestoneId is null
+            ? Planning.AddMilestoneAsync(
+                submission.Title,
+                submission.On,
+                submission.Kind,
+                submission.RepositoryAliases,
+                null,
+                submission.IsPlanWide)
+            : Planning.UpdateMilestoneAsync(
+                submission.MilestoneId.Value,
+                submission.Title,
+                submission.On,
+                submission.Kind,
+                submission.RepositoryAliases,
+                null,
+                submission.IsPlanWide));
+
+        if (saved is Error error)
+        {
+            _dateEditor?.Refuse(error.Message);
+            return;
+        }
+
+        _editingDate = false;
+        _editedDate = null;
+        await Load();
+    }
+
+    private async Task DeleteDateAsync(Guid milestoneId)
+    {
+        _error = null;
+
+        var removed = await AsPersonAsync("deleting a roadmap date", () => Planning.RemoveMilestoneAsync(milestoneId));
+
+        if (removed is Error error)
+        {
+            _dateEditor?.Refuse(error.Message);
+            return;
+        }
+
+        _editingDate = false;
+        _editedDate = null;
+        _selectedId = null;
+        await Load();
+    }
+
+    /// <summary>
+    /// One dependency, added or taken away, answered while the dialog is still open.
+    /// <para>
+    /// A refused edge — one that would close a cycle — is reported in the dialog and
+    /// the plan is reloaded, so the tick the person just made goes back to where the
+    /// stored plan says it should be.
+    /// </para>
+    /// </summary>
+    private async Task ChangeDependencyAsync(RoadmapDependencyChange change)
+    {
+        var result = await AsPersonAsync(change.Added ? "adding a roadmap dependency" : "removing a roadmap dependency", () => change.Added
+            ? Planning.AddDependencyAsync(change.NodeId, change.DependsOnId)
+            : Planning.RemoveDependencyAsync(change.NodeId, change.DependsOnId));
+
+        await Load();
+
+        if (result is Error error)
+        {
+            // Whichever dialog raised it: a milestone waits on things just as an item
+            // does, and the refusal has to land where the person is looking.
+            if (_editingDate) _dateEditor?.Refuse(error.Message);
+            else _editor?.Refuse(error.Message);
+
+            return;
+        }
+
+        // Re-point the dialog at the reloaded node, so what it shows and what is
+        // stored cannot disagree about which dependencies exist.
+        if (_edited is not null)
+        {
+            _edited = _plan.Items.FirstOrDefault(item => item.Id == _edited.Id) ?? _edited;
+        }
+
+        if (_editedDate is not null)
+        {
+            _editedDate = _plan.Milestones.FirstOrDefault(date => date.Id == _editedDate.Id) ?? _editedDate;
+        }
+    }
+
+    /// <summary>
+    /// A drag or a keyboard move, settled. The timeline has already snapped the
+    /// dates to the week and told us where the bar landed; the plan decides whether
+    /// that stands.
+    /// <para>
+    /// The lane only travels when the bar actually changed row. Passing the current
+    /// lane on every move would refile work that merely moved in time, and passing
+    /// null on a row change would drop the one thing the gesture was about.
+    /// </para>
+    /// </summary>
+    private async Task Apply(RoadmapChange change)
+    {
+        var itemId = RoadmapPlanView.NodeIdOf(change.BarId);
+        if (itemId is null) return;
+
+        _error = null;
+
+        // Started work has a start that is a fact and an end that is a forecast. Its
+        // bar offers the end alone, and dragging it pins that end: the forecast stops
+        // deciding it until the person hands it back ("Use forecast" in the editor).
+        // Nothing else about the item moves, so this is not a reschedule. A part that
+        // does not end last moves the item's end as far as its own end was dragged, and
+        // the pin then draws the part that ends latest to it.
+        var bar = _view.Bars.FirstOrDefault(candidate => candidate.Id == change.BarId);
+        var rescheduled = await AsPersonAsync("moving a roadmap item", () => bar is { Locked: true, EndResizable: true }
+            ? Planning.PinItemEndAsync(itemId.Value, RoadmapPlanView.PinnedEndFor(_view.MeasuredBars, bar, change))
+            : RescheduleAsync(change, itemId.Value));
+
+        // Reload either way. On success the plan is the truth; on failure the
+        // redraw is what puts the bar back where it was, so a refused change never
+        // leaves the chart showing something that was not stored.
+        if (rescheduled is Error error) _error = error.Message;
+
+        await Load();
+    }
+
+    /// <summary>
+    /// Where the item a dropped bar belongs to lands, which is what the drop is read out at
+    /// — not the bar's own dates, which for one part of an item are not where the item went.
+    /// The same two readings <see cref="Apply"/> stores: a moved or resized bar moves the
+    /// item's window as far as it moved, and a pulled end of work in flight keeps the item's
+    /// drawn start and ends it on the pin.
+    /// </summary>
+    private (DateOnly Start, DateOnly End) DroppedAt(RoadmapChange change)
+    {
+        var itemId = RoadmapPlanView.NodeIdOf(change.BarId);
+        if (itemId is null) return (change.Start, change.End);
+
+        var bar = _view.Bars.FirstOrDefault(candidate => candidate.Id == change.BarId);
+        if (bar is { Locked: true, EndResizable: true })
+        {
+            var drawnStart = RoadmapPlanView.ItemWindowFor(_view.MeasuredBars, bar, change with { Start = bar.Start }).Start;
+            return (drawnStart, RoadmapPlanView.PinnedEndFor(_view.MeasuredBars, bar, change));
+        }
+
+        return ItemWindowFor(change, itemId.Value);
+    }
+
+    private Task<Result<RoadmapItemDto>> RescheduleAsync(RoadmapChange change, Guid itemId)
+    {
+        var (start, end) = ItemWindowFor(change, itemId);
+        return Planning.RescheduleItemAsync(itemId, start, end, LaneOf(change.RowId));
+    }
+
+    /// <summary>Whether the item in the editor has an end somebody pinned that is still
+    /// being read — work in flight, whose bar offers its end. A pin on finished or
+    /// unstarted work is ignored by the drawing, so there is nothing to hand back.</summary>
+    private bool UseForecastOffered =>
+        _edited is { EndPinned: true } pinned
+        && _view.Bars.Any(bar => bar.EndResizable && RoadmapPlanView.NodeIdOf(bar.Id) == pinned.Id);
+
+    /// <summary>Hands the end of started work back to the forecast.</summary>
+    private async Task UseForecastAsync(Guid itemId)
+    {
+        _error = null;
+
+        var result = await AsPersonAsync("handing a roadmap end back to the forecast", () => Planning.UnpinItemEndAsync(itemId));
+
+        if (result is Error error)
+        {
+            _editor?.Refuse(error.Message);
+            return;
+        }
+
+        _editing = false;
+        _edited = null;
+        await Load();
+        KeepUpHeldForTheEditor();
+    }
+
+    private EventCallback<string> OpenBrainNoteCallback => EventCallback.Factory.Create<string>(this, OpenBrainNoteAsync);
+
+    /// <summary>
+    /// A Brain chip pressed in the editor: the dialog closes, as for Open in Tasks, so
+    /// the note opens with nothing over it. The editor offers the chip only while its
+    /// fields hold no unsaved change, so closing discards nothing.
+    /// </summary>
+    private async Task OpenBrainNoteAsync(string note)
+    {
+        _editing = false;
+        _edited = null;
+        _placement = null;
+        KeepUpHeldForTheEditor();
+
+        await OnOpenBrainNote.InvokeAsync(note);
+    }
+
+    /// <summary>
+    /// Answers "Open in Tasks" in the editor: closes the editor and asks the host to show
+    /// the item's plan in the task list, across every repository — the bar the editor was
+    /// opened from rides along but does not scope the list
+    /// (<see cref="RoadmapTasksRequest.RepositoryAliases"/>).
+    /// <para>
+    /// Nothing is saved on the way: the editor enables the button only while its fields
+    /// hold no unsaved change, so closing it here discards nothing.
+    /// </para>
+    /// </summary>
+    private Task OpenTasksAsync(Guid itemId) =>
+        OpenTasksAsync(itemId, RoadmapPlanView.NodeIdOf(_selectedId) == itemId ? _selectedId : null);
+
+    /// <summary>Shows <paramref name="itemId"/>'s plan in the task list, raised from
+    /// <paramref name="barId"/>, or from the whole item when null.</summary>
+    private async Task OpenTasksAsync(Guid itemId, string? barId)
+    {
+        var item = _plan.Items.FirstOrDefault(candidate => candidate.Id == itemId) ?? _edited;
+        if (item is null || string.IsNullOrEmpty(item.Tag)) return;
+
+        var request = RoadmapTasksRequest.For(item, barId, Configured());
+
+        _editing = false;
+        _edited = null;
+        _placement = null;
+        KeepUpHeldForTheEditor();
+
+        await OnOpenTasks.InvokeAsync(request);
+    }
+
+    /// <summary>
+    /// A bar's own action, from the button at its end: the item's plan in Tasks, or the item
+    /// completed today — without opening the editor. The action sits on the item's last
+    /// part, but it is the item's: Open in Tasks shows the whole plan, in every
+    /// repository, not that one part's share.
+    /// </summary>
+    private async Task ActOnBarAsync(string barId)
+    {
+        // One at a time: a second press while the first is answered is dropped, and the
+        // button says it is busy meanwhile.
+        if (_acting is not null) return;
+
+        var bar = _view.Bars.FirstOrDefault(candidate => candidate.Id == barId);
+        if (bar?.Action is not { } action || RoadmapPlanView.NodeIdOf(barId) is not { } itemId) return;
+
+        _acting = barId;
+        try
+        {
+            if (action.Kind is RoadmapBarActionKind.Open)
+            {
+                await OpenTasksAsync(itemId, barId: null);
+                return;
+            }
+
+            _error = null;
+            var completed = await AsPersonAsync("completing a roadmap item", () => Planning.CompleteItemAsync(itemId, Today ?? DateOnly.FromDateTime(DateTime.Today)));
+            if (completed is Error error)
+            {
+                _error = error.Message;
+                return;
+            }
+
+            await Load();
+        }
+        finally
+        {
+            _acting = null;
+        }
+    }
+
+    /// <summary>The bar whose action is being answered, if any.</summary>
+    private string? _acting;
+
+    /// <summary>Completes the item in the editor today, and closes it. A refusal keeps it
+    /// open and says why.</summary>
+    private Task CompleteAsync(Guid itemId) =>
+        FromEditorAsync("completing a roadmap item", () => Planning.CompleteItemAsync(itemId, Today ?? DateOnly.FromDateTime(DateTime.Today)));
+
+    /// <summary>Reopens the item in the editor, and closes it.</summary>
+    private Task ReopenAsync(Guid itemId) => FromEditorAsync("reopening a roadmap item", () => Planning.ReopenItemAsync(itemId));
+
+    private async Task FromEditorAsync(string label, Func<Task<Result<RoadmapItemDto>>> write)
+    {
+        _error = null;
+
+        var result = await AsPersonAsync(label, write);
+        if (result is Error error)
+        {
+            _editor?.Refuse(error.Message);
+            return;
+        }
+
+        _editing = false;
+        _edited = null;
+        await Load();
+        KeepUpHeldForTheEditor();
+    }
+
+    /// <summary>
+    /// The item's own window, from where one of its bars was put.
+    /// <para>
+    /// A bar may be one repository's part of an item, and then its dates are part of the
+    /// item's window rather than the window itself. So what is carried over is how far
+    /// each edge moved: dragging a part a week moves the whole item a week, and pulling a
+    /// part's end out lengthens the item by as much. Measured from the window the item is
+    /// drawn over, not the one stored, which a layout from today may already have moved
+    /// (<see cref="RoadmapPlanView.ItemWindowFor"/>). For a bar that is the whole item,
+    /// the two readings are the same.
+    /// </para>
+    /// </summary>
+    private (DateOnly Start, DateOnly End) ItemWindowFor(RoadmapChange change, Guid itemId)
+    {
+        var bar = _view.Bars.FirstOrDefault(candidate => candidate.Id == change.BarId);
+
+        return bar is null || RoadmapPlanView.NodeIdOf(bar.Id) != itemId
+            ? (change.Start, change.End)
+            : RoadmapPlanView.ItemWindowFor(_view.MeasuredBars, bar, change);
+    }
+
+    /// <summary>
+    /// A dependency drawn on the chart: the handle past one bar's end dropped on
+    /// another, which is to wait for it. Answered the way the editor's checkbox is —
+    /// the plan decides, a refusal such as a cycle is shown, and the arrow appears
+    /// from the reloaded plan rather than from the gesture.
+    /// </summary>
+    private async Task LinkAsync(RoadmapLink link)
+    {
+        var dependsOn = RoadmapPlanView.NodeIdOf(link.FromId);
+        var waiting = RoadmapPlanView.NodeIdOf(link.ToId);
+        if (dependsOn is null || waiting is null) return;
+
+        _error = dependsOn == waiting
+            ? "A plan cannot wait for another part of itself."
+            : null;
+
+        if (_error is null)
+        {
+            var added = await AsPersonAsync("adding a roadmap dependency", () => Planning.AddDependencyAsync(waiting.Value, dependsOn.Value));
+            if (added is Error error) _error = error.Message;
+        }
+
+        await Load();
+    }
+
+    /// <summary>
+    /// Runs one write of the person's gesture under a person change set labelled
+    /// <paramref name="label"/>, unless one is current (local ADR 0071 §3). The scope
+    /// holds the write alone: the reload and any keep-up after it run outside it, so the
+    /// keep-up projection's own pass is never filed under the person's gesture.
+    /// </summary>
+    private static async Task<T> AsPersonAsync<T>(string label, Func<Task<T>> write)
+    {
+        using var change = ChangeContext.BeginIfNone(ChangeActor.Person, label);
+        return await write();
+    }
+
+    /// <summary>The lane out of a row id, as the view built it. A stacked row of a
+    /// lane names that lane too, so a bar dropped onto one stays filed where it
+    /// was.</summary>
+    private static string? LaneOf(string rowId) => RoadmapPlanView.LaneOf(rowId);
+
+    private void OnRepositoriesChanged() => InvokeAsync(async () =>
+    {
+        await Load();
+        StateHasChanged();
+    });
+
+    /// <summary>Show archived moved in the header: an archived band is drawn whole, or
+    /// back down to its finished work, at once.</summary>
+    private void OnShowArchivedChanged() => OnRepositoriesChanged();
+
+    /// <summary>
+    /// The plan changed somewhere else — Import in the Tasks pane, an MCP tool — while
+    /// the band was on screen, so it is read again rather than left to wait for the
+    /// band to be toggled off and on.
+    /// <para>
+    /// The band's own writes raise this too, after it has already reloaded for them.
+    /// The second read is the same plan and costs one query; telling our own changes
+    /// apart from everyone else's would be a second bookkeeping of the plan.
+    /// </para>
+    /// </summary>
+    private void OnPlanChanged() => ReloadForOutsideChange();
+
+    /// <summary>A gathered task was written — a step marked done, a task-level import —
+    /// so every item sized by its effort is laid out again from its unfinished work and
+    /// the windows that moved are stored, then the steps, the fill and the shelf are read
+    /// again from what Tasks now holds.</summary>
+    private void OnWorkChanged() => ReloadForOutsideChange(keepUp: true);
+
+    /// <summary>
+    /// A typed pace or a choice changed — in this band's own pace controls, in another
+    /// window, or pulled from another PC by the sync — so every bar still sized by its
+    /// effort is drawn again at the pace now in use, from what each item gathers now
+    /// (ADR 0013, ruling 5 as amended).
+    /// <para>
+    /// The one redraw a pace change gets: the controls' own OnPaceChanged is not
+    /// listened to as well, because it reports the same save and a second load would
+    /// read the backlog again for nothing — the stall after letting go of a slider.
+    /// </para>
+    /// <para>
+    /// A read, never a plan write. Those windows are drawn through the keep-up rule
+    /// (<see cref="RoadmapProjection"/>) and stored only on the next open or task change,
+    /// so the pace document is the only thing a pace change writes — a plan saved here
+    /// would carry a newer stamp to the other PCs and overwrite an edit made there in the
+    /// same interval (local ADR 0018).
+    /// </para>
+    /// </summary>
+    private void OnPaceSettingsChanged()
+    {
+        // Read the actual hours again after the redraw too. A pace change is most often
+        // the person at the axis — a day blocked or unblocked — so the hours beside it
+        // are read fresh rather than left as they were when the roadmap opened.
+        _ = InvokeAsync(() => _actualAskedFor = null);
+        ReloadForOutsideChange();
+    }
+
+    /// <summary>A reload is already under way when the next change lands.</summary>
+    private bool _reloading;
+
+    /// <summary>One more change arrived while it was.</summary>
+    private bool _reloadAgain;
+
+    /// <summary>A task changed since the keep-up projection last stored what it moved.</summary>
+    private bool _keepUpAgain;
+
+    /// <summary>
+    /// An existing item is open in the editor, so the keep-up projection waits for the
+    /// dialog to close.
+    /// <para>
+    /// The editor's fields hold the window the item had when it opened. A keep-up stored
+    /// meanwhile would leave them behind the plan, and a Save of only the title would
+    /// send the old window back: a window that differs from the stored one is a hand
+    /// move, so the item would stop being effort-placed and never be kept up again. Held,
+    /// the Save compares against the window the fields were read from, and the keep-up
+    /// runs over what it stored (<see cref="KeepUpHeldForTheEditor"/>).
+    /// </para>
+    /// </summary>
+    private bool EditorHoldsAnItem => _editing && _edited is not null;
+
+    /// <summary>The item dialog closed — saved, deleted, handed back to the forecast or
+    /// cancelled — so a keep-up held while it was open runs now.</summary>
+    private void KeepUpHeldForTheEditor()
+    {
+        if (_keepUpAgain && !EditorHoldsAnItem) ReloadForOutsideChange();
+    }
+
+    /// <summary>
+    /// Reads the band again after a change made outside it.
+    /// <para>
+    /// Coalesced, because an import writes every entry it brings in one after another
+    /// and each write is heard: the changes that land during a reload are answered
+    /// by one more reload after it, not by one each.
+    /// </para>
+    /// <para>
+    /// With <paramref name="keepUp"/> — a task changed — the keep-up projection stores what
+    /// it moved before the plan is read. Its own save is heard as a plan change, which
+    /// only reads again, so nothing loops.
+    /// </para>
+    /// </summary>
+    private void ReloadForOutsideChange(bool keepUp = false) => InvokeAsync(async () =>
+    {
+        _keepUpAgain |= keepUp;
+
+        if (_reloading)
+        {
+            _reloadAgain = true;
+            return;
+        }
+
+        _reloading = true;
+        try
+        {
+            do
+            {
+                _reloadAgain = false;
+                if (_keepUpAgain && !EditorHoldsAnItem)
+                {
+                    _keepUpAgain = false;
+                    await KeepUpWithWorkAsync();
+                }
+
+                await Load();
+                StateHasChanged();
+            }
+            while (_reloadAgain);
+        }
+        finally
+        {
+            _reloading = false;
+        }
+    });
+}

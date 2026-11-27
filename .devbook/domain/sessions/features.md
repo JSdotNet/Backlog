@@ -68,7 +68,7 @@ sequenceDiagram
 Answer "what have my agents been doing here" as one list: every session the
 environment has a record of, most recently active first, whichever agent ran it.
 
-The list opens from **Sessions** in the header's Goals group, between [Goals](../progress/features.md#the-goals-view) and **Pull requests**, the
+The list opens from **Sessions** in the header's Goals group, between [Goals](../goals/features.md#the-goals-view) and **Pull requests**, the
 open pull requests the sessions shipped. Each of the two lists takes the whole screen
 while open. Escape, its close button or a second press of its option returns to
 the previous view. Goals, first in the group, is a view instead.
@@ -214,7 +214,7 @@ one outside every registered clone, not one that never ran.
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/sessions/features.md#the-work-a-run-is-linked-to, .devbook/domain/productivity/features.md#what-the-sessions-cost-and-shipped, .devbook/domain/sessions/features.md#the-detail-of-one-session]
+related: [.devbook/domain/sessions/features.md#the-work-a-run-is-linked-to, .devbook/domain/insights/features.md#what-the-sessions-cost-and-shipped, .devbook/domain/sessions/features.md#the-detail-of-one-session]
 ```
 
 A row also shows three things Claude writes into its transcript and the session record
@@ -709,7 +709,7 @@ about matches no chapter.
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/sessions/domain.md#delivery-run-recording, .devbook/domain/tasks/features.md#acceptance-from-scenario-parts]
+related: [.devbook/domain/sessions/domain.md#delivery-run-recording, .devbook/domain/work/features.md#acceptance-from-scenario-parts]
 tests: [unit:dotnet:Backlog.Infrastructure.Mcp.UnitTests.SurfaceToolsTests.Update_stage_passes_the_verify_evidence_through_per_part, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliverySurfaceLifecycleTests.A_verify_stage_keeps_its_scenario_evidence_per_part, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunReaderTests.A_stage_s_scenario_evidence_is_read_per_part, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionsPaneRunTests.A_verify_stage_shows_its_scenario_evidence_per_part, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionsPaneRunTests.A_run_with_no_evidence_draws_no_evidence_list, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunReaderTests.A_stage_s_scenarios_are_read_with_their_screenshots, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunReaderTests.A_stage_s_links_are_read_as_recorded, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunReaderTests.A_stage_link_that_is_not_http_https_or_file_is_left_out, unit:dotnet:Backlog.Desktop.UI.UnitTests.DeliveryRunStagesTests.A_stage_s_scenarios_list_their_screenshots_in_its_panel, unit:dotnet:Backlog.Desktop.UI.UnitTests.DeliveryRunStagesTests.A_stage_s_links_are_drawn_in_its_panel, e2e:dotnet:Backlog.EndToEndTests.ScenarioEvidenceTests.A_verify_stage_shows_its_scenario_evidence_and_screenshots]
 ```
 
@@ -884,7 +884,7 @@ A row with no prefix the reading recognises shows its title whole and no badge.
 
 ```meta
 type: sub-feature
-related: [.devbook/domain/sessions/features.md#what-a-session-cost-and-what-it-shipped, .devbook/domain/sessions/features.md#the-work-a-run-is-linked-to, .devbook/domain/repository-management/features.md#the-detail-panel-of-a-pull-request, .devbook/domain/repository-management/features.md#one-verdict-per-pull-request]
+related: [.devbook/domain/sessions/features.md#what-a-session-cost-and-what-it-shipped, .devbook/domain/sessions/features.md#the-work-a-run-is-linked-to, .devbook/domain/repositories/features.md#the-detail-panel-of-a-pull-request, .devbook/domain/repositories/features.md#one-verdict-per-pull-request]
 ```
 
 Picking a row opens a detail panel beside the list, because the reader is usually
@@ -913,8 +913,8 @@ The panel holds these, in this order:
   [Under the session that drove it](#under-the-session-that-drove-it) says. A session with no run says so in its place.
 - **What it produced**: a pull request card for each pull request, and the task card
   for the Backlog entry it was worked for. Each pull request card wears the readiness
-  verdict Repository Management publishes for it, by
-  [One verdict per pull request](../repository-management/features.md#one-verdict-per-pull-request).
+  verdict Repositories publishes for it, by
+  [One verdict per pull request](../repositories/features.md#one-verdict-per-pull-request).
   A pull request whose verdict could not be read wears no chip rather than a guess.
 
 ## How each stage of a run ran
@@ -1034,7 +1034,7 @@ Under those facts:
 ```meta
 type: feature
 depends-on: [.devbook/domain/sessions/features.md#how-each-stage-of-a-run-ran]
-related: [.devbook/domain/sessions/features.md#what-a-run-cost-reported-by-the-session-itself, .devbook/domain/sessions/domain.md#delivery-run-telemetry, .devbook/domain/productivity/features.md#what-the-sessions-cost-and-shipped]
+related: [.devbook/domain/sessions/features.md#what-a-run-cost-reported-by-the-session-itself, .devbook/domain/sessions/domain.md#delivery-run-telemetry, .devbook/domain/insights/features.md#what-the-sessions-cost-and-shipped]
 tests: [unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunCostsTests, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.DeliveryRunBaselinesTests, unit:dotnet:Backlog.Infrastructure.Sessions.UnitTests.WeeklyUsageTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.ClaudeCodeOtlpLogsTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.ModelPriceSettingsTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.SessionsPaneDetailTests]
 ```
 
@@ -1459,12 +1459,12 @@ from the session's own `Session State`.
 
 ```meta
 type: feature
-related: [.devbook/domain/progress/features.md#the-goals-view, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md, .devbook/domain/sessions/features.md#open-on-the-session-a-task-names, .devbook/domain/repository-management/requirements.md#archiving-a-repository]
+related: [.devbook/domain/goals/features.md#the-goals-view, .devbook/arc42/adr/0035-goals-and-impediments-replace-sprints.md, .devbook/domain/sessions/features.md#open-on-the-session-a-task-names, .devbook/domain/repositories/requirements.md#archiving-a-repository]
 tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.Goals_leads_the_work_in_progress_group, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeWorkspaceSurfaceTests.A_stored_in_progress_view_reopens_on_goals]
 ```
 
 The In progress view is gone. It became
-[the Goals view](../progress/features.md#the-goals-view), which Progress owns, and
+[the Goals view](../goals/features.md#the-goals-view), which Goals owns, and
 local [ADR 0035](../../arc42/adr/0035-goals-and-impediments-replace-sprints.md)
 decides it. Its board by task went with the `goals` flag that kept it for a person who
 had goals off. No view now does any of these:
@@ -1484,7 +1484,7 @@ task's side panel: linking, unlinking and the reads of a linked pull request.
 
 ```meta
 type: sub-feature
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkedWorkSectionTests.Unlink_in_the_side_panel_takes_a_pull_request_off_its_entry, unit:dotnet:Backlog.Modules.Tasks.UnitTests.UnlinkTaskFromIssueTests.Unlinking_removes_only_the_named_link, unit:dotnet:Backlog.Modules.Tasks.UnitTests.UnlinkTaskFromIssueTests.Unlinking_ignores_case_and_keeps_the_entry_repositories]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.LinkedWorkSectionTests.Unlink_in_the_side_panel_takes_a_pull_request_off_its_entry, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.UnlinkTaskFromIssueTests.Unlinking_removes_only_the_named_link, unit:dotnet:Backlog.Modules.Work.Tasks.UnitTests.UnlinkTaskFromIssueTests.Unlinking_ignores_case_and_keeps_the_entry_repositories]
 ```
 
 Every linked session and pull request in a task's side panel has an "Unlink" beside
@@ -1497,7 +1497,7 @@ the section's heading, since the card that held it is gone.
 
 ```meta
 type: sub-feature
-tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_linked_pull_request_the_open_read_did_not_list_is_read_by_number_with_its_state_merge_date_and_author, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_merged_linked_pull_request_is_read_once_and_a_closed_or_open_one_again_on_the_next_read, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_linked_number_github_cannot_find_is_not_asked_about_again, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_read_still_fresh_and_the_side_panels_sessions_read_ask_github_for_nothing_by_number, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.The_open_read_lands_without_waiting_for_the_read_by_number, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.The_projection_carries_the_read_state_and_author_and_the_card_draws_what_it_drew, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubPullRequestStatusesTests.A_merged_pull_request_maps_with_who_merged_it, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubPullRequestSourceTests.A_read_by_number_asks_github_about_at_most_twenty_five_numbers_a_query, unit:dotnet:Backlog.Modules.RepositoryManagement.UnitTests.SettledFactTests.A_merged_pull_request_reads_merged_after_a_restart_with_github_out_of_reach]
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_linked_pull_request_the_open_read_did_not_list_is_read_by_number_with_its_state_merge_date_and_author, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_merged_linked_pull_request_is_read_once_and_a_closed_or_open_one_again_on_the_next_read, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_linked_number_github_cannot_find_is_not_asked_about_again, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.A_read_still_fresh_and_the_side_panels_sessions_read_ask_github_for_nothing_by_number, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.The_open_read_lands_without_waiting_for_the_read_by_number, unit:dotnet:Backlog.Desktop.UI.UnitTests.WorkInProgressReaderTests.The_projection_carries_the_read_state_and_author_and_the_card_draws_what_it_drew, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubPullRequestStatusesTests.A_merged_pull_request_maps_with_who_merged_it, unit:dotnet:Backlog.Infrastructure.GitHub.UnitTests.GitHubPullRequestSourceTests.A_read_by_number_asks_github_about_at_most_twenty_five_numbers_a_query, unit:dotnet:Backlog.Modules.Repositories.UnitTests.SettledFactTests.A_merged_pull_request_reads_merged_after_a_restart_with_github_out_of_reach]
 ```
 
 ```mermaid
@@ -1546,7 +1546,7 @@ not written twice.
 
 The link action also takes a pull request by its number or its link, whatever its
 state, merged and closed included. Work that merged before its task was linked is
-linked this way, and the task is then [done](../progress/domain.md#done) by it in the
+linked this way, and the task is then [done](../goals/domain.md#done) by it in the
 goal that counts it. A bare number is the task's own repository's, and a task with two
 has to be given the link; a link or `owner/name#123` names one, and it must be
 registered in Settings. The pull request is read by number before anything is
@@ -1578,7 +1578,7 @@ The area has one switch, because "should this product show me sessions at all" i
 ```meta
 type: feature
 feature-flag: .devbook/domain/sessions/context.md#session-requests
-related: [.devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md, .devbook/domain/sessions/domain.md#session-request-queue, .devbook/domain/sessions/requirements.md#start-a-session-from-an-entry, .devbook/domain/tasks/features.md#copy-as-a-runnable-paste, .devbook/domain/tasks/features.md#search-filter-and-organize, .devbook/design/interaction-guidelines.md#popover-button, .devbook/design/interaction-guidelines.md#drag-and-drop-reordering, .devbook/arc42/adr/0072-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md, .devbook/domain/tasks/features.md#plans-view]
+related: [.devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md, .devbook/domain/sessions/domain.md#session-request-queue, .devbook/domain/sessions/requirements.md#start-a-session-from-an-entry, .devbook/domain/work/features.md#copy-as-a-runnable-paste, .devbook/domain/work/features.md#search-filter-and-organize, .devbook/design/interaction-guidelines.md#popover-button, .devbook/design/interaction-guidelines.md#drag-and-drop-reordering, .devbook/arc42/adr/0072-the-tasks-pane-groups-by-plan-and-a-plan-is-queued-as-a-whole.md, .devbook/domain/work/features.md#plans-view]
 ```
 
 A person presses the queue icon on a prompt entry, or on a plan's roadmap item, to queue
@@ -1603,8 +1603,10 @@ decides it, and it sits behind the `session-requests` flag, off by default.
   a test or an idea does not have it, and the row's right-click menu does not offer it.
 - **A plan is queued only as a whole** (local ADR 0072). On a plan entry, one whose
   plan a roadmap item carries, the entry's queue icon is disabled, and its tooltip says
-  "Queued with its plan — queue the plan as a whole". The plan's own icon queues it, on
-  its rail row in the [Plans view](../tasks/features.md#plans-view), in its waves view,
+  "Queued with its plan — queue the plan as a whole". Its name names the plan, as in
+  `Queue the +plan-first-tasks plan as a whole — its entries are not queued one by one`.
+  The plan's own icon queues it, on
+  its rail row in the [Plans view](../work/features.md#plans-view), in its waves view,
   beside the pressed plan chip and in its roadmap item's dialog. A plan session runs
   unattended and asks nothing (local ADR 0038).
 - **A plan entry shows the state its plan's run gives it**, as coloured text on its row:
@@ -1615,7 +1617,7 @@ decides it, and it sits behind the `session-requests` flag, off by default.
   | Landed | Its pull request merged into the plan branch. |
   | Left for you | A `test` or `task` entry, which the run never does. |
   | Held for you | The entry is blocked: `execute-plan` blocks an entry whose Read-first source it cannot read, so the run holds it. |
-  | In plan session | A plan session runs the entry: the run reports a stage for it, or it is In progress with a linked session. |
+  | In plan session | A plan session runs the entry: the run reports a stage for it, or it is In progress with a linked session. Outside the Plans view it reads `In plan session · <stage>` when the run reports a stage. |
   | Waiting | The entry is not Ready, or it waits on another open entry. |
   | Queued with plan | The plan is queued and the entry is ready. |
   | Ready | The plan is not queued and the entry is ready. |
@@ -1636,15 +1638,15 @@ decides it, and it sits behind the `session-requests` flag, off by default.
   disabled. Its tooltip and screen-reader text name the missing clone folder or say no repository is named. An archived repository is not offered.
 - **Queue a session for the plan** is a queue icon in the dialog of a saved roadmap item
   that has a tag. It sits beside the item's
-  [tag copy button](../roadmap/features.md#tagging-planned-work), which copies the tag
-  with its [plan sigil](../roadmap/domain.md#plan-sigil), such as `+plan`. A new item,
+  [tag copy button](../work/features.md#tagging-planned-work), which copies the tag
+  with its [plan sigil](../work/domain.md#plan-sigil), such as `+plan`. A new item,
   or one without a tag, has neither.
 - The plan's icon is named for the tag with its sigil, as in "Queue a session for the
   +plan plan". It asks for the item's tag in the first of the item's repositories that
   has a clone folder, so there is nothing to choose. When none has one, the icon
   is disabled with the same reason.
 - The same plan icon sits beside the copy of the pressed
-  [plan chip on the Tasks filter bar](../tasks/features.md#search-filter-and-organize),
+  [plan chip on the Tasks filter bar](../work/features.md#search-filter-and-organize),
   on the same terms and with the same name. A plan that no roadmap item carries has no
   icon there, because the session starts in the item's repositories.
 - A request that is queued says so in a toast, "Asked for a session in" its repository,
@@ -1656,9 +1658,9 @@ decides it, and it sits behind the `session-requests` flag, off by default.
   open request carries a waiting mark inside the chip, and its tooltip and name gain
   the same sentence. On the roadmap, the item's bar that ends last shows a waiting
   mark after its title, and its tooltip gains a line
-  saying which of the three it is. Cancel is offered only while Requested: the
-  queue would also cancel a Claimed request, but a dispatcher is already
-  starting the session by then.
+  saying which of the three it is. The chip offers Cancel only while Requested: it
+  withdraws a request no dispatcher has picked up yet. Once the request is Claimed or
+  Started, Cancel lives in the session queue.
 - **The session queue is a column docked beside the Tasks list** (local ADR 0072). Its
   groups, top to bottom:
   - **Needs you**: a session's question, with **Answer**, and a draft pull request
@@ -1687,8 +1689,9 @@ decides it, and it sits behind the `session-requests` flag, off by default.
   "paused" while the queue is paused, as in "Session queue, paused, 3 waiting". Its popover
   lists the Claimed and Started requests first, then the Requested ones in queue order,
   each with the entry's title or the plan's `+tag`, the repository, its state and how
-  long ago it was asked. Cancel is offered while Requested, and while Started, so a
-  request whose session never called `link_session` can be cleared; Claimed offers none.
+  long ago it was asked. Cancel is offered while Requested, Claimed and Started, so a
+  request whose session never called `link_session`, or a claim that never starts one,
+  can be cleared.
   Following a row opens the entry or presses the plan's chip and closes the popover. An entry outside the loaded
   rows reads "Entry not in this view" and cannot be followed.
 - **Reordering the queue.** A Requested row offers Move up, Move down and Move to top,

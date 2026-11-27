@@ -3,7 +3,7 @@ using Microsoft.Extensions.Time.Testing;
 namespace Backlog.Mobile.UI.UnitTests;
 
 /// <summary>
-/// The phone's Stand-up tab (<c>.devbook/domain/progress/features.md#goals-on-the-phone</c>):
+/// The phone's Stand-up tab (<c>.devbook/domain/goals/features.md#goals-on-the-phone</c>):
 /// shown after Inbox only while goals are on — which the phone reads as holding
 /// a stand-up context — and drawing the four blocks the desktop reads, by its rules, with the
 /// iteration switch re-reading them for this visit.

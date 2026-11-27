@@ -3,7 +3,7 @@ using System.Text.Json.Nodes;
 using Backlog.Infrastructure.Sessions;
 using Backlog.Modules.Notifications.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
-using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
 using Backlog.SharedKernel.Markdown;
 using Backlog.SharedKernel.Results;
 using Backlog.Tests;

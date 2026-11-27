@@ -1,18 +1,17 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Modules\Tasks\Backlog.Modules.Tasks\Backlog.Modules.Tasks.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Work\Backlog.Modules.Work\Backlog.Modules.Work.csproj" />
     <!-- The plan aggregate and the port the roadmap adapter answers. Referenced
          directly rather than leaned on transitively through the adapter: these tests
          build a RoadmapPlan by hand, so the module is a first-class input here and a
          reference that says so cannot be removed by a change to the adapter's own. -->
-    <ProjectReference Include="..\..\src\Modules\Roadmap\Backlog.Modules.Roadmap\Backlog.Modules.Roadmap.csproj" />
     <!-- The inbox aggregates, for the same reason: the tests build an InboxItem by
          hand and assert what comes back. -->
     <ProjectReference Include="..\..\src\Modules\Inbox\Backlog.Modules.Inbox\Backlog.Modules.Inbox.csproj" />
     <!-- The goal and impediment aggregates, for the same reason: the tests build a goal
          by hand and assert what comes back. -->
-    <ProjectReference Include="..\..\src\Modules\Progress\Backlog.Modules.Progress\Backlog.Modules.Progress.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Goals\Backlog.Modules.Goals\Backlog.Modules.Goals.csproj" />
     <!-- The notification aggregate, for the same reason. -->
     <ProjectReference Include="..\..\src\Modules\Notifications\Backlog.Modules.Notifications\Backlog.Modules.Notifications.csproj" />
     <!-- The knowledge event and event series aggregates, for the same reason. -->

@@ -42,10 +42,12 @@ public class ModuleBoundaryTests
         // adapter under src/Infrastructure, which is where a cross-context edge
         // belongs unless a pane renders on another context's pane. The next entry
         // needs the context map's say-so in its Relationship, as these have.
-        ("Backlog.Modules.Brain.UI", "Backlog.Modules.Devbook.UI",
-            "Customer/Supplier: the Brain conforms to the Devbook pane's mode extension point (local ADR 0040 §2; .devbook/domain/context-map.md)"),
+        ("Backlog.Modules.Brain.UI", "Backlog.Modules.Devbook.Contracts.UI",
+            "Customer/Supplier: the Brain conforms to the Devbook pane's mode extension point, through the pane's published surface rather than its screens (local ADR 0040 §2, ADR 0073 §9; .devbook/domain/context-map.md)"),
         ("Backlog.Modules.Brain.UI", "Backlog.Modules.Devbook.Abstractions",
             "Customer/Supplier: the Brain answers Devbook's personal-source port and opens repository chapters in its published language (local ADR 0040 §2, ADR 0027 §6; .devbook/domain/context-map.md)"),
+        ("Backlog.Modules.Insights.UI", "Backlog.Modules.DevPc.Abstractions",
+            "Customer/Supplier: Dev PCs owns the Machine and Insights' machine filter reads it through the registry port (local ADR 0073 §7; .devbook/domain/context-map.md)"),
     ];
 
     [Fact]
@@ -207,6 +209,7 @@ public class ModuleBoundaryTests
                 .Where(names.Contains)
                 .Where(reference => !reference.Equals(self, StringComparison.OrdinalIgnoreCase))
                 .Where(reference => !IsAllowedCrossContextEdge(self, reference))
+                .Where(reference => !IsOwnPublishedSurface(self, reference))
                 .Select(reference => $"{self} -> {reference}"));
         }
 
@@ -792,10 +795,10 @@ public class ModuleBoundaryTests
 
         // The tasks adapter reads and writes Tasks through its published port.
         Assert.Contains(reached, entry =>
-            entry.Assembly.Equals("Backlog.Modules.Tasks.Abstractions", StringComparison.OrdinalIgnoreCase)
+            entry.Assembly.Equals("Backlog.Modules.Work.Abstractions", StringComparison.OrdinalIgnoreCase)
             && entry.Type.EndsWith(".ITaskItems", StringComparison.Ordinal));
 
-        string[] forbidden = ["Backlog.Modules.Roadmap", EventsImplementation, "Backlog.Modules.Tasks"];
+        string[] forbidden = ["Backlog.Modules.Work", EventsImplementation];
         var offenders = reached
             .Where(entry => forbidden.Contains(entry.Assembly, StringComparer.OrdinalIgnoreCase))
             .Select(entry => $"{entry.Member} names {entry.Type}")
@@ -804,8 +807,8 @@ public class ModuleBoundaryTests
 
         Assert.True(
             offenders.Count == 0,
-            "Backlog.Infrastructure.FileSystem.Calendar reads Roadmap's, Events' or Tasks' implementation; it reads the "
-            + "Calendar's ports and the published surfaces of Roadmap, Events and Tasks only:\n"
+            "Backlog.Infrastructure.FileSystem.Calendar reads Work's or Events' implementation; it reads the "
+            + "Calendar's ports and the published surfaces of Work and Events only:\n"
             + string.Join('\n', offenders));
     }
 
@@ -1044,14 +1047,22 @@ public class ModuleBoundaryTests
             .Where(name => name.Split('.').Length == 3)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>A context's screens taking the UI surface that same context publishes
+    /// to another's (<c>Backlog.Modules.Devbook.UI</c> on
+    /// <c>Backlog.Modules.Devbook.Contracts.UI</c>, local ADR 0073 §9). Only that
+    /// direction: the published surface never reaches back onto its own screens.</summary>
+    private static bool IsOwnPublishedSurface(string from, string to) =>
+        to.Equals(OwningModuleOf(from) + ".Contracts.UI", StringComparison.OrdinalIgnoreCase)
+        && from.Equals(OwningModuleOf(from) + ".UI", StringComparison.OrdinalIgnoreCase);
+
     private static bool IsAllowedCrossContextEdge(string from, string to) =>
         AllowedCrossContextUi.Any(allowed =>
             allowed.From.Equals(from, StringComparison.OrdinalIgnoreCase)
             && allowed.To.Equals(to, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
-    /// <c>Backlog.Modules.Tasks.Abstractions</c> and friends belong to the same
-    /// module as <c>Backlog.Modules.Tasks</c>; only the first three segments identify it.
+    /// <c>Backlog.Modules.Work.Abstractions</c> and friends belong to the same
+    /// module as <c>Backlog.Modules.Work</c>; only the first three segments identify it.
     /// </summary>
     private static string OwningModuleOf(string projectName)
     {

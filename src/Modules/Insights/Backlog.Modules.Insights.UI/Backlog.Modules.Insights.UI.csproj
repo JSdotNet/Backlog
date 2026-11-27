@@ -1,0 +1,52 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <!--
+    The Insights context's UI: the full-screen surface, its eight parts and the Ask
+    AI source over what the pane shows. The machine filter reads Dev PCs' machine
+    registry, whose adapter lives in infrastructure.
+
+    The provider adapters are not here. Each lives in the infrastructure project it
+    maps from - Backlog.Infrastructure.GitHub, .Claude and .AzureFoundry - and
+    answers its port in the Abstractions project, which is the only part of this
+    context those projects see. They used to live here; a screen project that owned
+    them could not be hosted without every provider client, and HTTP-backed mapping
+    is not a screen's job. The assistant-session facts are a cross-context join, so
+    the adapter answering that port is in Backlog.Infrastructure.FileSystem, which
+    is the only place allowed to see the Sessions context as well as this one.
+
+    No infrastructure reference at all, then, and one sibling module's surface:
+    Dev PCs' Abstractions, for the Machine the filter offers.
+
+    The surface's own rules ship here too, in wwwroot/dashboard.css, served at
+    _content/Backlog.Modules.Insights.UI/dashboard.css; every host that renders the
+    takeover links it after the library's components.css and before the shell's app.css.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Backlog.Modules.Insights.UI</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The machine filter's labels are worth testing directly rather than only
+         through the pane. -->
+    <InternalsVisibleTo Include="Backlog.Desktop.UI.UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Core\Backlog.UI.Components\Backlog.UI.Components.csproj" />
+    <ProjectReference Include="..\..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+    <!-- The module's published surface only: the scope, the DTOs, the two
+         questions the parts ask, and the ports the adapters answer. The
+         derivations stay behind that line — the host wires them up, the parts do
+         not see them. -->
+    <ProjectReference Include="..\Backlog.Modules.Insights.Abstractions\Backlog.Modules.Insights.Abstractions.csproj" />
+    <!-- Dev PCs' published surface, for the Machine alone: Dev PCs owns it and
+         Insights reads it (Customer/Supplier, local ADR 0073 §7; .devbook/domain/context-map.md).
+         The registry's adapter is in Backlog.Infrastructure.FileSystem. -->
+    <ProjectReference Include="..\..\DevPc\Backlog.Modules.DevPc.Abstractions\Backlog.Modules.DevPc.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>

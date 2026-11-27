@@ -1,0 +1,79 @@
+using Backlog.Modules.Work.Abstractions.Plans;
+using Backlog.Modules.Work.Abstractions.Plans.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Plans.Services;
+using Backlog.Modules.Work.Abstractions.Tasks;
+using Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects;
+using Backlog.Modules.Work.Abstractions.Tasks.Services;
+using Backlog.SharedKernel.Results;
+
+namespace Backlog.Modules.Work.Services;
+
+/// <summary>
+/// Answers Tasks' <see cref="IRoadmapPlanIntake"/> by calling Roadmap's own import
+/// command (ADR 0013, ruling 3).
+/// <para>
+/// The first cross-context adapter here that writes, and it still holds no roadmap
+/// logic: it lifts the plan sigil off each tag, maps Tasks' values onto Roadmap's DTO,
+/// and delegates through <see cref="IRoadmapPlanning"/> — the same join
+/// <see cref="RoadmapPlanTagSource"/> makes in the other direction.
+/// </para>
+/// </summary>
+public sealed class RoadmapPlanIntake : IRoadmapPlanIntake
+{
+    private readonly IRoadmapPlanning _planning;
+
+    public RoadmapPlanIntake(IRoadmapPlanning planning)
+    {
+        ArgumentNullException.ThrowIfNull(planning);
+        _planning = planning;
+    }
+
+    public async Task<RoadmapIntakeResultDto> LayOutAsync(
+        RoadmapPlanIntakeRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var imported = await _planning.ImportPlanItemsAsync(
+            [.. request.Entries.Select(ToRoadmap)],
+            [.. request.GatheredEffort.Select(effort => new PlanTagEffortDto(Lift(effort.Tag), effort.TotalEffort, effort.UnestimatedCount))],
+            [.. request.LayOutIfMissing.Select(ToRoadmap)],
+            cancellationToken).ConfigureAwait(false);
+
+        // All or nothing on the roadmap's side: a refusal left the plan as it was.
+        if (imported is not Ok<PlanImportResultDto>(var result)) return RoadmapIntakeResultDto.Refused(((Error)imported.Value!).Message);
+
+        return new RoadmapIntakeResultDto(
+            result.Created.Count,
+            result.Updated.Count,
+            result.Relengthened.Count,
+            result.SkippedWithoutTag,
+            [],
+            [.. result.AmbiguousTags.Select(ambiguous => ambiguous.Tag)],
+            [.. result.UnresolvedDependencies.Select(unresolved => new ImportUnresolvedDependencyDto(unresolved.Tag, unresolved.After))]);
+    }
+
+    private static PlanImportEntryDto ToRoadmap(RoadmapPlanEntryDto entry) =>
+        new(
+            entry.Title,
+            Lift(entry.Tag),
+            entry.LocalId,
+            entry.RepositoryAliases,
+            ToPlanning(entry.Priority),
+            entry.Due,
+            entry.After,
+            entry.Notes,
+            KnowledgeRefs: entry.KnowledgeRefs);
+
+    /// <summary>The plan holds the bare slug; the backlog stores it as <c>+slug</c>.</summary>
+    private static string Lift(string tag) => tag.StartsWith('+') ? tag[1..] : tag;
+
+    /// <summary>The same four words; absent reads as medium.</summary>
+    private static PlanningPriority ToPlanning(Priority? priority) => priority switch
+    {
+        Priority.Low => PlanningPriority.Low,
+        Priority.High => PlanningPriority.High,
+        Priority.Critical => PlanningPriority.Critical,
+        _ => PlanningPriority.Medium
+    };
+}

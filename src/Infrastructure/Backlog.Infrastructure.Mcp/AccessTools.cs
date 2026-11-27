@@ -47,12 +47,12 @@ public sealed class AccessTools(McpCallContext call, IAgentAccessRequests? reque
     [Description(
         "Asks the person to give this agent's grant more scopes, and brings Backlog's request window forward on "
         + "their desktop. It changes nothing by itself: only the person allows a request, in that window, with "
-        + "Windows Hello, and may trim the scopes first. Ask for the scopes a refused tool named, such as tasks:write. "
+        + "Windows Hello, and may trim the scopes first. Ask for the scopes a refused tool named, such as work:write. "
         + "One request per agent is open at a time; asking again while one is open brings its window forward. "
         + "After a decline, the agent cannot ask again for a day. Answers the request's id; the new scopes arrive "
         + "with the agent's next token once allowed.")]
     public async Task<AccessRequestedPayload> RequestAsync(
-        [Description("The scopes to ask for, such as [\"tasks:write\", \"runs:write\"].")]
+        [Description("The scopes to ask for, such as [\"work:write\", \"runs:write\"].")]
         string[] scopes,
         [Description("Optional. The folder this agent works in, shown to the person beside the request.")]
         string? folder = null,

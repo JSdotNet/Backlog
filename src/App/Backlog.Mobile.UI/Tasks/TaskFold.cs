@@ -26,7 +26,19 @@ public static class TaskFold
     /// the plan document whole beside the rows, as <see cref="RoadmapPlanCopy"/>, for the
     /// plans on My Day (local ADR 0072 §8), and keeps no pace. Literals duplicated from
     /// the desktop's sync client, for the reason <see cref="CaptureType"/> is.</summary>
-    public const string RoadmapPlanType = "roadmap-plan";
+    public const string RoadmapPlanType = "work-plan";
+
+    /// <summary>The kind token the plan document carried before Tasks and Roadmap
+    /// Planning merged into Work (local ADR 0073 §10). Read like
+    /// <see cref="RoadmapPlanType"/>: desktops keep writing it until no paired phone runs a
+    /// build without this read, and the replica keeps what they sent.</summary>
+    public const string LegacyRoadmapPlanType = "roadmap-plan";
+
+    /// <summary>Whether <paramref name="type"/> names the plan document, under its
+    /// current kind token or the one before the rename.</summary>
+    public static bool IsRoadmapPlan(string? type) =>
+        string.Equals(type, RoadmapPlanType, StringComparison.Ordinal)
+        || string.Equals(type, LegacyRoadmapPlanType, StringComparison.Ordinal);
 
     /// <inheritdoc cref="RoadmapPlanType"/>
     public const string PlanningPaceType = "planning-pace";
@@ -46,20 +58,20 @@ public static class TaskFold
     /// <see cref="CaptureType"/> is.</summary>
     public const string SprintSeriesType = "sprint-series";
 
-    /// <summary>The kind token of a goal — Progress's whole goal, synced between desktops
+    /// <summary>The kind token of a goal — Goals' whole goal, synced between desktops
     /// (.devbook/arc42/adr/0035). Never a task row; the phone's goal pages read it from
     /// their own read model once they exist. A literal duplicated for the reason
     /// <see cref="CaptureType"/> is; persisted on every replica, so never to be renamed.</summary>
     public const string GoalType = "goal";
 
-    /// <summary>The kind token of an impediment — Progress's whole impediment, synced
+    /// <summary>The kind token of an impediment — Goals' whole impediment, synced
     /// between desktops (.devbook/arc42/adr/0035). Never a task row, for the reason
     /// <see cref="GoalType"/> gives; persisted on every replica, so never to be renamed.</summary>
     public const string ImpedimentType = "impediment";
 
     /// <summary>The kind token of the stand-up context — what a desktop writes for the phone
     /// to read the stand-up by: pull request statuses, the pace and the working week (local
-    /// ADR 0035 §8). Never a task row; <see cref="Progress.ProgressFold"/> keeps it. A literal
+    /// ADR 0035 §8). Never a task row; <see cref="Goals.GoalsFold"/> keeps it. A literal
     /// duplicated for the reason <see cref="CaptureType"/> is; persisted, so never renamed.</summary>
     public const string StandUpContextType = "stand-up-context";
 
@@ -93,6 +105,7 @@ public static class TaskFold
         CaptureType,
         Notes.NoteFold.NoteType,
         RoadmapPlanType,
+        LegacyRoadmapPlanType,
         PlanningPaceType,
         RepositoryRegistryType,
         GitHubAccountsType,

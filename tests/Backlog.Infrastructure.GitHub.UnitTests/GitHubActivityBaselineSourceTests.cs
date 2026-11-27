@@ -1,6 +1,6 @@
 using Backlog.Infrastructure.GitHub;
-using Backlog.Modules.Dashboard.Abstractions.Services;
-using Backlog.Infrastructure.GitHub.Dashboard;
+using Backlog.Modules.Insights.Abstractions.Services;
+using Backlog.Infrastructure.GitHub.Insights;
 
 namespace Backlog.Infrastructure.GitHub.UnitTests;
 
@@ -39,7 +39,7 @@ public sealed class GitHubActivityBaselineSourceTests : IDisposable
         var source = new GitHubActivityBaselineSource(client, new SignedIn("jsdotnet"), settings);
 
         var baseline = await source.GetBaselineAsync(
-            [new DashboardRepository("backlog", "JSdotNet/Backlog"), new DashboardRepository("fincent", "innovadis-dev/Fincent")],
+            [new InsightsRepository("backlog", "JSdotNet/Backlog"), new InsightsRepository("fincent", "innovadis-dev/Fincent")],
             [new ActivityWindow(Now.AddDays(-28), Now)],
             TestContext.Current.CancellationToken);
 
@@ -67,7 +67,7 @@ public sealed class GitHubActivityBaselineSourceTests : IDisposable
         var source = new GitHubActivityBaselineSource(client, new SignedIn("jsdotnet"), settings);
 
         var baseline = await source.GetBaselineAsync(
-            [new DashboardRepository("backlog", "JSdotNet/Backlog"), new DashboardRepository("copilot", "JSdotNet/Copilot")],
+            [new InsightsRepository("backlog", "JSdotNet/Backlog"), new InsightsRepository("copilot", "JSdotNet/Copilot")],
             [new ActivityWindow(Now.AddDays(-28), Now)],
             TestContext.Current.CancellationToken);
 
@@ -103,7 +103,7 @@ public sealed class GitHubActivityBaselineSourceTests : IDisposable
         var source = new GitHubActivityBaselineSource(client, new SignedIn("jsdotnet"), settings);
 
         var baseline = await source.GetBaselineAsync(
-            [new DashboardRepository("backlog", "JSdotNet/Backlog"), new DashboardRepository("fincent", "innovadis-dev/Fincent")],
+            [new InsightsRepository("backlog", "JSdotNet/Backlog"), new InsightsRepository("fincent", "innovadis-dev/Fincent")],
             [new ActivityWindow(Now.AddDays(-28), Now)],
             TestContext.Current.CancellationToken);
 
@@ -128,7 +128,7 @@ public sealed class GitHubActivityBaselineSourceTests : IDisposable
         var client = new ScriptedBaselineClient { ["jsdotnet"] = (Merged: 4, Closed: 1) };
 
         var baseline = await new GitHubActivityBaselineSource(client, new SignedIn("jsdotnet"), settings).GetBaselineAsync(
-            [new DashboardRepository("backlog", "JSdotNet/Backlog"), new DashboardRepository("budget", "innovadis-dev/Budgetbeheer")],
+            [new InsightsRepository("backlog", "JSdotNet/Backlog"), new InsightsRepository("budget", "innovadis-dev/Budgetbeheer")],
             [new ActivityWindow(Now.AddDays(-28), Now)],
             TestContext.Current.CancellationToken);
 

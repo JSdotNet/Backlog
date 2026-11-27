@@ -1,4 +1,4 @@
-using Backlog.Desktop.UI.Goals;
+using Backlog.Desktop.UI.ShellGoals;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Sessions.Abstractions;
 using Bunit;
@@ -71,8 +71,8 @@ public sealed class LinkedWorkSectionTests
         using var host = await TasksPaneHost.CreateAsync(Repository);
         var row = await host.WriteEntryAsync(Entry);
 
-        Assert.Null(await host.State.LinkWorkAsync(row, Repository, "abc", Backlog.Modules.Tasks.Abstractions.DataTransferObjects.EntryProjectionDto.SessionTargetType));
-        Assert.Null(await host.State.LinkWorkAsync(row, Repository, "ABC", Backlog.Modules.Tasks.Abstractions.DataTransferObjects.EntryProjectionDto.SessionTargetType));
+        Assert.Null(await host.State.LinkWorkAsync(row, Repository, "abc", Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects.EntryProjectionDto.SessionTargetType));
+        Assert.Null(await host.State.LinkWorkAsync(row, Repository, "ABC", Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects.EntryProjectionDto.SessionTargetType));
 
         Assert.Equal(["abc"], row.SessionLinks.Select(link => link.SessionId));
     }
@@ -114,7 +114,7 @@ public sealed class LinkedWorkSectionTests
 
     /// <summary>A linked pull request the open read listed carries its status line in the
     /// side panel — checks as passed/total, approvals against what its base branch requires
-    /// — the Pull requests pane's marks (.devbook/domain/progress/features.md#pull-request-status).</summary>
+    /// — the Pull requests pane's marks (.devbook/domain/goals/features.md#pull-request-status).</summary>
     [Fact]
     public async Task A_linked_open_pull_request_draws_its_status_line_in_the_side_panel()
     {
@@ -167,9 +167,9 @@ public sealed class LinkedWorkSectionTests
         });
     }
 
-    private const string SessionTarget = Backlog.Modules.Tasks.Abstractions.DataTransferObjects.EntryProjectionDto.SessionTargetType;
+    private const string SessionTarget = Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects.EntryProjectionDto.SessionTargetType;
 
-    private const string PullRequestTarget = Backlog.Modules.Tasks.Abstractions.DataTransferObjects.EntryProjectionDto.PullRequestTargetType;
+    private const string PullRequestTarget = Backlog.Modules.Work.Abstractions.Tasks.DataTransferObjects.EntryProjectionDto.PullRequestTargetType;
 
     /// <summary>The reader over the host's GitHub and the given sessions, with the
     /// clock the cards measure "45 min ago" against registered beside it.</summary>
@@ -178,7 +178,7 @@ public sealed class LinkedWorkSectionTests
         var clock = new FakeTimeProvider(Noon);
         host.Context.Services.AddSingleton<TimeProvider>(clock);
 
-        return new(RepositoryManagementChain.For(host.GitHub, clock), new StubSessionSource(sessions), clock);
+        return new(RepositoriesChain.For(host.GitHub, clock), new StubSessionSource(sessions), clock);
     }
 
     private static AgentSession Session(string id, AgentSessionState state, DateTimeOffset lastActivity, string? resolved = null) =>
