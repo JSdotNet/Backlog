@@ -163,16 +163,12 @@
                 written = await write(port);
             }
 
-            if (written is not Ok<GoalDto>(var goal))
+            var shown = written switch
             {
-                _error = ((Error)written.Value!).Message;
-                return;
-            }
-
-            _error = null;
-            _picking = false;
-            _created = null;
-            _current = goal;
+                Ok<GoalDto>(var goal) => Shown(goal),
+                Error error => Refused(error),
+            };
+            if (!shown) return;
         }
         finally
         {
@@ -183,6 +179,22 @@
         // goals are read again.
         StateHasChanged();
         await ReadAsync();
+
+        bool Shown(GoalDto goal)
+        {
+            _error = null;
+            _picking = false;
+            _created = null;
+            _current = goal;
+            return true;
+        }
+
+        // False, so the goals are not read again.
+        bool Refused(Error error)
+        {
+            _error = error.Message;
+            return false;
+        }
     }
 
     public void Dispose()

@@ -330,19 +330,21 @@ else
 
         var standUp = await _standUp.ReadAsync();
         if (generation != _generation) return;
-        if (standUp is not Ok<StandUpDto>(var reading))
+        var reading = standUp switch
         {
-            _readError = ((Error)standUp.Value!).Message;
-            return;
-        }
+            Ok<StandUpDto>(var read) => read,
+            Error error => NotRead<StandUpDto>(error),
+        };
+        if (reading is null) return;
 
         var goals = await _goals.ListAsync(reading.Last.First, reading.Last.Last);
         if (generation != _generation) return;
-        if (goals is not Ok<IReadOnlyList<GoalSummaryDto>>(var summaries))
+        var summaries = goals switch
         {
-            _readError = ((Error)goals.Value!).Message;
-            return;
-        }
+            Ok<IReadOnlyList<GoalSummaryDto>>(var listed) => listed,
+            Error error => NotRead<IReadOnlyList<GoalSummaryDto>>(error),
+        };
+        if (summaries is null) return;
 
         var refs = GoalsMapper.PullRequestsToRead(reading, summaries, CandidatesNow());
         IReadOnlyList<GoalPullRequestDto> pulls = refs.Count == 0 || _pullRequests is null ? [] : await _pullRequests.ReadAsync(refs);
@@ -353,6 +355,13 @@ else
         _pulls = pulls;
         _readError = null;
         Remap();
+
+        // Null, so the read stops with the refusal shown.
+        T? NotRead<T>(Error error) where T : class
+        {
+            _readError = error.Message;
+            return null;
+        }
     }
 
     private void Remap()
@@ -416,22 +425,31 @@ else
             try
             {
                 var created = await goals.CreateAsync(new SetGoalRequest(draft.Title, draft.Outcome, draft.DueDate));
-                if (created is not Ok<GoalDto>(var goal))
+                return created switch
                 {
-                    _createError = ((Error)created.Value!).Message;
-                    return false;
-                }
-
-                _createError = null;
-                _creating = false;
-                _selectedGoalId = goal.Id.ToString();
-                return true;
+                    Ok<GoalDto>(var goal) => Created(goal),
+                    Error error => Refused(error),
+                };
             }
             finally
             {
                 _writing = false;
             }
         });
+
+        bool Created(GoalDto goal)
+        {
+            _createError = null;
+            _creating = false;
+            _selectedGoalId = goal.Id.ToString();
+            return true;
+        }
+
+        bool Refused(Error error)
+        {
+            _createError = error.Message;
+            return false;
+        }
     }
 
     private async Task AttachAsync(GoalAttachRequest request)
@@ -446,31 +464,37 @@ else
             try
             {
                 var attached = await goals.AttachAsync(goalId, item);
-                if (attached is Ok<GoalDto>(var goal)) return new Written(true, goal);
-
-                var refused = (Error)attached.Value!;
-                if (refused.Code != ItemInOtherGoal)
+                return attached switch
                 {
-                    _writeError = refused.Message;
-                    return new Written(false);
-                }
-
-                // The picker names the goal that holds it and asks before the move.
-                var holder = await goals.FindGoalOfAsync(item);
-                if (holder is not Ok<GoalDto?>({ } held))
-                {
-                    _writeError = refused.Message;
-                    return new Written(false);
-                }
-
-                Open(new Picking(request.Subject, Option(held), goalId));
-                return new Written(false);
+                    Ok<GoalDto>(var goal) => new Written(true, goal),
+                    Error refused => await RefusedAsync(refused),
+                };
             }
             finally
             {
                 _writing = false;
             }
         });
+
+        async Task<Written> RefusedAsync(Error refused)
+        {
+            if (refused.Code != ItemInOtherGoal)
+            {
+                _writeError = refused.Message;
+                return new Written(false);
+            }
+
+            // The picker names the goal that holds it and asks before the move.
+            var holder = await goals.FindGoalOfAsync(item);
+            if (holder is not Ok<GoalDto?>({ } held))
+            {
+                _writeError = refused.Message;
+                return new Written(false);
+            }
+
+            Open(new Picking(request.Subject, Option(held), goalId));
+            return new Written(false);
+        }
     }
 
     /// <summary>A goal's "New task" row: the shell creates the task, then it is attached
@@ -490,23 +514,39 @@ else
             try
             {
                 var created = await create(request.Title);
-                if (created is not Ok<Guid>(var taskId))
+                return created switch
                 {
-                    _writeError = ((Error)created.Value!).Message;
-                    return new Written(false);
-                }
-
-                var attached = await goals.AttachAsync(goalId, GoalItemDto.ForTask(taskId));
-                if (attached is Ok<GoalDto>(var goal)) return new Written(true, goal);
-
-                _writeError = $"{request.Title} was added to the backlog, but not to this goal: {((Error)attached.Value!).Message}";
-                return new Written(true);
+                    Ok<Guid>(var taskId) => await AttachTaskAsync(taskId),
+                    Error error => NotCreated(error),
+                };
             }
             finally
             {
                 _writing = false;
             }
         });
+
+        async Task<Written> AttachTaskAsync(Guid taskId)
+        {
+            var attached = await goals.AttachAsync(goalId, GoalItemDto.ForTask(taskId));
+            return attached switch
+            {
+                Ok<GoalDto>(var goal) => new Written(true, goal),
+                Error error => NotAttached(error),
+            };
+        }
+
+        Written NotCreated(Error error)
+        {
+            _writeError = error.Message;
+            return new Written(false);
+        }
+
+        Written NotAttached(Error error)
+        {
+            _writeError = $"{request.Title} was added to the backlog, but not to this goal: {error.Message}";
+            return new Written(true);
+        }
     }
 
     /// <summary>A No goal row's Attach… with no goal open.</summary>
@@ -567,23 +607,32 @@ else
             try
             {
                 var written = await write(goals, picking);
-                if (written is not Ok<GoalDto>(var goal))
+                return written switch
                 {
-                    _pickError = ((Error)written.Value!).Message;
-                    // A goal set before the refusal is on the board now.
-                    return new Written(_pickCreated is not null);
-                }
-
-                _pickError = null;
-                _pickCreated = null;
-                _picking = null;
-                return new Written(true, goal);
+                    Ok<GoalDto>(var goal) => Picked(goal),
+                    Error error => Refused(error),
+                };
             }
             finally
             {
                 _writing = false;
             }
         });
+
+        Written Picked(GoalDto goal)
+        {
+            _pickError = null;
+            _pickCreated = null;
+            _picking = null;
+            return new Written(true, goal);
+        }
+
+        Written Refused(Error error)
+        {
+            _pickError = error.Message;
+            // A goal set before the refusal is on the board now.
+            return new Written(_pickCreated is not null);
+        }
     }
 
     /// <summary>Another goal opened, or none: an edit refused on the last one is not its.</summary>
@@ -649,16 +698,23 @@ else
             try
             {
                 var detached = await goals.DetachAsync(goalId, item);
-                if (detached is Ok<GoalDto>(var goal)) return new Written(true, goal);
-
-                _writeError = ((Error)detached.Value!).Message;
-                return new Written(true);
+                return detached switch
+                {
+                    Ok<GoalDto>(var goal) => new Written(true, goal),
+                    Error error => Refused(error),
+                };
             }
             finally
             {
                 _writing = false;
             }
         });
+
+        Written Refused(Error error)
+        {
+            _writeError = error.Message;
+            return new Written(true);
+        }
     }
 
     /// <summary>A goal moved on the board, which drew the new order at once. The view is

@@ -200,12 +200,19 @@ internal sealed partial class EventsPane(
             return EventsErrors.SeriesNotFound(named);
 
         var created = KnowledgeEvent.Create(Guid.CreateVersion7(clock.GetUtcNow()), title);
-        if (created is not Ok<KnowledgeEvent>(var added)) return (Error)created.Value!;
+        return created switch
+        {
+            Ok<KnowledgeEvent>(var added) => await SavedAsync(added).ConfigureAwait(false),
+            Error error => error,
+        };
 
-        added.SetSeries(seriesId);
-        await events.SaveAsync(added, cancellationToken).ConfigureAwait(false);
-        saved?.Raise();
-        return await ReadAsync(added, cancellationToken).ConfigureAwait(false);
+        async Task<Result<KnowledgeEventDto>> SavedAsync(KnowledgeEvent added)
+        {
+            added.SetSeries(seriesId);
+            await events.SaveAsync(added, cancellationToken).ConfigureAwait(false);
+            saved?.Raise();
+            return await ReadAsync(added, cancellationToken).ConfigureAwait(false);
+        }
     }
 
     // Built whole on the aggregate before anything is saved, so a field the rules refuse leaves
@@ -217,47 +224,61 @@ internal sealed partial class EventsPane(
         using var mark = BeginWrite();
 
         var created = KnowledgeEvent.Create(Guid.CreateVersion7(clock.GetUtcNow()), request.Title);
-        if (created is not Ok<KnowledgeEvent>(var added)) return (Error)created.Value!;
-
-        if (Fill(added, request) is Error filledError) return filledError;
-
-        var joined = await SeriesNamedAsync(request.SeriesName, cancellationToken).ConfigureAwait(false);
-        if (joined is not Ok<(EventSeries Series, bool IsNew)?>(var seriesNamed)) return (Error)joined.Value!;
-
-        // The stores have no transaction and a series no delete, so a series started here stays
-        // if the event's save then fails. It is announced either way, so the sync loop pushes it
-        // within seconds rather than on its next tick.
-        var startedSeries = false;
-        try
+        return created switch
         {
-            if (seriesNamed is { } named)
+            Ok<KnowledgeEvent>(var added) => await FilledAsync(added).ConfigureAwait(false),
+            Error error => error,
+        };
+
+        async Task<Result<KnowledgeEventDto>> FilledAsync(KnowledgeEvent added)
+        {
+            if (Fill(added, request) is Error filledError) return filledError;
+
+            var joined = await SeriesNamedAsync(request.SeriesName, cancellationToken).ConfigureAwait(false);
+            return joined switch
             {
-                if (named.IsNew)
+                Ok<(EventSeries Series, bool IsNew)?>(var seriesNamed) => await SavedAsync(added, seriesNamed).ConfigureAwait(false),
+                Error error => error,
+            };
+        }
+
+        async Task<Result<KnowledgeEventDto>> SavedAsync(KnowledgeEvent added, (EventSeries Series, bool IsNew)? seriesNamed)
+        {
+            // The stores have no transaction and a series no delete, so a series started here stays
+            // if the event's save then fails. It is announced either way, so the sync loop pushes it
+            // within seconds rather than on its next tick.
+            var startedSeries = false;
+            try
+            {
+                if (seriesNamed is { } named)
                 {
-                    await series.SaveAsync(named.Series, cancellationToken).ConfigureAwait(false);
-                    startedSeries = true;
+                    if (named.IsNew)
+                    {
+                        await series.SaveAsync(named.Series, cancellationToken).ConfigureAwait(false);
+                        startedSeries = true;
+                    }
+
+                    added.SetSeries(named.Series.Id);
                 }
 
-                added.SetSeries(named.Series.Id);
+                await events.SaveAsync(added, cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                if (startedSeries) AnnounceBestEffort();
+                throw;
             }
 
-            await events.SaveAsync(added, cancellationToken).ConfigureAwait(false);
+            saved?.Raise();
+
+            // The write is over once it is saved and announced: the geocoder call after it runs
+            // unmarked, as after SetPlaceAsync, so work this save started and that announces a
+            // change while the call is out is heard as made elsewhere. The answer's save marks itself.
+            mark.Dispose();
+            if (LookupDue(added) is not null) _ = QueueLookUp(added.Id, retry: false);
+
+            return await ReadAsync(added, cancellationToken).ConfigureAwait(false);
         }
-        catch
-        {
-            if (startedSeries) AnnounceBestEffort();
-            throw;
-        }
-
-        saved?.Raise();
-
-        // The write is over once it is saved and announced: the geocoder call after it runs
-        // unmarked, as after SetPlaceAsync, so work this save started and that announces a
-        // change while the call is out is heard as made elsewhere. The answer's save marks itself.
-        mark.Dispose();
-        if (LookupDue(added) is not null) _ = QueueLookUp(added.Id, retry: false);
-
-        return await ReadAsync(added, cancellationToken).ConfigureAwait(false);
     }
 
     public Task<Result<KnowledgeEventDto>> RenameAsync(Guid id, string title, CancellationToken cancellationToken = default) =>
@@ -412,12 +433,23 @@ internal sealed partial class EventsPane(
             foreach (var keyDate in keyDates)
             {
                 var one = KeyDate.Create(keyDate.Date, keyDate.Label);
-                if (one is not Ok<KeyDate>(var madeOne)) return (Error)one.Value!;
-                made.Add(madeOne);
+                Error? refused = one switch
+                {
+                    Ok<KeyDate>(var madeOne) => Added(madeOne),
+                    Error error => error,
+                };
+                if (refused is { } failed) return failed;
             }
 
             e.SetKeyDates(made);
             return Result.Success();
+
+            // Null when the date was made, so the loop goes on.
+            Error? Added(KeyDate madeOne)
+            {
+                made.Add(madeOne);
+                return null;
+            }
         }, cancellationToken);
     }
 
@@ -445,11 +477,18 @@ internal sealed partial class EventsPane(
     {
         using var mark = BeginWrite();
         var created = EventSeries.Create(Guid.CreateVersion7(clock.GetUtcNow()), name, organiser, link);
-        if (created is not Ok<EventSeries>(var started)) return (Error)created.Value!;
+        return created switch
+        {
+            Ok<EventSeries>(var started) => await SavedAsync(started).ConfigureAwait(false),
+            Error error => error,
+        };
 
-        await series.SaveAsync(started, cancellationToken).ConfigureAwait(false);
-        saved?.Raise();
-        return SeriesDto(started);
+        async Task<Result<EventSeriesDto>> SavedAsync(EventSeries started)
+        {
+            await series.SaveAsync(started, cancellationToken).ConfigureAwait(false);
+            saved?.Raise();
+            return SeriesDto(started);
+        }
     }
 
     public async Task<Result<KnowledgeEventDto>> SetSeriesAsync(Guid id, Guid? seriesId, CancellationToken cancellationToken = default)
@@ -504,10 +543,12 @@ internal sealed partial class EventsPane(
 
         // The title alone: the task never names the event (ADR 0050 §3).
         var filed = await tasks.FileAsync(trimmed, cancellationToken).ConfigureAwait(false);
-        if (filed is not Ok<string>(var taskId)) return (Error)filed.Value!;
-
-        // Loaded again: filing waits on Tasks, and a change saved elsewhere meanwhile is kept.
-        return await ChangeAsync(id, e => e.LinkTask(EventTaskLink.Create(taskId, TaskPurpose.Prep)), cancellationToken).ConfigureAwait(false);
+        return filed switch
+        {
+            // Loaded again: filing waits on Tasks, and a change saved elsewhere meanwhile is kept.
+            Ok<string>(var taskId) => await ChangeAsync(id, e => e.LinkTask(EventTaskLink.Create(taskId, TaskPurpose.Prep)), cancellationToken).ConfigureAwait(false),
+            Error error => error,
+        };
     }
 
     public async Task<Result<KnowledgeEventDto>> LinkExistingTaskAsync(Guid id, string taskId, CancellationToken cancellationToken = default)
@@ -877,12 +918,21 @@ internal sealed partial class EventsPane(
     private static Result ApplyTypedDates(KnowledgeEvent e, EventDateDto? start, EventDateDto? end)
     {
         var from = ToDate(start);
-        if (from is not Ok<EventDate?>(var fromDate)) return (Error)from.Value!;
+        return from switch
+        {
+            Ok<EventDate?>(var fromDate) => Until(fromDate),
+            Error error => error,
+        };
 
-        var to = ToDate(end);
-        if (to is not Ok<EventDate?>(var toDate)) return (Error)to.Value!;
-
-        return e.SetDates(fromDate, toDate, fromDate is null ? null : DateSource.Typed);
+        Result Until(EventDate? fromDate)
+        {
+            var to = ToDate(end);
+            return to switch
+            {
+                Ok<EventDate?>(var toDate) => e.SetDates(fromDate, toDate, fromDate is null ? null : DateSource.Typed),
+                Error error => error,
+            };
+        }
     }
 
     /// <summary>Sets the place, or clears it with null. The lookup and point the caller sent are
@@ -896,19 +946,30 @@ internal sealed partial class EventsPane(
             return Result.Success();
         }
 
-        Address? address = null;
-        if (place.Address is { } parts)
+        if (place.Address is not { } parts) return Placed(address: null);
+
+        var addressed = Address.Create(parts.Street, parts.Postcode, parts.Town, parts.Country);
+        return addressed switch
         {
-            var addressed = Address.Create(parts.Street, parts.Postcode, parts.Town, parts.Country);
-            if (addressed is not Ok<Address>(var madeAddress)) return (Error)addressed.Value!;
-            address = madeAddress;
+            Ok<Address>(var madeAddress) => Placed(madeAddress),
+            Error error => error,
+        };
+
+        Result Placed(Address? address)
+        {
+            var made = Place.Create(place.Venue, place.IsOnline, address, address is null ? null : AddressLookup.NotLookedUpYet, point: null);
+            return made switch
+            {
+                Ok<Place>(var placed) => Set(placed),
+                Error error => error,
+            };
         }
 
-        var made = Place.Create(place.Venue, place.IsOnline, address, address is null ? null : AddressLookup.NotLookedUpYet, point: null);
-        if (made is not Ok<Place>(var placed)) return (Error)made.Value!;
-
-        e.SetPlace(placed);
-        return Result.Success();
+        Result Set(Place placed)
+        {
+            e.SetPlace(placed);
+            return Result.Success();
+        }
     }
 
     /// <summary>Sets the cost, or clears it with null.</summary>
@@ -921,10 +982,17 @@ internal sealed partial class EventsPane(
         }
 
         var made = Cost.Create(cost.Amount, cost.Currency);
-        if (made is not Ok<Cost>(var priced)) return (Error)made.Value!;
+        return made switch
+        {
+            Ok<Cost>(var priced) => Set(priced),
+            Error error => error,
+        };
 
-        e.SetCost(priced);
-        return Result.Success();
+        Result Set(Cost priced)
+        {
+            e.SetCost(priced);
+            return Result.Success();
+        }
     }
 
     /// <summary>The series a new event names by <paramref name="name"/>: the one series with that

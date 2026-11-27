@@ -73,12 +73,21 @@ public sealed class Goal
         DateTimeOffset? createdAt = null)
     {
         var cleanTitle = CleanTitle(title);
-        if (cleanTitle is not Ok<string>(var goalTitle)) return (Error)cleanTitle.Value!;
+        return cleanTitle switch
+        {
+            Ok<string>(var goalTitle) => WithOutcome(goalTitle),
+            Error error => error,
+        };
 
-        var cleanOutcome = CleanOutcome(outcome);
-        if (cleanOutcome is not Ok<string?>(var goalOutcome)) return (Error)cleanOutcome.Value!;
-
-        return new Goal(id, goalTitle, goalOutcome, dueDate, [], createdAt);
+        Result<Goal> WithOutcome(string goalTitle)
+        {
+            var cleanOutcome = CleanOutcome(outcome);
+            return cleanOutcome switch
+            {
+                Ok<string?>(var goalOutcome) => new Goal(id, goalTitle, goalOutcome, dueDate, [], createdAt),
+                Error error => error,
+            };
+        }
     }
 
     /// <summary>Rehydration from storage. Trusted, as every stored aggregate is: the rules
@@ -96,20 +105,34 @@ public sealed class Goal
     public Result Rename(string? title)
     {
         var cleaned = CleanTitle(title);
-        if (cleaned is not Ok<string>(var clean)) return Result.Failure((Error)cleaned.Value!);
+        return cleaned switch
+        {
+            Ok<string>(var clean) => Renamed(clean),
+            Error error => Result.Failure(error),
+        };
 
-        Title = clean;
-        return Result.Success();
+        Result Renamed(string clean)
+        {
+            Title = clean;
+            return Result.Success();
+        }
     }
 
     /// <summary>Sets the outcome line, or clears it with null or blank text.</summary>
     public Result ChangeOutcome(string? outcome)
     {
         var cleaned = CleanOutcome(outcome);
-        if (cleaned is not Ok<string?>(var clean)) return Result.Failure((Error)cleaned.Value!);
+        return cleaned switch
+        {
+            Ok<string?>(var clean) => Changed(clean),
+            Error error => Result.Failure(error),
+        };
 
-        Outcome = clean;
-        return Result.Success();
+        Result Changed(string? clean)
+        {
+            Outcome = clean;
+            return Result.Success();
+        }
     }
 
     /// <summary>Sets the due date, or clears it with null.</summary>

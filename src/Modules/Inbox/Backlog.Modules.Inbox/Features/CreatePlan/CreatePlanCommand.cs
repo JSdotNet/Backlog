@@ -88,55 +88,62 @@ public sealed class CreatePlanCommandHandler(
             planTag);
 
         var draft = await drafter.DraftAsync(request, cancellationToken).ConfigureAwait(false);
-        if (draft is not Ok<InboxPlanDraftDto>(var drafted))
+        return draft switch
         {
-            return (Error)draft.Value!;
-        }
+            Ok<InboxPlanDraftDto>(var drafted) => await DraftedAsync(drafted).ConfigureAwait(false),
+            Error error => error,
+        };
 
-        if (!LooksLikeAPlan(drafted.PlanMarkdown)) return InboxErrors.PlanEmpty;
-
-        var planMarkdown = drafted.PlanMarkdown;
-        string? notePath = null;
-        if (command.StartProjectNote)
+        async Task<Result<InboxRoutedDto>> DraftedAsync(InboxPlanDraftDto drafted)
         {
+            if (!LooksLikeAPlan(drafted.PlanMarkdown)) return InboxErrors.PlanEmpty;
+            if (!command.StartProjectNote) return await ImportAsync(drafted.PlanMarkdown, notePath: null).ConfigureAwait(false);
+
             var note = await brain!
                 .WriteNoteAsync(
                     new InboxBrainNoteRequestDto(item.Id, item.Title, item.BodyMd, item.SourceUrl, IntoProjects: true, RoadmapTag: planTag),
                     cancellationToken)
                 .ConfigureAwait(false);
-            if (note is not Ok<InboxBrainNoteWrittenDto>(var written))
+            return note switch
             {
-                return (Error)note.Value!;
-            }
-
-            notePath = written.NotePath;
-            planMarkdown = WithPlanEntry(planMarkdown, item.Title, planTag, [.. item.RepoIds], notePath);
+                Ok<InboxBrainNoteWrittenDto>(var written) => await ImportAsync(
+                    WithPlanEntry(drafted.PlanMarkdown, item.Title, planTag, [.. item.RepoIds], written.NotePath),
+                    written.NotePath).ConfigureAwait(false),
+                Error error => error,
+            };
         }
 
-        // The item's repositories go along as the only ones the plan may name:
-        // the drafter was told the same list, and a model that writes another
-        // is refused by the adapter rather than allowed to register it. The
-        // item's attachment folder goes along too, as Route to backlog hands it
-        // on — to the import, not the drafter: it is a place on this machine,
-        // and the text the model writes has no use for it.
-        var imported = await target
-            .ImportPlanAsync(
-                planMarkdown,
-                item.Id,
-                [.. item.RepoIds],
-                RouteToBacklogCommandHandler.AttachmentFolder(item, attachmentFiles),
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (imported is not Ok<IReadOnlyList<Guid>>(var taskIds))
+        async Task<Result<InboxRoutedDto>> ImportAsync(string planMarkdown, string? notePath)
         {
-            return (Error)imported.Value!;
+            // The item's repositories go along as the only ones the plan may name:
+            // the drafter was told the same list, and a model that writes another
+            // is refused by the adapter rather than allowed to register it. The
+            // item's attachment folder goes along too, as Route to backlog hands it
+            // on — to the import, not the drafter: it is a place on this machine,
+            // and the text the model writes has no use for it.
+            var imported = await target
+                .ImportPlanAsync(
+                    planMarkdown,
+                    item.Id,
+                    [.. item.RepoIds],
+                    RouteToBacklogCommandHandler.AttachmentFolder(item, attachmentFiles),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return imported switch
+            {
+                Ok<IReadOnlyList<Guid>>(var taskIds) => await RoutedAsync(taskIds, notePath).ConfigureAwait(false),
+                Error error => error,
+            };
         }
 
-        item.RouteToBacklog(taskIds, [.. item.RepoIds], clock.GetUtcNow());
+        async Task<Result<InboxRoutedDto>> RoutedAsync(IReadOnlyList<Guid> taskIds, string? notePath)
+        {
+            item.RouteToBacklog(taskIds, [.. item.RepoIds], clock.GetUtcNow());
 
-        await items.SaveAsync(item, cancellationToken).ConfigureAwait(false);
+            await items.SaveAsync(item, cancellationToken).ConfigureAwait(false);
 
-        return new InboxRoutedDto(item.Id, taskIds, notePath);
+            return new InboxRoutedDto(item.Id, taskIds, notePath);
+        }
     }
 
     /// <summary>

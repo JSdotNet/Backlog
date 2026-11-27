@@ -106,14 +106,11 @@
             var id = Event.Id;
             var title = _prepTitle;
             var saved = await Writes.RunAsync(() => Pane.AddPrepTaskAsync(id, title));
-            if (saved is not Ok<KnowledgeEventDto>(var filed))
+            await (saved switch
             {
-                _prepError = ((Error)saved.Value!).Message;
-                return;
-            }
-
-            _prepTitle = string.Empty;
-            await OnSaved.InvokeAsync(filed);
+                Ok<KnowledgeEventDto>(var filed) => FiledAsync(filed),
+                Error error => Refused(error),
+            });
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -122,6 +119,18 @@
         finally
         {
             _filing = false;
+        }
+
+        async Task FiledAsync(KnowledgeEventDto filed)
+        {
+            _prepTitle = string.Empty;
+            await OnSaved.InvokeAsync(filed);
+        }
+
+        Task Refused(Error error)
+        {
+            _prepError = error.Message;
+            return Task.CompletedTask;
         }
     }
 
@@ -136,14 +145,11 @@
             var id = Event.Id;
             var taskId = _taskId;
             var saved = await Writes.RunAsync(() => Pane.LinkExistingTaskAsync(id, taskId));
-            if (saved is not Ok<KnowledgeEventDto>(var linked))
+            await (saved switch
             {
-                _linkError = ((Error)saved.Value!).Message;
-                return;
-            }
-
-            _taskId = string.Empty;
-            await OnSaved.InvokeAsync(linked);
+                Ok<KnowledgeEventDto>(var linked) => LinkedAsync(linked),
+                Error error => Refused(error),
+            });
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -152,6 +158,18 @@
         finally
         {
             _linking = false;
+        }
+
+        async Task LinkedAsync(KnowledgeEventDto linked)
+        {
+            _taskId = string.Empty;
+            await OnSaved.InvokeAsync(linked);
+        }
+
+        Task Refused(Error error)
+        {
+            _linkError = error.Message;
+            return Task.CompletedTask;
         }
     }
 }

@@ -28,17 +28,24 @@ public sealed class GoalChanges(IGoalRepository repository, ProgressGate gate, G
         if (goal is null) return ProgressErrors.GoalNotFound(goalId);
 
         var changed = change(all, goal);
-        if (changed is not Ok<IReadOnlyList<Goal>>(var others)) return (Error)changed.Value!;
-
-        foreach (var other in others.Where(other => other.Id != goal.Id))
+        return changed switch
         {
-            await repository.SaveAsync(other, cancellationToken).ConfigureAwait(false);
-        }
+            Ok<IReadOnlyList<Goal>>(var others) => await SavedAsync(goal, others).ConfigureAwait(false),
+            Error error => error,
+        };
 
-        await repository.SaveAsync(goal, cancellationToken).ConfigureAwait(false);
-        held.Dispose(); // Let go first, so nothing that hears the notice waits on this write.
-        saved.Raise();
-        return goal.ToDto();
+        async Task<Result<GoalDto>> SavedAsync(Goal goal, IReadOnlyList<Goal> others)
+        {
+            foreach (var other in others.Where(other => other.Id != goal.Id))
+            {
+                await repository.SaveAsync(other, cancellationToken).ConfigureAwait(false);
+            }
+
+            await repository.SaveAsync(goal, cancellationToken).ConfigureAwait(false);
+            held.Dispose(); // Let go first, so nothing that hears the notice waits on this write.
+            saved.Raise();
+            return goal.ToDto();
+        }
     }
 
     /// <summary>Puts goal <paramref name="goalId"/> at <paramref name="toIndex"/> in the

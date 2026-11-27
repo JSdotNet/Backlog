@@ -3520,13 +3520,24 @@ public sealed class InboxDesktopState : IDisposable
 
             if (!ReferenceEquals(RouteDraft, draft)) return;
 
-            if (result is Ok<IReadOnlyList<ProposedDependency>>(var inferred)) draft.AddInferred(inferred);
-            else draft.InferenceRefused(((Error)result.Value!).Message);
+            var refused = result switch
+            {
+                Ok<IReadOnlyList<ProposedDependency>>(var inferred) => Added(inferred),
+                Error error => error.Message,
+            };
+            if (refused is not null) draft.InferenceRefused(refused);
         }
         finally
         {
             draft.Inferring = false;
             Changed?.Invoke();
+        }
+
+        // Null, as nothing was refused.
+        string? Added(IReadOnlyList<ProposedDependency> inferred)
+        {
+            draft.AddInferred(inferred);
+            return null;
         }
     }
 
@@ -4018,14 +4029,12 @@ public sealed class InboxDesktopState : IDisposable
     /// there is one.</summary>
     private bool Report<TValue>(Result<TValue> result, [MaybeNullWhen(true)] out TValue value, string testId = ErrorTestId)
     {
-        if (result is Ok<TValue>(var produced))
+        (value, var refused) = result switch
         {
-            value = produced;
-            return false;
-        }
-
-        value = default;
-        return Report((Error)result.Value!, testId);
+            Ok<TValue>(var produced) => (produced, false),
+            Error error => (default(TValue), Report(error, testId)),
+        };
+        return refused;
     }
 }
 

@@ -217,16 +217,11 @@
                 ? await Writes.RunAsync(() => Pane.RelinkBrainNoteAsync(Event.Id, old, path, title))
                 : await Writes.RunAsync(() => Pane.LinkBrainNoteAsync(Event.Id, path, title));
 
-            if (saved is not Ok<KnowledgeEventDto>(var linked))
+            await (saved switch
             {
-                commit.Refuse();
-                _error = ((Error)saved.Value!).Message;
-                return;
-            }
-
-            _relinking = null;
-            _text = string.Empty;
-            await OnSaved.InvokeAsync(linked);
+                Ok<KnowledgeEventDto>(var linked) => LinkedAsync(linked),
+                Error error => Refused(error),
+            });
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -237,6 +232,20 @@
         {
             _busy = false;
         }
+
+        async Task LinkedAsync(KnowledgeEventDto linked)
+        {
+            _relinking = null;
+            _text = string.Empty;
+            await OnSaved.InvokeAsync(linked);
+        }
+
+        Task Refused(Error error)
+        {
+            commit.Refuse();
+            _error = error.Message;
+            return Task.CompletedTask;
+        }
     }
 
     private async Task UnlinkAsync(EventNoteLinkDto note)
@@ -246,14 +255,11 @@
         try
         {
             var saved = await Writes.RunAsync(() => Pane.UnlinkNoteAsync(Event.Id, note.Kind, note.Reference));
-            if (saved is not Ok<KnowledgeEventDto>(var unlinked))
+            await (saved switch
             {
-                _error = ((Error)saved.Value!).Message;
-                return;
-            }
-
-            if (_relinking == note.Reference) _relinking = null;
-            await OnSaved.InvokeAsync(unlinked);
+                Ok<KnowledgeEventDto>(var unlinked) => UnlinkedAsync(unlinked),
+                Error error => Refused(error),
+            });
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -262,6 +268,18 @@
         finally
         {
             _busy = false;
+        }
+
+        async Task UnlinkedAsync(KnowledgeEventDto unlinked)
+        {
+            if (_relinking == note.Reference) _relinking = null;
+            await OnSaved.InvokeAsync(unlinked);
+        }
+
+        Task Refused(Error error)
+        {
+            _error = error.Message;
+            return Task.CompletedTask;
         }
     }
 }

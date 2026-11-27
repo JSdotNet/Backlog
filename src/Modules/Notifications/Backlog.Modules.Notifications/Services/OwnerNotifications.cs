@@ -57,10 +57,17 @@ internal sealed class OwnerNotifications(
     private async Task<Result<Guid>> SaveNewAsync(Guid id, NotificationDraft draft, CancellationToken cancellationToken)
     {
         var published = Notification.Publish(id, Me, draft, time.GetUtcNow());
-        if (published is not Ok<Notification>(var notification)) return (Error)published.Value!;
+        return published switch
+        {
+            Ok<Notification>(var notification) => await SavedAsync(notification).ConfigureAwait(false),
+            Error error => error,
+        };
 
-        await repository.SaveAsync(notification, cancellationToken).ConfigureAwait(false);
-        return notification.Id;
+        async Task<Result<Guid>> SavedAsync(Notification notification)
+        {
+            await repository.SaveAsync(notification, cancellationToken).ConfigureAwait(false);
+            return notification.Id;
+        }
     }
 
     public Task<Result> CloseAsync(Guid notificationId, string? reason = null, CancellationToken cancellationToken = default) =>

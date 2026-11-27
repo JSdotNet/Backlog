@@ -51,14 +51,18 @@ public sealed class RouteToBrainCommandHandler(
         var written = await target
             .WriteNoteAsync(new InboxBrainNoteRequestDto(item.Id, item.Title, item.BodyMd, item.SourceUrl, command.Folder), cancellationToken)
             .ConfigureAwait(false);
-        if (written is not Ok<InboxBrainNoteWrittenDto>(var note))
+        return written switch
         {
-            return (Error)written.Value!;
+            Ok<InboxBrainNoteWrittenDto>(var note) => await RoutedAsync(note).ConfigureAwait(false),
+            Error error => error,
+        };
+
+        async Task<Result<InboxBrainRoutedDto>> RoutedAsync(InboxBrainNoteWrittenDto note)
+        {
+            item.RouteToBrain(clock.GetUtcNow());
+            await items.SaveAsync(item, cancellationToken).ConfigureAwait(false);
+
+            return new InboxBrainRoutedDto(item.Id, note.NotePath, note.Area);
         }
-
-        item.RouteToBrain(clock.GetUtcNow());
-        await items.SaveAsync(item, cancellationToken).ConfigureAwait(false);
-
-        return new InboxBrainRoutedDto(item.Id, note.NotePath, note.Area);
     }
 }

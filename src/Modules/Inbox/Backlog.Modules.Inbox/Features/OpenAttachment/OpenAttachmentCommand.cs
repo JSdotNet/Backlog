@@ -21,9 +21,17 @@ public sealed class OpenAttachmentCommandHandler(IInboxItemRepository items, IIn
         ArgumentNullException.ThrowIfNull(command);
 
         var found = await DownloadedAttachment.FindAsync(items, command.Id, command.AttachmentId, cancellationToken).ConfigureAwait(false);
-        if (found is not Ok<InboxAttachment>(var attachment)) return Result.Failure((Error)found.Value!);
-        if (attachmentFiles is null) return Result.Failure(InboxErrors.AttachmentsUnavailable);
+        return found switch
+        {
+            Ok<InboxAttachment>(var attachment) => Opened(attachment),
+            Error error => Result.Failure(error),
+        };
 
-        return attachmentFiles.Open(attachment.LocalPath!);
+        Result Opened(InboxAttachment attachment)
+        {
+            if (attachmentFiles is null) return Result.Failure(InboxErrors.AttachmentsUnavailable);
+
+            return attachmentFiles.Open(attachment.LocalPath!);
+        }
     }
 }

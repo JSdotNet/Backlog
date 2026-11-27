@@ -245,33 +245,37 @@ public static class InboxTriagePassApply
             planTitle: plan.Title,
             cancellationToken: cancellationToken).ConfigureAwait(false);
 
-        if (result is not Ok<InboxBatchRoutedDto>(var batch))
+        return result switch
         {
-            return new Step(null, new Refusal(FirstItem(plan), (Error)result.Value!, WholePlan: true));
-        }
+            Ok<InboxBatchRoutedDto>(var batch) => Landed(batch),
+            Error error => new Step(null, new Refusal(FirstItem(plan), error, WholePlan: true)),
+        };
 
-        // Tasks took the document whole or not at all: refused, nothing went,
-        // and every member carries the same refusal — the plan is what failed.
-        if (batch.Routed.Count == 0
-            && batch.Archived.Count == 0
-            && batch.Failed.Count > 0
-            && batch.Failed.All(failure => failure.Error.Code == InboxErrors.BatchRefusedCode))
+        Step Landed(InboxBatchRoutedDto batch)
         {
-            return new Step(null, new Refusal(FirstItem(plan), batch.Failed[0].Error, WholePlan: true));
+            // Tasks took the document whole or not at all: refused, nothing went,
+            // and every member carries the same refusal — the plan is what failed.
+            if (batch.Routed.Count == 0
+                && batch.Archived.Count == 0
+                && batch.Failed.Count > 0
+                && batch.Failed.All(failure => failure.Error.Code == InboxErrors.BatchRefusedCode))
+            {
+                return new Step(null, new Refusal(FirstItem(plan), batch.Failed[0].Error, WholePlan: true));
+            }
+
+            var landed = new InboxTriageApplied(plan, Batch: batch);
+
+            // The members that did route stay routed and are reported; the first
+            // refused one, in the plan's order, is the one the reader is told about.
+            var refusedFirst = plan.ItemIds
+                .Select(id => batch.Failed.FirstOrDefault(failure => failure.Id == id))
+                .FirstOrDefault(failure => failure is not null)
+                ?? batch.Failed.FirstOrDefault();
+
+            return refusedFirst is null
+                ? new Step(landed, null)
+                : new Step(batch.Routed.Count > 0 || batch.Archived.Count > 0 ? landed : null, new Refusal(refusedFirst.Id, refusedFirst.Error));
         }
-
-        var landed = new InboxTriageApplied(plan, Batch: batch);
-
-        // The members that did route stay routed and are reported; the first
-        // refused one, in the plan's order, is the one the reader is told about.
-        var refusedFirst = plan.ItemIds
-            .Select(id => batch.Failed.FirstOrDefault(failure => failure.Id == id))
-            .FirstOrDefault(failure => failure is not null)
-            ?? batch.Failed.FirstOrDefault();
-
-        return refusedFirst is null
-            ? new Step(landed, null)
-            : new Step(batch.Routed.Count > 0 || batch.Archived.Count > 0 ? landed : null, new Refusal(refusedFirst.Id, refusedFirst.Error));
     }
 
     private static Task<Step> DuplicateAsync(IInboxItems inbox, InboxTriageDuplicateDecision duplicate, CancellationToken cancellationToken)

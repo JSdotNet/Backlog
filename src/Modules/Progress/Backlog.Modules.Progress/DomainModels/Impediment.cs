@@ -141,10 +141,17 @@ public sealed class Impediment
     public Result Rename(string? title)
     {
         var cleaned = CleanTitle(title);
-        if (cleaned is not Ok<string>(var clean)) return Result.Failure((Error)cleaned.Value!);
+        return cleaned switch
+        {
+            Ok<string>(var clean) => Renamed(clean),
+            Error error => Result.Failure(error),
+        };
 
-        Title = clean;
-        return Result.Success();
+        Result Renamed(string clean)
+        {
+            Title = clean;
+            return Result.Success();
+        }
     }
 
     /// <summary>

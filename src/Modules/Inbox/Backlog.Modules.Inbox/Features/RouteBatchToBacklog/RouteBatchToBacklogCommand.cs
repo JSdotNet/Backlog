@@ -98,123 +98,127 @@ public sealed partial class RouteBatchToBacklogCommandHandler(
         using var change = TriageChangeSet.BeginBatch(command.Ids.Count);
 
         var minted = await MintPlanTagAsync(organizer, command.ListId, command.PlanTitle, cancellationToken).ConfigureAwait(false);
-        if (minted is not Ok<string>(var planTag))
+        return minted switch
         {
-            return (Error)minted.Value!;
-        }
+            Ok<string>(var planTag) => await RoutedAsync(planTag).ConfigureAwait(false),
+            Error error => error,
+        };
 
-        if (command.Choices?.PlanTag is { } chosen)
+        async Task<Result<InboxBatchRoutedDto>> RoutedAsync(string planTag)
         {
-            if (!PlanTagShape().IsMatch(chosen.Trim())) return InboxErrors.BatchPlanTagInvalid(chosen.Trim());
-            planTag = chosen.Trim();
-        }
-
-        var (failed, routable) = await SortAsync(items, command.Ids, cancellationToken).ConfigureAwait(false);
-
-        if (routable.Count == 0) return new InboxBatchRoutedDto(planTag, [], Ordered(failed));
-
-        // The items a merge folds into another are not sent; they wait for the
-        // one kept, and are archived as its duplicates once it has gone.
-        var keptFor = Merges(command.Choices, routable);
-        var extras = routable.Where(entry => keptFor.ContainsKey(entry.Item.Id)).ToList();
-        routable = [.. routable.Where(entry => !keptFor.ContainsKey(entry.Item.Id))];
-
-        var going = routable.Select(entry => entry.Item.Id).ToList();
-        var dependencies = InboxBatchOrder.Carry(command.Choices?.Dependencies ?? [], keptFor)
-            .Where(dependency => going.Contains(dependency.From))
-            .ToList();
-        var edges = InboxBatchOrder.Edges(dependencies)
-            .Where(edge => edge.From != edge.To && going.Contains(edge.To))
-            .ToList();
-
-        // A task's value goes into a metadata token as it is, so one that would
-        // not stay one token is refused before anything is sent.
-        if (dependencies.FirstOrDefault(dependency => dependency.To.Kind == DependencyTargetKind.Task && !IsTokenValue(dependency.To.After)) is { } invalid)
-        {
-            return InboxErrors.BatchDependencyInvalid(invalid.To.Title);
-        }
-
-        var loops = InboxBatchOrder.Loops(going, edges);
-        if (loops.Count > 0)
-        {
-            var titles = routable.ToDictionary(entry => entry.Item.Id, entry => entry.Item.Title);
-            return InboxErrors.BatchDependencyLoop([.. loops.Select(loop => InboxBatchOrder.Name(loop, id => titles[id]))]);
-        }
-
-        var repositories = routable.ToDictionary(entry => entry.Item.Id, entry => RepositoriesFor(entry.Item, command.Choices));
-        var byId = routable.ToDictionary(entry => entry.Item.Id, entry => entry.Item);
-
-        // "Keep one, attach the other" holds whichever door the kept item
-        // leaves by: its archived duplicates go with it as on a single route.
-        // A merge made in this batch is not among them — those items are
-        // archived only once the kept one has gone.
-        var all = await items.ListAsync(cancellationToken).ConfigureAwait(false);
-
-        var request = new InboxBatchRouteRequestDto(
-            [.. InboxBatchOrder.Order(going, edges).Select(id => RouteToBacklogCommandHandler.RequestFor(byId[id], attachmentFiles) with
+            if (command.Choices?.PlanTag is { } chosen)
             {
-                RepoIds = repositories[id],
-                Attached = RouteToBacklogCommandHandler.AttachedTo(id, all),
-                AfterItems = [.. edges.Where(edge => edge.From == id).Select(edge => edge.To).Distinct()],
-                AfterTasks = [.. dependencies
-                    .Where(dependency => dependency.From == id && dependency.To.Kind == DependencyTargetKind.Task)
-                    .Select(dependency => dependency.To.After!)
-                    .Distinct(StringComparer.Ordinal)],
-            })],
-            planTag);
-
-        var answer = await target.CreateBatchTasksAsync(request, cancellationToken).ConfigureAwait(false);
-
-        // The items the target left out come back with their own reasons —
-        // notes it could not keep apart, a repository the workspace does not
-        // know, an entry Tasks did not answer for — and pass through as given.
-        var positions = routable.ToDictionary(entry => entry.Item.Id, entry => entry.Position);
-        failed.AddRange(answer.Refused.Select(failure => (positions[failure.Id], failure)));
-
-        if (answer.DocumentRefused is { } documentRefused)
-        {
-            // Tasks' own refusal of the document, before it wrote anything: every
-            // item that was in it is refused with it, and only those. Wrapped
-            // here and nowhere else, so the person reads first that nothing moved.
-            var refusal = InboxErrors.BatchRefused(documentRefused);
-            var leftOut = answer.Refused.Select(failure => failure.Id).ToHashSet();
-            failed.AddRange(routable
-                .Where(entry => !leftOut.Contains(entry.Item.Id))
-                .Select(entry => (entry.Position, new InboxBatchFailureDto(entry.Item.Id, refusal))));
-            failed.AddRange(extras.Select(entry => (entry.Position, new InboxBatchFailureDto(entry.Item.Id, InboxErrors.BatchMergeNotRouted))));
-            return new InboxBatchRoutedDto(planTag, [], Ordered(failed));
-        }
-
-        var byItem = answer.Routed.ToDictionary(routed => routed.InboxItemId);
-        var now = clock.GetUtcNow();
-        var routedItems = new List<InboxRoutedDto>(answer.Routed.Count);
-
-        foreach (var (at, item) in routable)
-        {
-            if (!byItem.TryGetValue(item.Id, out var routed)) continue;
-
-            // The repositories it went to, which are the panel's choice when the
-            // person made one — the routing records where the entries are.
-            item.RouteToBacklog(routed.TaskIds, repositories[item.Id], now);
-
-            try
-            {
-                await items.SaveAsync(item, cancellationToken).ConfigureAwait(false);
-                routedItems.Add(routed);
+                if (!PlanTagShape().IsMatch(chosen.Trim())) return InboxErrors.BatchPlanTagInvalid(chosen.Trim());
+                planTag = chosen.Trim();
             }
-            catch (Exception failure) when (IsStoreFailure(failure))
+
+            var (failed, routable) = await SortAsync(items, command.Ids, cancellationToken).ConfigureAwait(false);
+
+            if (routable.Count == 0) return new InboxBatchRoutedDto(planTag, [], Ordered(failed));
+
+            // The items a merge folds into another are not sent; they wait for the
+            // one kept, and are archived as its duplicates once it has gone.
+            var keptFor = Merges(command.Choices, routable);
+            var extras = routable.Where(entry => keptFor.ContainsKey(entry.Item.Id)).ToList();
+            routable = [.. routable.Where(entry => !keptFor.ContainsKey(entry.Item.Id))];
+
+            var going = routable.Select(entry => entry.Item.Id).ToList();
+            var dependencies = InboxBatchOrder.Carry(command.Choices?.Dependencies ?? [], keptFor)
+                .Where(dependency => going.Contains(dependency.From))
+                .ToList();
+            var edges = InboxBatchOrder.Edges(dependencies)
+                .Where(edge => edge.From != edge.To && going.Contains(edge.To))
+                .ToList();
+
+            // A task's value goes into a metadata token as it is, so one that would
+            // not stay one token is refused before anything is sent.
+            if (dependencies.FirstOrDefault(dependency => dependency.To.Kind == DependencyTargetKind.Task && !IsTokenValue(dependency.To.After)) is { } invalid)
             {
-                // The entries exist and this item does not know it. Named with
-                // them, as a partial single route names what it made first; the
-                // items saved before it stay routed and the ones after it are
-                // still tried, each being its own save.
-                failed.Add((at, new InboxBatchFailureDto(item.Id, InboxErrors.BatchSaveFailed(routed.TaskIds, failure.Message))));
+                return InboxErrors.BatchDependencyInvalid(invalid.To.Title);
             }
+
+            var loops = InboxBatchOrder.Loops(going, edges);
+            if (loops.Count > 0)
+            {
+                var titles = routable.ToDictionary(entry => entry.Item.Id, entry => entry.Item.Title);
+                return InboxErrors.BatchDependencyLoop([.. loops.Select(loop => InboxBatchOrder.Name(loop, id => titles[id]))]);
+            }
+
+            var repositories = routable.ToDictionary(entry => entry.Item.Id, entry => RepositoriesFor(entry.Item, command.Choices));
+            var byId = routable.ToDictionary(entry => entry.Item.Id, entry => entry.Item);
+
+            // "Keep one, attach the other" holds whichever door the kept item
+            // leaves by: its archived duplicates go with it as on a single route.
+            // A merge made in this batch is not among them — those items are
+            // archived only once the kept one has gone.
+            var all = await items.ListAsync(cancellationToken).ConfigureAwait(false);
+
+            var request = new InboxBatchRouteRequestDto(
+                [.. InboxBatchOrder.Order(going, edges).Select(id => RouteToBacklogCommandHandler.RequestFor(byId[id], attachmentFiles) with
+                {
+                    RepoIds = repositories[id],
+                    Attached = RouteToBacklogCommandHandler.AttachedTo(id, all),
+                    AfterItems = [.. edges.Where(edge => edge.From == id).Select(edge => edge.To).Distinct()],
+                    AfterTasks = [.. dependencies
+                        .Where(dependency => dependency.From == id && dependency.To.Kind == DependencyTargetKind.Task)
+                        .Select(dependency => dependency.To.After!)
+                        .Distinct(StringComparer.Ordinal)],
+                })],
+                planTag);
+
+            var answer = await target.CreateBatchTasksAsync(request, cancellationToken).ConfigureAwait(false);
+
+            // The items the target left out come back with their own reasons —
+            // notes it could not keep apart, a repository the workspace does not
+            // know, an entry Tasks did not answer for — and pass through as given.
+            var positions = routable.ToDictionary(entry => entry.Item.Id, entry => entry.Position);
+            failed.AddRange(answer.Refused.Select(failure => (positions[failure.Id], failure)));
+
+            if (answer.DocumentRefused is { } documentRefused)
+            {
+                // Tasks' own refusal of the document, before it wrote anything: every
+                // item that was in it is refused with it, and only those. Wrapped
+                // here and nowhere else, so the person reads first that nothing moved.
+                var refusal = InboxErrors.BatchRefused(documentRefused);
+                var leftOut = answer.Refused.Select(failure => failure.Id).ToHashSet();
+                failed.AddRange(routable
+                    .Where(entry => !leftOut.Contains(entry.Item.Id))
+                    .Select(entry => (entry.Position, new InboxBatchFailureDto(entry.Item.Id, refusal))));
+                failed.AddRange(extras.Select(entry => (entry.Position, new InboxBatchFailureDto(entry.Item.Id, InboxErrors.BatchMergeNotRouted))));
+                return new InboxBatchRoutedDto(planTag, [], Ordered(failed));
+            }
+
+            var byItem = answer.Routed.ToDictionary(routed => routed.InboxItemId);
+            var now = clock.GetUtcNow();
+            var routedItems = new List<InboxRoutedDto>(answer.Routed.Count);
+
+            foreach (var (at, item) in routable)
+            {
+                if (!byItem.TryGetValue(item.Id, out var routed)) continue;
+
+                // The repositories it went to, which are the panel's choice when the
+                // person made one — the routing records where the entries are.
+                item.RouteToBacklog(routed.TaskIds, repositories[item.Id], now);
+
+                try
+                {
+                    await items.SaveAsync(item, cancellationToken).ConfigureAwait(false);
+                    routedItems.Add(routed);
+                }
+                catch (Exception failure) when (IsStoreFailure(failure))
+                {
+                    // The entries exist and this item does not know it. Named with
+                    // them, as a partial single route names what it made first; the
+                    // items saved before it stay routed and the ones after it are
+                    // still tried, each being its own save.
+                    failed.Add((at, new InboxBatchFailureDto(item.Id, InboxErrors.BatchSaveFailed(routed.TaskIds, failure.Message))));
+                }
+            }
+
+            var archived = await ArchiveMergedAsync(extras, keptFor, routedItems, now, failed, cancellationToken).ConfigureAwait(false);
+
+            return new InboxBatchRoutedDto(planTag, routedItems, Ordered(failed)) { Archived = archived };
         }
-
-        var archived = await ArchiveMergedAsync(extras, keptFor, routedItems, now, failed, cancellationToken).ConfigureAwait(false);
-
-        return new InboxBatchRoutedDto(planTag, routedItems, Ordered(failed)) { Archived = archived };
     }
 
     /// <summary>

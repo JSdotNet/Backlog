@@ -687,10 +687,17 @@
         RunCountedAsync(async () =>
         {
             var result = await Writes.RunAsync(write);
-            if (result is not Ok<TValue>(var value)) return (Error)result.Value!;
+            return result switch
+            {
+                Ok<TValue>(var value) => await HeldAsync(value),
+                Error error => error,
+            };
 
-            await held(value);
-            return null;
+            async Task<Error?> HeldAsync(TValue value)
+            {
+                await held(value);
+                return null;
+            }
         }, threw);
 
     /// <inheritdoc cref="RunWriteAsync{TValue}"/>
@@ -1249,17 +1256,11 @@
                 _seriesName,
                 string.IsNullOrWhiteSpace(_seriesOrganiser) ? null : _seriesOrganiser,
                 string.IsNullOrWhiteSpace(_seriesLink) ? null : _seriesLink);
-            if (started is not Ok<EventSeriesDto>(var series))
+            await (started switch
             {
-                _errors["series"] = ((Error)started.Value!).Message;
-                return;
-            }
-
-            await LoadSeriesAsync();
-            var id = Event.Id;
-            var seriesId = series.Id;
-            await WriteAsync("series", () => Pane.SetSeriesAsync(id, seriesId));
-            if (Error("series") is null) _startingSeries = false;
+                Ok<EventSeriesDto>(var series) => JoinAsync(series),
+                Error error => Refused(error),
+            });
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -1268,6 +1269,21 @@
         finally
         {
             _savingSeries = false;
+        }
+
+        async Task JoinAsync(EventSeriesDto series)
+        {
+            await LoadSeriesAsync();
+            var id = Event.Id;
+            var seriesId = series.Id;
+            await WriteAsync("series", () => Pane.SetSeriesAsync(id, seriesId));
+            if (Error("series") is null) _startingSeries = false;
+        }
+
+        Task Refused(Error error)
+        {
+            _errors["series"] = error.Message;
+            return Task.CompletedTask;
         }
     }
 

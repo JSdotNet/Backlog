@@ -116,56 +116,64 @@ public sealed partial class TranscribeRecordingsCommandHandler(
         }
 
         var answer = await transcriber.TranscribeAsync(new InboxRecordingDto(audio, recording.ContentType), cancellationToken).ConfigureAwait(false);
-        if (answer is not Ok<InboxRecordingTranscriptDto>(var transcript))
+        return answer switch
         {
-            var error = (Error)answer.Value!;
+            Ok<InboxRecordingTranscriptDto>(var transcript) => await WrittenAsync(transcript).ConfigureAwait(false),
+            Error error => await FailedAsync(error).ConfigureAwait(false),
+        };
+
+        async Task<bool> FailedAsync(Error error)
+        {
             LogFailed(_logger, recording.Id, noteId, error.Code);
             await CountFailureAsync(records, recording, error.Message, cancellationToken).ConfigureAwait(false);
             return false;
         }
 
-        // Read again: the person may have edited the note while the recording was out, and
-        // the transcript is appended to that body, not to the one read before sending.
-        var current = await items.GetAsync(noteId, cancellationToken).ConfigureAwait(false);
-        if (current is null || current.Attachments.All(attachment => attachment.Id != recording.Id)) return false;
-
-// The copy to delete is the one the saved note names: the intake may have downloaded
-        // the recording again, under a moved workspace, while it was out.
-        localPath = current.Attachments.First(attachment => attachment.Id == recording.Id).LocalPath ?? localPath;
-
-        var sections = Sections(current.BodyMd, transcript);
-        try
+        async Task<bool> WrittenAsync(InboxRecordingTranscriptDto transcript)
         {
-            if (!await WriteAsync(current, recording.Id, sections, cancellationToken).ConfigureAwait(false)) return false;
-        }
-        catch (Exception failure) when (IsFileFailure(failure))
-        {
-            // Counted, then thrown on as before: the worker logs it, and the sha256 is not
-            // marked transcribed, so the next take-up sends the file again.
-            await CountFailureAsync(records, recording, SaveFailedReason, cancellationToken).ConfigureAwait(false);
-            throw;
-        }
+            // Read again: the person may have edited the note while the recording was out, and
+            // the transcript is appended to that body, not to the one read before sending.
+            var current = await items.GetAsync(noteId, cancellationToken).ConfigureAwait(false);
+            if (current is null || current.Attachments.All(attachment => attachment.Id != recording.Id)) return false;
 
-        await records.SaveAsync(
-            new InboxTranscriptionRecordDto(recording.Sha256, noteId, recording.Id, sections, clock.GetUtcNow()),
-            cancellationToken).ConfigureAwait(false);
+            // The copy to delete is the one the saved note names: the intake may have downloaded
+            // the recording again, under a moved workspace, while it was out.
+            localPath = current.Attachments.First(attachment => attachment.Id == recording.Id).LocalPath ?? localPath;
 
-        // Best effort: the recording is written and recorded, which is what keeps it from
-        // being sent again; a failure record left behind is hidden from Settings by the
-        // success after it, and a later one replaces it.
-        try
-        {
-            await records.ClearFailureAsync(recording.Sha256, cancellationToken).ConfigureAwait(false);
+            var sections = Sections(current.BodyMd, transcript);
+            try
+            {
+                if (!await WriteAsync(current, recording.Id, sections, cancellationToken).ConfigureAwait(false)) return false;
+            }
+            catch (Exception failure) when (IsFileFailure(failure))
+            {
+                // Counted, then thrown on as before: the worker logs it, and the sha256 is not
+                // marked transcribed, so the next take-up sends the file again.
+                await CountFailureAsync(records, recording, SaveFailedReason, cancellationToken).ConfigureAwait(false);
+                throw;
+            }
+
+            await records.SaveAsync(
+                new InboxTranscriptionRecordDto(recording.Sha256, noteId, recording.Id, sections, clock.GetUtcNow()),
+                cancellationToken).ConfigureAwait(false);
+
+            // Best effort: the recording is written and recorded, which is what keeps it from
+            // being sent again; a failure record left behind is hidden from Settings by the
+            // success after it, and a later one replaces it.
+            try
+            {
+                await records.ClearFailureAsync(recording.Sha256, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception failure) when (IsFileFailure(failure))
+            {
+                LogFailureRecordUnwritable(_logger, failure, recording.Id);
+            }
+
+            await RemoveLocalCopyAsync(localPath, recording.Id, noteId, cancellationToken).ConfigureAwait(false);
+
+            LogWritten(_logger, recording.Id, noteId);
+            return true;
         }
-        catch (Exception failure) when (IsFileFailure(failure))
-        {
-            LogFailureRecordUnwritable(_logger, failure, recording.Id);
-        }
-
-        await RemoveLocalCopyAsync(localPath, recording.Id, noteId, cancellationToken).ConfigureAwait(false);
-
-        LogWritten(_logger, recording.Id, noteId);
-        return true;
     }
 
     /// <summary>Deletes the recording's copy on this machine once the note no longer names it.

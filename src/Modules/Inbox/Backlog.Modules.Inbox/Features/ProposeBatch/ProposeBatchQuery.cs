@@ -45,44 +45,51 @@ public sealed class ProposeBatchQueryHandler(
         ArgumentNullException.ThrowIfNull(query.Ids);
 
         var minted = await RouteBatchToBacklogCommandHandler.MintPlanTagAsync(organizer, query.ListId, query.PlanTitle, cancellationToken).ConfigureAwait(false);
-        if (minted is not Ok<string>(var planTag)) return Result.Failure<InboxBatchProposalDto>((Error)minted.Value!);
-
-        var (failed, routable) = await RouteBatchToBacklogCommandHandler.SortAsync(items, query.Ids, cancellationToken).ConfigureAwait(false);
-        var batch = routable.Select(entry => entry.Item).ToList();
-
-        // With no item left to route there is nothing to read the backlog for.
-        var tasks = batch.Count == 0 || taskReferences is null
-            ? []
-            : await taskReferences.OpenTasksAsync(cancellationToken).ConfigureAwait(false);
-
-        // Deferred items stay behind when a list is routed — put aside is not
-        // decided — and the panel says how many, as the list's confirm did.
-        int? deferred = null;
-        if (query.ListId is { } listId)
+        return minted switch
         {
-            var all = await items.ListAsync(cancellationToken).ConfigureAwait(false);
-            deferred = all.Count(item => item.ListId == listId && item.Status == InboxStatus.Deferred);
-        }
-
-        var dependencies = DependencyProposal.Propose(batch, tasks);
-
-        // Hints need two items to say anything about an order, and the list
-        // names only for the same-list hint.
-        IReadOnlyList<OrderingHint> hints = [];
-        if (batch.Count >= 2)
-        {
-            var lists = await organizer.ListListsAsync(cancellationToken).ConfigureAwait(false);
-            hints = DependencyProposal.Hints(batch, dependencies, lists.ToDictionary(list => list.Id, list => list.Name));
-        }
-
-        return new InboxBatchProposalDto(
-            planTag,
-            [.. batch.Select(item => new InboxBatchProposalItemDto(item.Id, item.Title, [.. item.RepoIds]))],
-            dependencies,
-            [.. failed.OrderBy(entry => entry.Position).Select(entry => entry.Failure)],
-            deferred)
-        {
-            Hints = hints,
+            Ok<string>(var planTag) => await ProposedAsync(planTag).ConfigureAwait(false),
+            Error error => Result.Failure<InboxBatchProposalDto>(error),
         };
+
+        async Task<Result<InboxBatchProposalDto>> ProposedAsync(string planTag)
+        {
+            var (failed, routable) = await RouteBatchToBacklogCommandHandler.SortAsync(items, query.Ids, cancellationToken).ConfigureAwait(false);
+            var batch = routable.Select(entry => entry.Item).ToList();
+
+            // With no item left to route there is nothing to read the backlog for.
+            var tasks = batch.Count == 0 || taskReferences is null
+                ? []
+                : await taskReferences.OpenTasksAsync(cancellationToken).ConfigureAwait(false);
+
+            // Deferred items stay behind when a list is routed — put aside is not
+            // decided — and the panel says how many, as the list's confirm did.
+            int? deferred = null;
+            if (query.ListId is { } listId)
+            {
+                var all = await items.ListAsync(cancellationToken).ConfigureAwait(false);
+                deferred = all.Count(item => item.ListId == listId && item.Status == InboxStatus.Deferred);
+            }
+
+            var dependencies = DependencyProposal.Propose(batch, tasks);
+
+            // Hints need two items to say anything about an order, and the list
+            // names only for the same-list hint.
+            IReadOnlyList<OrderingHint> hints = [];
+            if (batch.Count >= 2)
+            {
+                var lists = await organizer.ListListsAsync(cancellationToken).ConfigureAwait(false);
+                hints = DependencyProposal.Hints(batch, dependencies, lists.ToDictionary(list => list.Id, list => list.Name));
+            }
+
+            return new InboxBatchProposalDto(
+                planTag,
+                [.. batch.Select(item => new InboxBatchProposalItemDto(item.Id, item.Title, [.. item.RepoIds]))],
+                dependencies,
+                [.. failed.OrderBy(entry => entry.Position).Select(entry => entry.Failure)],
+                deferred)
+            {
+                Hints = hints,
+            };
+        }
     }
 }

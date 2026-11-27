@@ -319,12 +319,19 @@
             var subject = TestNotifications.NewSubject();
             var draft = kind == NotificationKind.Question ? TestNotifications.Question(subject) : TestNotifications.Alert(subject);
             var published = await Notifications.PublishAsync(draft);
-            if (published is not Ok<Guid>(var publishedId))
+            await (published switch
             {
-                _error = ((Error)published.Value!).Message;
-                return;
-            }
+                Ok<Guid>(var publishedId) => ShownAsync(publishedId),
+                Error error => Refused(error),
+            });
+        }
+        finally
+        {
+            _sending = null;
+        }
 
+        async Task ShownAsync(Guid publishedId)
+        {
             // The Changed event usually lands first, and may already carry a later state; reading
             // the centre covers a store that raised none.
             if (_test?.Id != publishedId)
@@ -333,9 +340,11 @@
                 if (listed.FirstOrDefault(view => view.Id == publishedId) is { } view) _test = view;
             }
         }
-        finally
+
+        Task Refused(Error error)
         {
-            _sending = null;
+            _error = error.Message;
+            return Task.CompletedTask;
         }
     }
 

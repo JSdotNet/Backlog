@@ -50,15 +50,19 @@ public sealed class RouteToEventCommandHandler(
         var spotted = await target
             .SpotEventAsync(new InboxEventRequestDto(item.Id, item.Title, item.SourceUrl, FactsOf(item.EventFacts)), cancellationToken)
             .ConfigureAwait(false);
-        if (spotted is not Ok<Guid>(var eventId))
+        return spotted switch
         {
-            return (Error)spotted.Value!;
+            Ok<Guid>(var eventId) => await RoutedAsync(eventId).ConfigureAwait(false),
+            Error error => error,
+        };
+
+        async Task<Result<InboxEventRoutedDto>> RoutedAsync(Guid eventId)
+        {
+            item.RouteToEvent(eventId, clock.GetUtcNow());
+            await items.SaveAsync(item, cancellationToken).ConfigureAwait(false);
+
+            return new InboxEventRoutedDto(item.Id, eventId);
         }
-
-        item.RouteToEvent(eventId, clock.GetUtcNow());
-        await items.SaveAsync(item, cancellationToken).ConfigureAwait(false);
-
-        return new InboxEventRoutedDto(item.Id, eventId);
     }
 
     private static InboxEventFactsDto? FactsOf(InboxEventFacts? facts) => facts is null

@@ -546,24 +546,21 @@
                 else
                 {
                     var started = await Pane.StartSeriesAsync(name);
-                    if (started is not Ok<EventSeriesDto>(var startedSeries))
+                    seriesId = started switch
                     {
-                        _addError = ((Error)started.Value!).Message;
-                        return;
-                    }
-
-                    seriesId = startedSeries.Id;
+                        Ok<EventSeriesDto>(var startedSeries) => startedSeries.Id,
+                        Error error => SeriesRefused(error),
+                    };
+                    if (seriesId is null) return;
                 }
             }
 
             var added = await Pane.AddAsync(_newTitle, seriesId);
-            if (added is not Ok<KnowledgeEventDto>(var addedEvent))
+            await (added switch
             {
-                _addError = ((Error)added.Value!).Message;
-                return;
-            }
-
-            await AddedAsync(addedEvent);
+                Ok<KnowledgeEventDto>(var addedEvent) => AddedAsync(addedEvent),
+                Error error => Refused(error),
+            });
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -572,6 +569,19 @@
         finally
         {
             _saving = false;
+        }
+
+        // Null, so the add stops before the event is made.
+        Guid? SeriesRefused(Error error)
+        {
+            _addError = error.Message;
+            return null;
+        }
+
+        Task Refused(Error error)
+        {
+            _addError = error.Message;
+            return Task.CompletedTask;
         }
     }
 

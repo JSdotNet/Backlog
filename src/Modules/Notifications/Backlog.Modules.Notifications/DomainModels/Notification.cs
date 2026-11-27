@@ -175,27 +175,41 @@ public sealed class Notification
         if (Encoding.UTF8.GetByteCount(body) > MaxBodyBytes) return NotificationsErrors.ContentTooLong("body", MaxBodyBytes, "bytes of Markdown");
 
         var origin = Checked(draft.Origin);
-        if (origin is not Ok<NotificationOrigin?>(var checkedOrigin)) return (Error)origin.Value!;
+        return origin switch
+        {
+            Ok<NotificationOrigin?>(var checkedOrigin) => WithActions(checkedOrigin),
+            Error error => error,
+        };
 
-        var actions = Checked(draft.Actions, draft.Kind);
-        if (actions is not Ok<IReadOnlyList<NotificationAction>>(var checkedActions)) return (Error)actions.Value!;
+        Result<Notification> WithActions(NotificationOrigin? checkedOrigin)
+        {
+            var actions = Checked(draft.Actions, draft.Kind);
+            return actions switch
+            {
+                Ok<IReadOnlyList<NotificationAction>>(var checkedActions) => Made(checkedOrigin, checkedActions),
+                Error error => error,
+            };
+        }
 
-        return new Notification(
-            id,
-            ownerInstanceId,
-            draft.Source with { Context = draft.Source.Context.Trim(), Key = draft.Source.Key.Trim() },
-            draft.Subject,
-            draft.Kind,
-            draft.Severity,
-            title,
-            summary,
-            body,
-            draft.Answer,
-            string.IsNullOrWhiteSpace(draft.DeepLink) ? null : draft.DeepLink.Trim(),
-            draft.IsPrivate,
-            createdAt,
-            checkedOrigin,
-            checkedActions);
+        Notification Made(NotificationOrigin? checkedOrigin, IReadOnlyList<NotificationAction> checkedActions)
+        {
+            return new Notification(
+                id,
+                ownerInstanceId,
+                draft.Source with { Context = draft.Source.Context.Trim(), Key = draft.Source.Key.Trim() },
+                draft.Subject,
+                draft.Kind,
+                draft.Severity,
+                title,
+                summary,
+                body,
+                draft.Answer,
+                string.IsNullOrWhiteSpace(draft.DeepLink) ? null : draft.DeepLink.Trim(),
+                draft.IsPrivate,
+                createdAt,
+                checkedOrigin,
+                checkedActions);
+        }
     }
 
     /// <summary>

@@ -24,19 +24,26 @@ internal sealed class KnowledgeEvents(
         ArgumentNullException.ThrowIfNull(request);
 
         var created = KnowledgeEvent.Create(Guid.CreateVersion7(), request.Title);
-        if (created is not Ok<KnowledgeEvent>(var knowledgeEvent)) return (Error)created.Value!;
+        return created switch
+        {
+            Ok<KnowledgeEvent>(var knowledgeEvent) => await SpottedAsync(knowledgeEvent).ConfigureAwait(false),
+            Error error => error,
+        };
 
-        knowledgeEvent.SetLink(request.Link);
-        SetFoundDates(knowledgeEvent, request.Start, request.End);
-        knowledgeEvent.SetPlace(PlaceOf(request.Place));
+        async Task<Result<SpottedKnowledgeEventDto>> SpottedAsync(KnowledgeEvent knowledgeEvent)
+        {
+            knowledgeEvent.SetLink(request.Link);
+            SetFoundDates(knowledgeEvent, request.Start, request.End);
+            knowledgeEvent.SetPlace(PlaceOf(request.Place));
 
-        var (seriesId, started) = await SeriesForAsync(request, cancellationToken).ConfigureAwait(false);
-        knowledgeEvent.SetSeries(seriesId);
+            var (seriesId, started) = await SeriesForAsync(request, cancellationToken).ConfigureAwait(false);
+            knowledgeEvent.SetSeries(seriesId);
 
-        await events.SaveAsync(knowledgeEvent, cancellationToken).ConfigureAwait(false);
-        saved?.Raise();
+            await events.SaveAsync(knowledgeEvent, cancellationToken).ConfigureAwait(false);
+            saved?.Raise();
 
-        return new SpottedKnowledgeEventDto(knowledgeEvent.Id, seriesId, started);
+            return new SpottedKnowledgeEventDto(knowledgeEvent.Id, seriesId, started);
+        }
     }
 
     /// <summary>The found dates, read from the event page. What a rule refuses is let go rather
@@ -59,17 +66,31 @@ internal sealed class KnowledgeEvents(
         return exact switch
         {
             Ok<EventDate>(var value) => value,
-            Error => ((Ok<EventDate>)EventDate.Create(date.Date, null, null).Value!).Value,
+            Error => DayOf(date.Date),
         };
     }
 
+    // A date with no time is never refused, so the Error arm is the no-date answer the
+    // caller already handles rather than a throw (app-defaults ADR 0005).
+    private static EventDate? DayOf(DateOnly day) =>
+        EventDate.Create(day, null, null) switch
+        {
+            Ok<EventDate>(var value) => value,
+            Error => null,
+        };
+
+    // A non-blank venue with no address is never refused, so the Error arm is the no-place
+    // answer the caller already handles rather than a throw (app-defaults ADR 0005).
     private static Place? PlaceOf(string? written)
     {
         if (string.IsNullOrWhiteSpace(written)) return null;
+        if (string.Equals(written.Trim(), "Online", StringComparison.OrdinalIgnoreCase)) return Place.Online;
 
-        return string.Equals(written.Trim(), "Online", StringComparison.OrdinalIgnoreCase)
-            ? Place.Online
-            : ((Ok<Place>)Place.AtVenue(written).Value!).Value;
+        return Place.AtVenue(written) switch
+        {
+            Ok<Place>(var venue) => venue,
+            Error => null,
+        };
     }
 
     /// <summary>The series whose page is the watched page, or a new one named after it; none
@@ -83,10 +104,20 @@ internal sealed class KnowledgeEvents(
         if (known.FirstOrDefault(each => SamePage(each.Link, page)) is { } match) return (match.Id, false);
 
         var name = string.IsNullOrWhiteSpace(request.SeriesPageTitle) ? HostOf(page) : request.SeriesPageTitle;
-        var started = ((Ok<EventSeries>)EventSeries.Create(Guid.CreateVersion7(), name, organiser: null, link: page).Value!).Value;
-        await series.SaveAsync(started, cancellationToken).ConfigureAwait(false);
 
-        return (started.Id, true);
+        // The name is the page's title or its host, never blank, so the Error arm is the
+        // no-series answer above rather than a throw (app-defaults ADR 0005).
+        return EventSeries.Create(Guid.CreateVersion7(), name, organiser: null, link: page) switch
+        {
+            Ok<EventSeries>(var started) => await SavedAsync(started).ConfigureAwait(false),
+            Error => (null, false),
+        };
+
+        async Task<(Guid? Id, bool Started)> SavedAsync(EventSeries started)
+        {
+            await series.SaveAsync(started, cancellationToken).ConfigureAwait(false);
+            return (started.Id, true);
+        }
     }
 
     /// <summary>Two links name the same page when they differ only in case or a trailing

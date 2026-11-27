@@ -69,34 +69,42 @@ internal static partial class InboxAttachmentDownloads
             }
 
             var fetched = await source.FetchAsync(attachmentId, cancellationToken).ConfigureAwait(false);
-            if (fetched is not Ok<byte[]>(var content)) return Fail(item, attachmentId, ((Error)fetched.Value!).Message, clock, logger);
-
-            var digest = Convert.ToHexStringLower(SHA256.HashData(content));
-            if (!string.Equals(digest, attachment.Sha256, StringComparison.Ordinal))
+            return fetched switch
             {
-                return Fail(
-                    item,
-                    attachmentId,
-                    "The downloaded file does not match the one that was captured, so it was not kept.",
-                    clock,
-                    logger);
-            }
+                Ok<byte[]>(var content) => await KeptAsync(content).ConfigureAwait(false),
+                Error error => Fail(item, attachmentId, error.Message, clock, logger),
+            };
 
-            string written;
-            try
+            // Declared in this block to read fileName; awaited inside the try, so a throw is caught below.
+            async Task<string?> KeptAsync(byte[] content)
             {
-                written = await files.WriteAsync(item.Id, fileName, content, cancellationToken).ConfigureAwait(false);
-            }
-            catch (Exception failure) when (failure is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
-            {
-                // Fetched fine; this machine could not keep it. Said as such, so
-                // the person looks at their disk rather than at the sync service.
-                return Fail(item, attachmentId, $"The file could not be saved on this machine: {failure.Message}", clock, logger, failure);
-            }
+                var digest = Convert.ToHexStringLower(SHA256.HashData(content));
+                if (!string.Equals(digest, attachment.Sha256, StringComparison.Ordinal))
+                {
+                    return Fail(
+                        item,
+                        attachmentId,
+                        "The downloaded file does not match the one that was captured, so it was not kept.",
+                        clock,
+                        logger);
+                }
 
-            item.MarkAttachmentDownloaded(attachmentId, written, clock.GetUtcNow());
+                string written;
+                try
+                {
+                    written = await files.WriteAsync(item.Id, fileName, content, cancellationToken).ConfigureAwait(false);
+                }
+                catch (Exception failure) when (failure is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+                {
+                    // Fetched fine; this machine could not keep it. Said as such, so
+                    // the person looks at their disk rather than at the sync service.
+                    return Fail(item, attachmentId, $"The file could not be saved on this machine: {failure.Message}", clock, logger, failure);
+                }
 
-            return null;
+                item.MarkAttachmentDownloaded(attachmentId, written, clock.GetUtcNow());
+
+                return null;
+            }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

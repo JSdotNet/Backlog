@@ -84,23 +84,31 @@ public sealed class InferBatchOrderQueryHandler(
                 repositories[item.Id]))]);
 
         var draft = await drafter.DraftAsync(request, cancellationToken).ConfigureAwait(false);
-        if (draft is not Ok<InboxPlanDraftDto>(var drafted))
+        return draft switch
         {
-            return (Error)draft.Value!;
+            Ok<InboxPlanDraftDto>(var drafted) => Ordered(drafted),
+            Error error => error,
+        };
+
+        Result<IReadOnlyList<ProposedDependency>> Ordered(InboxPlanDraftDto drafted)
+        {
+            var read = target.ReadDraftedOrder(drafted.PlanMarkdown, [.. batch.Select(item => item.Id)], allowed);
+            return read switch
+            {
+                Ok<IReadOnlyList<InboxBatchEdge>>(var edges) => Proposed(edges),
+                Error error => error,
+            };
         }
 
-        var read = target.ReadDraftedOrder(drafted.PlanMarkdown, [.. batch.Select(item => item.Id)], allowed);
-        if (read is not Ok<IReadOnlyList<InboxBatchEdge>>(var edges))
+        Result<IReadOnlyList<ProposedDependency>> Proposed(IReadOnlyList<InboxBatchEdge> edges)
         {
-            return (Error)read.Value!;
+            var titles = batch.ToDictionary(item => item.Id, item => item.Title);
+
+            return Result.Success<IReadOnlyList<ProposedDependency>>([.. edges.Select(edge => new ProposedDependency(
+                edge.From,
+                DependencyTarget.ForItem(edge.To, titles[edge.To]),
+                Reason,
+                DependencyTier.Inferred))]);
         }
-
-        var titles = batch.ToDictionary(item => item.Id, item => item.Title);
-
-        return Result.Success<IReadOnlyList<ProposedDependency>>([.. edges.Select(edge => new ProposedDependency(
-            edge.From,
-            DependencyTarget.ForItem(edge.To, titles[edge.To]),
-            Reason,
-            DependencyTier.Inferred))]);
     }
 }

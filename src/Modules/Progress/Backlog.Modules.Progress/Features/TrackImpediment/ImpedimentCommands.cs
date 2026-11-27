@@ -50,19 +50,36 @@ public sealed class ImpedimentCommandHandler(ImpedimentChanges changes, TimeProv
         ArgumentNullException.ThrowIfNull(command.Request);
 
         var raised = Impediment.Raise(Guid.NewGuid(), command.Request.Title, Today, clock.GetUtcNow());
-        if (raised is not Ok<Impediment>(var impediment)) return (Error)raised.Value!;
-
-        foreach (var requested in command.Request.HoldsBack ?? [])
+        return raised switch
         {
-            var item = ItemOf(requested);
-            if (item is not Ok<HeldBackItem>(var held)) return (Error)item.Value!;
+            Ok<Impediment>(var impediment) => await RaisedAsync(impediment).ConfigureAwait(false),
+            Error error => error,
+        };
 
-            impediment.HoldBack(held);
+        async Task<Result<ImpedimentDto>> RaisedAsync(Impediment impediment)
+        {
+            foreach (var requested in command.Request.HoldsBack ?? [])
+            {
+                var item = ItemOf(requested);
+                Error? refused = item switch
+                {
+                    Ok<HeldBackItem>(var held) => HeldBack(impediment, held),
+                    Error error => error,
+                };
+                if (refused is { } failed) return failed;
+            }
+
+            impediment.EditNote(command.Request.Note);
+
+            return await changes.AddAsync(impediment, cancellationToken).ConfigureAwait(false);
         }
 
-        impediment.EditNote(command.Request.Note);
-
-        return await changes.AddAsync(impediment, cancellationToken).ConfigureAwait(false);
+        // Null when the item is held back, so the loop goes on.
+        static Error? HeldBack(Impediment impediment, HeldBackItem held)
+        {
+            impediment.HoldBack(held);
+            return null;
+        }
     }
 
     public Task<Result<ImpedimentDto>> Handle(MoveImpedimentCommand command, CancellationToken cancellationToken = default)

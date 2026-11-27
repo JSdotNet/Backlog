@@ -52,35 +52,39 @@ internal sealed class GoalsAiContentSource(IStandUp standUp) : IAiContentSource
         ArgumentNullException.ThrowIfNull(request);
 
         var read = await standUp.ReadAsync(cancellationToken).ConfigureAwait(false);
-        if (read is not Ok<StandUpDto>(var reading))
+        return read switch
         {
-            return AiContentBudget.Compose<GoalsRecord>(
+            Ok<StandUpDto>(var reading) => Composed(reading),
+            Error error => AiContentBudget.Compose<GoalsRecord>(
                 AreaKey,
                 AreaTitle,
                 [],
                 record => record.Text,
                 request.Question,
                 request.BudgetCharacters,
-                note: $"The stand-up could not be read: {((Error)read.Value!).Message}");
+                note: $"The stand-up could not be read: {error.Message}"),
+        };
+
+        AiContent Composed(StandUpDto reading)
+        {
+            IReadOnlyList<GoalsRecord> records =
+            [
+                .. reading.Goals.Select(goal => new GoalsRecord(Text(goal), true)),
+                .. Items("Finished", reading.Finished).Select(text => new GoalsRecord(text, false)),
+                .. Items("Planned", reading.Planned).Select(text => new GoalsRecord(text, false)),
+                .. reading.Impediments.Select(impediment => new GoalsRecord(Text(impediment), false))
+            ];
+
+            return AiContentBudget.Compose(
+                AreaKey,
+                $"{AreaTitle} (stand-up: last {Window(reading.Last)}, next {Window(reading.Next)})",
+                records,
+                record => record.Text,
+                request.Question,
+                request.BudgetCharacters,
+                pinned: record => record.Goal,
+                note: Totals(reading));
         }
-
-        IReadOnlyList<GoalsRecord> records =
-        [
-            .. reading.Goals.Select(goal => new GoalsRecord(Text(goal), true)),
-            .. Items("Finished", reading.Finished).Select(text => new GoalsRecord(text, false)),
-            .. Items("Planned", reading.Planned).Select(text => new GoalsRecord(text, false)),
-            .. reading.Impediments.Select(impediment => new GoalsRecord(Text(impediment), false))
-        ];
-
-        return AiContentBudget.Compose(
-            AreaKey,
-            $"{AreaTitle} (stand-up: last {Window(reading.Last)}, next {Window(reading.Next)})",
-            records,
-            record => record.Text,
-            request.Question,
-            request.BudgetCharacters,
-            pinned: record => record.Goal,
-            note: Totals(reading));
     }
 
     /// <summary>"Goal: title, due, done of total, in last, doing, blocked, to do, standing,
