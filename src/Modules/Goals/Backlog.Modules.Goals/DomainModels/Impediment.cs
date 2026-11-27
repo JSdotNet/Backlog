@@ -1,4 +1,5 @@
 using Backlog.Modules.Goals.Abstractions;
+using Backlog.SharedKernel.Domain;
 using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Goals.DomainModels;
@@ -19,7 +20,7 @@ namespace Backlog.Modules.Goals.DomainModels;
 /// stored here.
 /// </para>
 /// </summary>
-public sealed class Impediment
+public sealed class Impediment : IAggregateRoot
 {
     private readonly List<ImpedimentStateChange> _history;
     private readonly List<HeldBackItem> _holdsBack;

@@ -1,4 +1,5 @@
 using Backlog.Modules.Events.Abstractions;
+using Backlog.SharedKernel.Domain;
 using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Events.DomainModels;
@@ -13,7 +14,7 @@ namespace Backlog.Modules.Events.DomainModels;
 /// there is no mutator, so a desktop applies it whole and the sync client then retires it.
 /// </para>
 /// </summary>
-public sealed class AttachmentRequest
+public sealed class AttachmentRequest : IAggregateRoot
 {
     private AttachmentRequest(Guid id, Guid eventId, Guid noteId, string noteTitle)
     {

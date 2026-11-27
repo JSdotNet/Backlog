@@ -1,5 +1,6 @@
 using Backlog.Modules.Work.Abstractions.Plans;
 using Backlog.Modules.Work.Plans.Services;
+using Backlog.SharedKernel.Domain;
 using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Work.Plans.DomainModels;
@@ -28,7 +29,7 @@ namespace Backlog.Modules.Work.Plans.DomainModels;
 /// A plan with nothing in it is a valid plan: a first run, or everything delivered.
 /// </para>
 /// </summary>
-public sealed class RoadmapPlan
+public sealed class RoadmapPlan : IAggregateRoot
 {
     private readonly List<RoadmapItem> _items;
     private readonly List<Milestone> _milestones;

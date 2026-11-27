@@ -1,4 +1,5 @@
 using Backlog.Modules.Events.Abstractions;
+using Backlog.SharedKernel.Domain;
 using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Events.DomainModels;
@@ -13,7 +14,7 @@ namespace Backlog.Modules.Events.DomainModels;
 /// empty, with a unit test in <c>Backlog.Modules.Events.UnitTests</c>.
 /// </para>
 /// </summary>
-public sealed class EventSeries
+public sealed class EventSeries : IAggregateRoot
 {
     private EventSeries(Guid id, string name, string? organiser, string? link)
     {

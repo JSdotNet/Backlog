@@ -1,3 +1,5 @@
+using Backlog.SharedKernel.Domain;
+
 namespace Backlog.Modules.Devbook.Abstractions;
 
 /// <summary>
@@ -10,7 +12,7 @@ namespace Backlog.Modules.Devbook.Abstractions;
 /// when come from the host's own session, never from the caller.
 /// </para>
 /// </summary>
-public sealed record DevbookSubjectDecision(string By, DateTimeOffset At, string Fingerprint);
+public sealed record DevbookSubjectDecision(string By, DateTimeOffset At, string Fingerprint) : IValueObject;
 
 /// <summary>
 /// The workflow state Backlog keeps for one subject in one repository — the
@@ -38,7 +40,7 @@ public sealed record DevbookSubjectState(
     DateTimeOffset At,
     DevbookSubjectDecision? Approval,
     DevbookSubjectDecision? Acceptance,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt) : IAggregateRoot;
 
 /// <summary>
 /// Why a state operation was refused, per <c>devbook.decision@1</c>. A refusal

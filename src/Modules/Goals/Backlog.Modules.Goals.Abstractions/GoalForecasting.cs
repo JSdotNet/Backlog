@@ -1,4 +1,5 @@
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Domain;
 
 namespace Backlog.Modules.Goals.Abstractions;
 
@@ -7,7 +8,7 @@ namespace Backlog.Modules.Goals.Abstractions;
 /// <param name="LandsOn">The last day of the iteration the goal is expected to land in;
 /// null with no open item, or with no item done in the four iterations read.</param>
 /// <param name="DoneRate">The items done per iteration, averaged over the four read.</param>
-public sealed record GoalForecast(GoalStanding Standing, DateOnly? LandsOn, decimal DoneRate);
+public sealed record GoalForecast(GoalStanding Standing, DateOnly? LandsOn, decimal DoneRate) : IValueObject;
 
 /// <summary>
 /// Forecasts a goal from its done rate (<c>.devbook/domain/goals/domain.md#goal-forecast</c>):

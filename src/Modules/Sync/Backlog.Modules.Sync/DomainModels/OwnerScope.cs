@@ -1,3 +1,5 @@
+using Backlog.SharedKernel.Domain;
+
 namespace Backlog.Modules.Sync.DomainModels;
 
 /// <summary>
@@ -11,4 +13,4 @@ namespace Backlog.Modules.Sync.DomainModels;
 /// nothing underneath re-checks it (.devbook/arc42/adr/0005 §Identity).
 /// </para>
 /// </summary>
-public readonly record struct OwnerScope(OwnerId OwnerId, DeviceId DeviceId);
+public readonly record struct OwnerScope(OwnerId OwnerId, DeviceId DeviceId) : IValueObject;

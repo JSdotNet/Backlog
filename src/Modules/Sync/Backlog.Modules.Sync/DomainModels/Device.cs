@@ -1,3 +1,5 @@
+using Backlog.SharedKernel.Domain;
+
 namespace Backlog.Modules.Sync.DomainModels;
 
 /// <summary>
@@ -26,7 +28,7 @@ public sealed record Device(
     string? CredentialHash,
     DateTimeOffset RegisteredAt,
     DeviceId? PairedBy = null,
-    string? PublicKey = null)
+    string? PublicKey = null) : IAggregateRoot
 {
     /// <summary>Whether the device proves itself by signing rather than by its
     /// credential. A key-bound device's credential path is closed.</summary>

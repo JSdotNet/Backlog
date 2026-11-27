@@ -1,4 +1,5 @@
 using Backlog.Modules.Work.Abstractions.Plans;
+using Backlog.SharedKernel.Domain;
 
 namespace Backlog.Modules.Work.Plans.DomainModels;
 
@@ -19,7 +20,7 @@ namespace Backlog.Modules.Work.Plans.DomainModels;
 /// plan, which is the only thing that can see enough to allow them.
 /// </para>
 /// </summary>
-public sealed class RoadmapItem
+public sealed class RoadmapItem : IEntity
 {
     /// <summary>Full constructor, used by <see cref="RoadmapPlan"/> to add an item
     /// and by storage to rehydrate a persisted one. Public for the second reason

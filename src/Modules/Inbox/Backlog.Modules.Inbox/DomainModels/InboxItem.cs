@@ -1,4 +1,5 @@
 using Backlog.Modules.Inbox.Abstractions;
+using Backlog.SharedKernel.Domain;
 
 namespace Backlog.Modules.Inbox.DomainModels;
 
@@ -22,7 +23,7 @@ namespace Backlog.Modules.Inbox.DomainModels;
 /// the reader took such a decision back, which only the intake reads.
 /// </para>
 /// </summary>
-public sealed class InboxItem
+public sealed class InboxItem : IAggregateRoot
 {
     private readonly List<InboxTag> _tags = [];
     private readonly List<string> _repoIds = [];

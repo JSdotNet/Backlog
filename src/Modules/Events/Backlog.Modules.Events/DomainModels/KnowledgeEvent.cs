@@ -1,4 +1,5 @@
 using Backlog.Modules.Events.Abstractions;
+using Backlog.SharedKernel.Domain;
 using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Events.DomainModels;
@@ -12,7 +13,7 @@ namespace Backlog.Modules.Events.DomainModels;
 /// unit test in <c>Backlog.Modules.Events.UnitTests</c>.
 /// </para>
 /// </summary>
-public sealed class KnowledgeEvent
+public sealed class KnowledgeEvent : IAggregateRoot
 {
     private readonly List<KeyDate> _keyDates;
     private readonly List<NoteLink> _notes;

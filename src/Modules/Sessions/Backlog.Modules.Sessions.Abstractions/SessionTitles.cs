@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
+using Backlog.SharedKernel.Domain;
 
 namespace Backlog.Modules.Sessions.Abstractions;
 
@@ -74,7 +75,7 @@ public sealed record SessionTitleReading(
     PlanState? State,
     int? Step,
     string Shown,
-    string Raw);
+    string Raw) : IValueObject;
 
 /// <summary>
 /// Reading a session's title for its purpose and plan. A pure function over the

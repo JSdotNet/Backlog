@@ -1,3 +1,5 @@
+using Backlog.SharedKernel.Domain;
+
 namespace Backlog.Modules.Work.Abstractions.Tasks;
 
 /// <summary>
@@ -25,7 +27,7 @@ namespace Backlog.Modules.Work.Abstractions.Tasks;
 /// the published language.
 /// </para>
 /// </summary>
-public sealed record Attachment(string Path)
+public sealed record Attachment(string Path) : IValueObject
 {
     /// <summary>The extensions that make a path an archive rather than a folder.
     /// Deliberately short: these are the two a person means by "zip it up", and a

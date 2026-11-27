@@ -1,6 +1,7 @@
 using System.Text;
 
 using Backlog.Modules.Notifications.Abstractions;
+using Backlog.SharedKernel.Domain;
 using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Notifications.DomainModels;
@@ -30,7 +31,7 @@ namespace Backlog.Modules.Notifications.DomainModels;
 /// what lets the replica carry it without merge rules.
 /// </para>
 /// </summary>
-public sealed class Notification
+public sealed class Notification : IAggregateRoot
 {
     /// <summary>The most characters a title holds.</summary>
     public const int MaxTitleLength = 80;

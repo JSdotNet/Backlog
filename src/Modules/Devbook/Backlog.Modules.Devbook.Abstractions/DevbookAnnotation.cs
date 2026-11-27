@@ -1,3 +1,5 @@
+using Backlog.SharedKernel.Domain;
+
 namespace Backlog.Modules.Devbook.Abstractions;
 
 /// <summary>
@@ -56,7 +58,7 @@ public sealed record DevbookAnnotation(
     DateTimeOffset? DeletedAt = null,
     string? BlockHash = null,
     DevbookAnnotationKind Kind = DevbookAnnotationKind.Comment,
-    string? Branch = null)
+    string? Branch = null) : IAggregateRoot
 {
     /// <summary>One spelling for "the default branch": a blank name is none, and a
     /// named one is trimmed. Every store keys a remark's branch through this, so a

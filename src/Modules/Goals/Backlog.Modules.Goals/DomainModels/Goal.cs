@@ -1,4 +1,5 @@
 using Backlog.Modules.Goals.Abstractions;
+using Backlog.SharedKernel.Domain;
 using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Goals.DomainModels;
@@ -21,7 +22,7 @@ namespace Backlog.Modules.Goals.DomainModels;
 /// the attached work on every reading (<see cref="Services.GoalCounting"/>).
 /// </para>
 /// </summary>
-public sealed class Goal
+public sealed class Goal : IAggregateRoot
 {
     private readonly List<GoalAttachment> _attachments;
 
@@ -167,7 +168,7 @@ public sealed class Goal
 /// it was made, which equality ignores.
 /// </para>
 /// </summary>
-public sealed class GoalAttachment : IEquatable<GoalAttachment>
+public sealed class GoalAttachment : IEquatable<GoalAttachment>, IValueObject
 {
     private GoalAttachment(GoalAttachmentKind kind, string? plan, Guid? task, string? repository, int? number, DateOnly attachedOn)
     {

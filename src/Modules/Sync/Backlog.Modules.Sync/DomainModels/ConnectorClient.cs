@@ -1,3 +1,5 @@
+using Backlog.SharedKernel.Domain;
+
 namespace Backlog.Modules.Sync.DomainModels;
 
 /// <summary>
@@ -17,7 +19,7 @@ public sealed record ConnectorClient(
     string? SecretHash,
     DateTimeOffset? CreatedAt,
     DateTimeOffset? LastUsedAt,
-    int Generation)
+    int Generation) : IAggregateRoot
 {
     /// <summary>A client nobody has made a secret for yet.</summary>
     public static ConnectorClient Unregistered(string clientId) => new(clientId, null, null, null, 0);

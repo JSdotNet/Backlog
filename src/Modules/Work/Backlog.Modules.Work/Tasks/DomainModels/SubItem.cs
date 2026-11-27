@@ -1,4 +1,5 @@
 using Backlog.Modules.Work.Abstractions.Tasks;
+using Backlog.SharedKernel.Domain;
 
 namespace Backlog.Modules.Work.Tasks.DomainModels;
 
@@ -7,7 +8,7 @@ namespace Backlog.Modules.Work.Tasks.DomainModels;
 /// identity within the aggregate only. All mutations go through the aggregate
 /// root — setters are internal so callers cannot bypass the root's invariants.
 /// </summary>
-public sealed class SubItem
+public sealed class SubItem : IEntity
 {
     internal SubItem(Guid id, string title, int order, string? notes = null, SubItemStatus status = SubItemStatus.Pending)
     {

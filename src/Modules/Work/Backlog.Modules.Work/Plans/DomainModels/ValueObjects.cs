@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 
 using Backlog.Modules.Work.Abstractions.Plans;
+using Backlog.SharedKernel.Domain;
 using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Work.Plans.DomainModels;
@@ -15,7 +16,7 @@ namespace Backlog.Modules.Work.Plans.DomainModels;
 /// possible piece of work indistinguishable from no work at all.
 /// </para>
 /// </summary>
-public sealed record PlannedWindow
+public sealed record PlannedWindow : IValueObject
 {
     private PlannedWindow(DateOnly start, DateOnly end)
     {
@@ -72,7 +73,7 @@ public sealed record PlannedWindow
 /// broken plan.
 /// </para>
 /// </summary>
-public sealed class RepositoryScope : IEquatable<RepositoryScope>
+public sealed class RepositoryScope : IEquatable<RepositoryScope>, IValueObject
 {
     private readonly string[] _aliases;
 
@@ -141,7 +142,7 @@ public sealed class RepositoryScope : IEquatable<RepositoryScope>
 /// release every time someone invents a workstream.
 /// </para>
 /// </summary>
-public sealed record PlanningLane
+public sealed record PlanningLane : IValueObject
 {
     /// <summary>What the lane is called when nobody has said.</summary>
     public const string DefaultName = "Planned";

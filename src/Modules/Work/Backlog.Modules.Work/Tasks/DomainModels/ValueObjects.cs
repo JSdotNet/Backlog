@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Domain;
 
 namespace Backlog.Modules.Work.Tasks.DomainModels;
 
@@ -8,12 +9,12 @@ namespace Backlog.Modules.Work.Tasks.DomainModels;
 /// Immutable link to a downstream external artifact created from an entry.
 /// Equality is by value.
 /// </summary>
-public sealed record ProjectionRef(string RepoId, string ExternalId, string TargetType);
+public sealed record ProjectionRef(string RepoId, string ExternalId, string TargetType) : IValueObject;
 
 /// <summary>
 /// Immutable audit record of a prompt copy/use. Equality is by value.
 /// </summary>
-public sealed record UsageEvent(DateTimeOffset Timestamp, string Action);
+public sealed record UsageEvent(DateTimeOffset Timestamp, string Action) : IValueObject;
 
 /// <summary>
 /// A task's pointer at a Devbook page — <c>&lt;path&gt;</c> — or at one chapter

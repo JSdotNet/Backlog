@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using Backlog.SharedKernel.Domain;
 
 namespace Backlog.Modules.Devbook.Abstractions;
 
@@ -52,7 +53,7 @@ public enum DevbookSubjectKind
 /// check it before they build one.
 /// </para>
 /// </summary>
-public sealed record DevbookSubject
+public sealed record DevbookSubject : IValueObject
 {
     private static readonly IReadOnlyList<string> ProposalStates = ["draft", "approved", "accepted"];
     private static readonly IReadOnlyList<string> DecisionStates = ["proposed", "decided", "declined"];

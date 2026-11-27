@@ -1,3 +1,5 @@
+using Backlog.SharedKernel.Domain;
+
 namespace Backlog.Modules.Sync.DomainModels;
 
 /// <summary>
@@ -23,4 +25,4 @@ namespace Backlog.Modules.Sync.DomainModels;
 /// would fail at run time until a page of the wrong feed came back.
 /// </para>
 /// </summary>
-public readonly record struct SyncCursor(OwnerId Owner, string Continuation);
+public readonly record struct SyncCursor(OwnerId Owner, string Continuation) : IValueObject;
