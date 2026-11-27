@@ -4,6 +4,9 @@ using Backlog.UI.Components.Roadmap;
 
 using Bunit;
 
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Time.Testing;
+
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
@@ -503,6 +506,20 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
             .Add(component => component.CanOpenTasks, true));
 
         Assert.Empty(editor.FindAll(OpenInTasks));
+    }
+
+    /// <summary>An editor its host passes no Today takes the date the injected clock
+    /// says (app-defaults ADR 0005), not the machine's.</summary>
+    [Fact]
+    public void AnItemEditorGivenNoTodayReadsTheInjectedClock()
+    {
+        using var context = Context();
+        context.Services.AddSingleton<TimeProvider>(new FakeTimeProvider(new DateTimeOffset(2026, 10, 5, 12, 0, 0, TimeSpan.Zero)));
+
+        var editor = context.Render<RoadmapItemEditor>(parameters => parameters
+            .Add(component => component.Open, true));
+
+        Assert.Equal(new DateOnly(2026, 10, 5), editor.Instance.Today);
     }
 
     /// <summary>What the item gathered when a task carries it.</summary>

@@ -9,6 +9,7 @@ using Bunit;
 
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -241,6 +242,20 @@ public sealed class RoadmapDaysOffDialogTests : RoadmapBandHarness
             "Take at most 366 days off at a time.",
             band.Find("[data-testid='roadmap-days-off-calendar-error']").TextContent.Trim()));
         Assert.Equal([new DayOverride(Monday12October, false)], PaceFile.WorkingWeek.Overrides);
+    }
+
+    /// <summary>A dialog its host passes no Today takes the date the injected clock says
+    /// (app-defaults ADR 0005), which decides what the list counts as still to come.</summary>
+    [Fact]
+    public void A_dialog_given_no_today_reads_the_injected_clock()
+    {
+        using var context = Context();
+        context.Services.AddSingleton<TimeProvider>(new FakeTimeProvider(new DateTimeOffset(2026, 10, 5, 12, 0, 0, TimeSpan.Zero)));
+
+        var dialog = context.Render<RoadmapDaysOffDialog>(parameters => parameters
+            .Add(component => component.Open, true));
+
+        Assert.Equal(new DateOnly(2026, 10, 5), dialog.Instance.Today);
     }
 
     /// <summary>Presses <paramref name="date"/> on the calendar, paging to its month first.</summary>

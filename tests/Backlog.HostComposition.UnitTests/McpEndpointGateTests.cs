@@ -19,6 +19,7 @@ using Backlog.Tests;
 
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.HostComposition.UnitTests;
 
@@ -61,7 +62,8 @@ public class McpEndpointGateTests
         INotifications? notifications = null,
         IMcpAuditLog? audit = null,
         IScheduleRegister? schedules = null,
-        ILoopRegister? loops = null)
+        ILoopRegister? loops = null,
+        TimeProvider? time = null)
         : IsolatedHarnessFactory<DesktopHarness::Program>
     {
         protected override void ConfigureHarness(IWebHostBuilder builder)
@@ -92,6 +94,9 @@ public class McpEndpointGateTests
 
                 // And an in-memory Loop Register, for the same reason.
                 if (loops is not null) services.AddSingleton(loops);
+
+                // And a pinned clock where a test reads one off a record.
+                if (time is not null) services.AddSingleton(time);
             });
         }
     }
@@ -743,6 +748,21 @@ public class McpEndpointGateTests
         Assert.Null(call.TargetId);
         Assert.False(string.IsNullOrWhiteSpace(call.CorrelationId));
         Assert.InRange(call.At, DateTimeOffset.UtcNow.AddMinutes(-1), DateTimeOffset.UtcNow.AddMinutes(1));
+    }
+
+    /// <summary>A call's record is stamped from the host's clock (app-defaults ADR 0005),
+    /// not the machine's, so a pinned <see cref="TimeProvider"/> is the moment it carries.</summary>
+    [Fact]
+    public async Task A_call_is_recorded_at_the_moment_the_injected_clock_says()
+    {
+        var audit = new RecordingAuditLog();
+        var at = new DateTimeOffset(2026, 10, 5, 12, 0, 0, TimeSpan.Zero);
+        await using var harness = new Harness(audit: audit, time: new FakeTimeProvider(at));
+        using var client = harness.CreateClient();
+
+        await CallToolAsync(client, "open_window", new { surface = "tasks", target = "desktop" });
+
+        Assert.Equal(at, Assert.Single(audit.Records).At);
     }
 
     /// <summary>

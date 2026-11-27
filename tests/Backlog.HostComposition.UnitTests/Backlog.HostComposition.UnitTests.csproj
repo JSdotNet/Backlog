@@ -62,6 +62,9 @@
          nothing short of one speaks Blazor's circuit protocol. That test skips
          where no Playwright Chromium is installed. -->
     <PackageReference Include="Microsoft.Playwright" />
+    <!-- A pinned clock, so McpEndpointGateTests can prove an audit record is
+         stamped from the host's TimeProvider (app-defaults ADR 0005). -->
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
   </ItemGroup>
 
   <!-- The shared test doubles this project uses. Linked per project rather than

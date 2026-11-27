@@ -5,6 +5,7 @@ using Backlog.Modules.Roadmap.UI;
 using Bunit;
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -85,6 +86,22 @@ public sealed class RoadmapHoursReportTests
 
         dialog.WaitForAssertion(() =>
             Assert.Contains("could not be read", dialog.Find("[data-testid='roadmap-hours-error']").TextContent, StringComparison.Ordinal));
+    }
+
+    /// <summary>A report its host passes no Today takes the date the injected clock says
+    /// (app-defaults ADR 0005), so Next week stops at the clock's week.</summary>
+    [Fact]
+    public void A_report_given_no_today_reads_the_injected_clock()
+    {
+        using var context = Context(new StubReport());
+        context.Services.AddSingleton<TimeProvider>(new FakeTimeProvider(new DateTimeOffset(2026, 10, 5, 12, 0, 0, TimeSpan.Zero)));
+
+        var dialog = context.Render<RoadmapHoursReport>(parameters => parameters
+            .Add(component => component.Open, true)
+            .Add(component => component.Date, Today));
+
+        Assert.Equal(Today, dialog.Instance.Today);
+        Assert.True(dialog.Find("[data-testid='roadmap-hours-next']").HasAttribute("disabled"));
     }
 
     private static BunitContext Context(IRoadmapHoursReport? report)
