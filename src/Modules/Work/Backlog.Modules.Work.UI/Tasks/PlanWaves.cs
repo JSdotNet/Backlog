@@ -179,7 +179,7 @@ public static partial class PlanWaves
                 entry,
                 waveOf.GetValueOrDefault(entry.Row.TaskId, 1),
                 numberOf[entry.Row.TaskId],
-                TitleOf(entry.Row.PreviewTitle),
+                TitleOf(entry.Row.PreviewTitle, PlanEntryState.PlanTagOf(entry.Row)),
                 DetailOf(entry, dependsOn(entry.Row).Where(numberOf.ContainsKey).Select(id => numberOf[id]).ToList(), branch)))
             .ToList();
 
@@ -193,12 +193,23 @@ public static partial class PlanWaves
         return [.. columns.Select((column, index) => new PlanWave(index + 1, column, index == current))];
     }
 
-    /// <summary>The card's title: the entry's without its step number.</summary>
-    public static string TitleOf(string? title)
+    /// <summary>The card's title: the entry's without its step number, and without the
+    /// plan's own tag, which the view's heading already names. Another tag stays.</summary>
+    /// <param name="title">The entry's title.</param>
+    /// <param name="planTag">The plan's tag, <c>+</c> and all, or null.</param>
+    public static string TitleOf(string? title, string? planTag)
     {
         if (string.IsNullOrWhiteSpace(title)) return string.Empty;
 
-        return StepNumber().Replace(title, string.Empty, 1).Trim();
+        var bare = StepNumber().Replace(title, string.Empty, 1);
+        if (!string.IsNullOrEmpty(planTag))
+        {
+            bare = string.Join(' ', bare
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Where(word => !string.Equals(word, planTag, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        return bare.Trim();
     }
 
     /// <summary>

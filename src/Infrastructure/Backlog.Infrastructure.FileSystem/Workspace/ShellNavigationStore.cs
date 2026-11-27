@@ -246,10 +246,11 @@ public sealed class ShellNavigationStore : IRepositoryAliasKeyedStore
     public string BoardColumns { get; private set; }
 
     /// <summary>
-    /// How the Tasks list was last grouped — the name of a <c>TaskListGrouping</c>
-    /// member, <c>Plans</c> or <c>Flat</c> (local ADR 0072 §1) — kept beside the Board's
-    /// columns for <see cref="BoardColumns"/>' reason. <see cref="DefaultTasksGrouping"/>
-    /// until changed, and left out of the file while it is.
+    /// How the main window's Tasks list was last grouped — the name of a
+    /// <c>TaskListGrouping</c> member, <c>Plans</c> or <c>Flat</c> (local ADR 0072 §1) —
+    /// kept beside the Board's columns for <see cref="BoardColumns"/>' reason. A popped-out
+    /// window opens on it and never writes it. <see cref="DefaultTasksGrouping"/> until
+    /// changed, and left out of the file while it is.
     /// </summary>
     public string TasksGrouping { get; private set; }
 

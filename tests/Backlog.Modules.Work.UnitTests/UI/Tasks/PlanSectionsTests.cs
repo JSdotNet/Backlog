@@ -124,6 +124,36 @@ public sealed class PlanSectionsTests
         Assert.Contains("width: 25%", bar.QuerySelector(".plan-sections__bar-next")!.GetAttribute("style"));
     }
 
+    [Theory]
+    [InlineData(EntrySessionRequestState.Claimed, "Plan session running · unattended")]
+    [InlineData(EntrySessionRequestState.Started, "Plan session running · unattended")]
+    [InlineData(EntrySessionRequestState.Requested, "Queued")]
+    public async Task The_heading_says_whether_the_plan_s_session_runs_or_waits(EntrySessionRequestState state, string expected)
+    {
+        using var host = await HostAsync();
+        var queue = (TasksPlanSessionRequestTests.FakePlanTagSessionRequests)host.Context.Services.GetRequiredService<IPlanTagSessionRequests>();
+        queue.Open["zta"] = new EntrySessionRequest(Guid.NewGuid(), state, Backlog, DateTimeOffset.UnixEpoch, QueuePosition: 1);
+
+        var pane = SelectZta(RenderPlans(host));
+
+        pane.WaitForAssertion(() => Assert.Equal(expected, Text(pane.Find("[data-testid='plan-expanded-run']"))));
+    }
+
+    [Fact]
+    public async Task Roadmap_in_the_heading_opens_the_plan_on_the_Roadmap()
+    {
+        using var host = await HostAsync();
+        var opened = new List<string>();
+        var pane = host.Context.Render<TasksPane>(parameters => parameters
+            .Add(component => component.ListGrouping, TaskListGrouping.Plans)
+            .Add(component => component.OnOpenRoadmap, name => opened.Add(name)));
+        SelectZta(pane);
+
+        pane.Find("[data-testid='plan-expanded-roadmap']").Click();
+
+        Assert.Equal(["zta"], opened);
+    }
+
     [Fact]
     public async Task A_Now_row_opens_its_session()
     {
@@ -369,7 +399,7 @@ public sealed class PlanSectionsTests
     }
 
     /// <summary>The stage source, in memory: what a test says each session reports.</summary>
-    private sealed class FakePlanEntryStages : IPlanEntryStages
+    internal sealed class FakePlanEntryStages : IPlanEntryStages
     {
         public IReadOnlyDictionary<Guid, string> Answer { get; set; } = new Dictionary<Guid, string>();
 

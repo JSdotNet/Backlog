@@ -624,7 +624,7 @@ public sealed class TasksPlanSessionRequestTests
         public Task<bool> CancelAsync(Guid requestId, CancellationToken cancellationToken = default)
         {
             var held = Open.FirstOrDefault(pair => pair.Value.Id == requestId);
-            if (held.Value is not { State: EntrySessionRequestState.Requested or EntrySessionRequestState.Started }) return Task.FromResult(false);
+            if (held.Value is not { State: EntrySessionRequestState.Requested or EntrySessionRequestState.Claimed or EntrySessionRequestState.Started }) return Task.FromResult(false);
 
             Cancelled.Add(requestId);
             Open.Remove(held.Key);

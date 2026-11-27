@@ -175,6 +175,15 @@ public sealed class PlanEntryStateTests
         Assert.Equal(label, new PlanEntryState(state).Label);
     }
 
+    [Theory]
+    [InlineData(PlanEntryQueueState.InPlanSession, "Implement", "In plan session · Implement")]
+    [InlineData(PlanEntryQueueState.InPlanSession, null, "In plan session")]
+    [InlineData(PlanEntryQueueState.QueuedWithPlan, null, "Queued with plan")]
+    public void A_row_names_the_stage_its_plan_session_reports_after_the_state(PlanEntryQueueState state, string? stage, string label)
+    {
+        Assert.Equal(label, new PlanEntryState(state, stage).RowLabel);
+    }
+
     [Fact]
     public void A_plan_with_no_request_is_not_queued()
     {

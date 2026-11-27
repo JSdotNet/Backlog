@@ -1,7 +1,7 @@
 # ADR 0072: The Tasks pane groups by plan, and a plan is queued only as a whole
 
 ```meta
-date: 2026-11-25
+date: 2026-11-26
 related: [".devbook/domain/work/features.md#search-filter-and-organize", ".devbook/domain/work/features.md#plans-view", ".devbook/domain/work/features.md#my-day", ".devbook/domain/work/domain.md#my-day", ".devbook/domain/work/requirements.md#plans-view", ".devbook/domain/sessions/features.md#start-a-session-from-an-entry", ".devbook/domain/sessions/domain.md#session-request-queue", ".devbook/domain/work/domain.plan.md#roadmap-item", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/0032-my-day-preferences-ride-the-task-feed.md", ".devbook/arc42/adr/0038-backlog-queues-session-requests-and-a-manager-session-dispatches-them.md", ".devbook/arc42/adr/0043-a-surface-can-open-in-its-own-window.md"]
 c4: [backlog.desktop.work]
 c4-touches: [backlog.desktop.sessions, backlog.mobile]
@@ -18,12 +18,12 @@ Roadmap Item.
 ```meta
 ```
 
-Proposed, 2026-11-25. Built on `plan/plan-first-tasks` by the entries of the plan
-`+plan-first-tasks`; it moves on when that branch merges, as the plan's sign-off entry
-decides.
+Accepted and built. The entries of the plan `+plan-first-tasks` built it on
+`plan/plan-first-tasks`, which merged into main in PR #2018 on 2026-11-25. The fixes
+the plan's final check found follow in PR #2089.
 
-A **local** decision, numbered in the local sequence. 0061 is taken by the agent change
-journal on its plan branch. Every bare ADR number below means the local one.
+A **local** decision, numbered in the local sequence. The agent change journal is local
+ADR 0071, and 0061 is the Events map. Every bare ADR number below means the local one.
 
 The person settled the design on the boards of the design canvas "Plan-based task
 list": *Tasks — by plan, with the queue docked*, *Row states — entry ↔ queue*, *Tasks —
@@ -84,6 +84,10 @@ the Calendar are unchanged.
   entries in view carry. Its run state comes from its session request and its plan
   session: Running, Queued with its place, Blocked, Draft, or how many entries are
   ready.
+- **Unplanned** offers Select → new plan. It narrows the list to Unplanned and turns
+  selection on. It does not start promote-to-plan, which
+  [ADR 0020 §7](0020-external-items-arrive-as-linked-tasks.md#7-promote-to-plan-was-dropped)
+  dropped.
 
 ### 3. The Flat view lists unplanned work
 
@@ -91,7 +95,8 @@ the Calendar are unchanged.
 ```
 
 Flat lists the entries in no plan, plus a plan entry the person put on My Day. The other
-plan entries live under Plans only.
+plan entries live under Plans only. The quick views Everything, My Day, In the queue and
+Waiting each show a count, and Everything counts the open rows of the Flat list.
 
 ### 4. A plan is queued only as a whole
 
@@ -122,8 +127,8 @@ unattended and ask nothing (ADR 0038).
 ```
 
 In the Tasks pane only, a row shows its status as coloured text instead of a pill, and
-ends in two small icon buttons: copy, shown on hover, and queue. Every other badge stays
-as it is. The Board's cards keep their pill.
+ends in two small icon buttons: copy, shown on hover, and queue. Ready reads in the
+secondary text colour. Every other badge stays as it is. The Board's cards keep their pill.
 
 ### 6. The session queue is a docked column
 
@@ -134,8 +139,9 @@ The session queue becomes a column docked beside the list, in this order:
 
 - **Needs you**: a session's question, with Answer; a draft awaiting validation, with
   Dismiss and Validate.
-- **Running**, with Cancel on hover.
-- **Up next**, reordered with Move up and Move down and with Alt+arrows, as today.
+- **Running**, with Cancel on hover on a Claimed or Started request (ADR 0038 §3).
+- **Up next**, reordered with Move up, Move down and Move to top, and with Alt+ArrowUp,
+  Alt+ArrowDown and Alt+Shift+ArrowUp, as today.
 - **Landed today**.
 - **Pause**, and **Long-running agents**, as today.
 
@@ -206,6 +212,8 @@ line, without its entries. My Day shows no suggestions.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-11-26 | Accepted and built: the plan branch merged in PR #2018. The final check's gaps are fixed in PR #2089: Plans / Flat remembered per window, a popped-out window never writing it; Cancel on a Claimed request; the stage on a plan row outside Plans; Everything's count; waves titles without the plan's tag; the phone's ready rule matching the stand-up. The quiet row's ready ink is the secondary text colour, not teal. The other `color-band-2` uses stay open: the plan sections' Queued, and the waves view's Left for you and ready marks. §2, §3, §5 and §6 now say what was built. | The owner's decisions at the plan's final check. |
+| 2026-11-25 | Renumbered from 0062 to 0072 when the plan branch took main in: main's repository automation decision is 0062. | Two decisions had taken the same number. |
 | 2026-11-25 | The design system sanctions no teal or amber plan-state ink, so the rail's Queued keeps secondary text and the lit sun keeps `color-primary`. Teal `#7FD1C1` is the Brain's and a repository's band 2 ([the Brain's accent](../../design/color-scheme.md#the-brains-accent)), and a Tasks row already wears both, the **◆ n note** badge and a band-2 repository edge, beside its plan state; a teal state would read as either, and a near-teal of its own is the borrowing that rule forbids. The palette's only amber ink is `color-primary`, since `color-warning` is a dark fill; the one other amber, `color-domain-core-line`, is the Domain view's and may share its value only where the two never show at once, and the Devbook pane shows beside Tasks. A third gold would not be told apart from those two. The sun is a toggle, a control that acts, so `color-primary` is its ink, as it is for the queued queue button. Left for the person: the plan sections' Queued, the waves view's Left for you and ready marks, and the quiet row's ready ink already spend `color-band-2`, which the Brain rule forbids and the task-rows guideline's *ready teal* allows. | Closes the review's ink gap: the colour rules decide it, not the boards. |
 | 2026-11-25 | §4 lists the eight plan entry states `PlanEntryState` derives, Waiting, Ready and Done added, in the order the first that holds wins, and says Held for you reads the entry's blocked status. Status says the record is built on the plan branch and moves on when it merges. The docked queue's selection and Show all chip are written into the sessions chapters, not here. | The plan's review found these code-ahead of the record. |
 | 2026-11-25 | Reviewed against the five boards and §1–§8: every building entry of `+plan-first-tasks` landed on `plan/plan-first-tasks` (#1997, #1998, #2000, #2002, #2004, #2006, #2012–#2016), and the mobile head built in CI. Six gaps the entries deferred are filed under the plan: the quiet row of §5 is not in the design guideline's task rows; the plan entry states Waiting, Ready and Done and the docked queue's Show all chip are code-ahead of the chapters; Now shows no stage, since nothing yet reports one for a plan session; a blocked plan's folded line names no impediment; the teal and amber ink the boards use has no sanctioned token, so Queued reads secondary and the lit sun reads primary; the plan-run states need a live pass with a dispatcher. This record stays Proposed until the plan branch merges. | Closes the plan's review before its sign-off. |
